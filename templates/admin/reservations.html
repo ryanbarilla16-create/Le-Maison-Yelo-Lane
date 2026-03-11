@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+{% block title %}Reservations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Reservations</h1>
+    <p>Manage incoming table bookings and exclusive events.</p>
+</div>
+
+<div class="filter-tabs">
+    <a href="{{ url_for('admin.reservations', status='ALL') }}"
+        class="filter-tab {{ 'active' if status_filter == 'ALL' }}">All</a>
+    <a href="{{ url_for('admin.reservations', status='PENDING') }}"
+        class="filter-tab {{ 'active' if status_filter == 'PENDING' }}"><i class="fas fa-clock me-1"></i> Pending</a>
+    <a href="{{ url_for('admin.reservations', status='CONFIRMED') }}"
+        class="filter-tab {{ 'active' if status_filter == 'CONFIRMED' }}"><i class="fas fa-check me-1"></i>
+        Confirmed</a>
+    <a href="{{ url_for('admin.reservations', status='COMPLETED') }}"
+        class="filter-tab {{ 'active' if status_filter == 'COMPLETED' }}"><i class="fas fa-flag-checkered me-1"></i>
+        Completed</a>
+</div>
+
+<div class="admin-table-wrap">
+    <div class="admin-table-header">
+        <h3>{{ reservations|length }} Reservation{{ 's' if reservations|length != 1 else '' }}</h3>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Guest</th>
+                    <th>Type</th>
+                    <th>Date & Time</th>
+                    <th>Guests</th>
+                    <th>Occasion</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in reservations %}
+                <tr>
+                    <td><strong>{{ res.user.first_name }} {{ res.user.last_name }}</strong></td>
+                    <td><span
+                            class="badge-status {{ 'badge-active' if res.booking_type == 'EXCLUSIVE' else 'badge-pending' }}">{{
+                            res.booking_type }}</span></td>
+                    <td>{{ res.date.strftime('%b %d, %Y') }} · {{ res.time.strftime('%I:%M %p') }}</td>
+                    <td>{{ res.guest_count }}</td>
+                    <td>{{ res.occasion or '—' }}</td>
+                    <td><span class="badge-status badge-{{ res.status|lower }}">{{ res.status }}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                            {% if res.status == 'PENDING' %}
+                            <form method="POST" action="{{ url_for('admin.update_reservation', res_id=res.id) }}"><input
+                                    type="hidden" name="status" value="CONFIRMED"><button
+                                    class="btn-admin btn-admin-success" style="font-size: 0.78rem;"><i
+                                        class="fas fa-check"></i> Confirm</button></form>
+                            <form method="POST" action="{{ url_for('admin.update_reservation', res_id=res.id) }}"><input
+                                    type="hidden" name="status" value="REJECTED"><button
+                                    class="btn-admin btn-admin-danger" style="font-size: 0.78rem;"><i
+                                        class="fas fa-times"></i> Reject</button></form>
+                            {% elif res.status == 'CONFIRMED' %}
+                            <form method="POST" action="{{ url_for('admin.update_reservation', res_id=res.id) }}"><input
+                                    type="hidden" name="status" value="COMPLETED"><button
+                                    class="btn-admin btn-admin-primary" style="font-size: 0.78rem;"><i
+                                        class="fas fa-flag-checkered"></i> Complete</button></form>
+                            {% else %}
+                            <span style="color: var(--admin-text-muted); font-size: 0.8rem;">No actions</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not reservations %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--admin-text-muted);">No
+                        reservations found for this filter.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

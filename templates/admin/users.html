@@ -1,0 +1,183 @@
+{% extends "admin/base.html" %}
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>User Management</h1>
+    <p>Manage all registered accounts and assign roles.</p>
+</div>
+
+<div class="filter-tabs">
+    <a href="{{ url_for('admin.users', role='ALL') }}" class="filter-tab {{ 'active' if role_filter == 'ALL' }}">All
+        Users</a>
+    <a href="{{ url_for('admin.users', role='USER') }}"
+        class="filter-tab {{ 'active' if role_filter == 'USER' }}">Customers</a>
+    <a href="{{ url_for('admin.users', role='CASHIER') }}"
+        class="filter-tab {{ 'active' if role_filter == 'CASHIER' }}">Cashier</a>
+    <a href="{{ url_for('admin.users', role='INVENTORY') }}"
+        class="filter-tab {{ 'active' if role_filter == 'INVENTORY' }}">Inventory</a>
+    <a href="{{ url_for('admin.users', role='RIDER') }}"
+        class="filter-tab {{ 'active' if role_filter == 'RIDER' }}">Riders</a>
+    <a href="{{ url_for('admin.users', role='ADMIN') }}"
+        class="filter-tab {{ 'active' if role_filter == 'ADMIN' }}">Admins</a>
+</div>
+
+<div class="admin-table-wrap">
+    <div class="admin-table-header">
+        <h3>{{ users|length }} User{{ 's' if users|length != 1 else '' }}</h3>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="selectAll" style="transform: scale(1.2); cursor: pointer;"
+                onchange="document.querySelectorAll('.user-check').forEach(c => c.checked = this.checked)">
+            <label for="selectAll" style="font-size: 0.8rem; color: var(--admin-text-muted); cursor: pointer;">Select
+                All</label>
+            <button class="btn-admin btn-admin-outline ms-2" type="button" onclick="openBroadcastModal()">
+                <i class="fas fa-bullhorn"></i> Broadcast
+            </button>
+        </div>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;"></th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><input type="checkbox" name="user_ids" class="user-check" value="{{ user.id }}"
+                            form="broadcastForm" style="transform: scale(1.1); cursor: pointer;"></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div
+                                style="width: 36px; height: 36px; border-radius: 50%; background: var(--admin-accent-light); color: var(--admin-accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
+                                {{ user.first_name[0] }}{{ user.last_name[0] }}</div>
+                            <div>
+                                <div style="font-weight: 600;">{{ user.first_name }} {{ user.last_name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--admin-text-muted);">@{{ user.username }}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin.update_user_role', user_id=user.id) }}"
+                            style="display: inline;">
+                            <select name="role" onchange="this.form.submit()"
+                                style="background: var(--admin-bg); color: var(--admin-text); border: 1px solid var(--admin-border); border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 0.8rem; cursor: pointer;">
+                                {% for r in ['USER', 'CASHIER', 'INVENTORY', 'RIDER', 'ADMIN', 'KITCHEN', 'STAFF'] %}
+                                <option value="{{ r }}" {{ 'selected' if user.role and user.role|upper==r }}>{{ r }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </td>
+                    <td><span class="badge-status badge-{{ user.status|lower }}">{{ user.status }}</span></td>
+                    <td>
+                        <button class="btn-admin btn-admin-outline" style="font-size: 0.8rem;"
+                            onclick="viewUserProfile('{{ user.id }}')"><i class="fas fa-eye"></i></button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Broadcast Modal & Form -->
+<form id="broadcastForm" action="{{ url_for('admin.broadcast') }}" method="POST">
+    <div class="modal fade" id="broadcastModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background: var(--admin-surface); color: var(--admin-text);">
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title"><i class="fas fa-bullhorn me-2"></i> Send Broadcast</h5>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pb-0">
+                    <p class="text-muted" style="font-size: 0.85rem;">This message will be sent to all selected users
+                        via email.</p>
+                    <textarea name="message_content" class="form-control mb-1" rows="5"
+                        placeholder="Type your broadcast message here..."
+                        style="background: var(--admin-bg); color: var(--admin-text); border: 1px solid var(--admin-border);"
+                        maxlength="1000" required></textarea>
+                    <div class="text-end text-muted" style="font-size: 0.75rem;">Max 1000 characters</div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-dark rounded-pill px-4"
+                        style="background-color: var(--admin-accent); border:none;">Send Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function openBroadcastModal() {
+        const checkedCount = document.querySelectorAll('.user-check:checked').length;
+        if (checkedCount === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Customers Selected',
+                text: 'Please select at least one user from the list first.',
+                confirmButtonColor: '#8B4513'
+            });
+        } else {
+            const modalElement = document.getElementById('broadcastModal');
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    }
+
+    function viewUserProfile(userId) {
+        Swal.fire({
+            title: 'Loading...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+                fetch(`/admin/api/users/${userId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.close();
+                        Swal.fire({
+                            title: `User Profile`,
+                            html: `
+                            <div style="text-align: left; font-size: 0.95rem; line-height: 1.8;">
+                                <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 20px;">
+                                    <div style="width: 60px; height: 60px; border-radius: 50%; background: #e0d5c7; color: #8B4513; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.8rem;">
+                                        ${data.first_name[0]}${data.last_name[0]}
+                                    </div>
+                                    <div>
+                                        <h4 style="margin:0; color: #8B4513;">${data.first_name} ${data.last_name}</h4>
+                                        <div style="color: #666; font-size: 0.85rem;">@${data.username}</div>
+                                    </div>
+                                </div>
+                                <hr style="border-top:1px solid #eee; margin: 15px 0;">
+                                <div><strong>Email:</strong> ${data.email}</div>
+                                <div><strong>Phone Number:</strong> ${data.phone}</div>
+                                <div><strong>Role:</strong> ${data.role}</div>
+                                <div><strong>Status:</strong> <span class="badge ${data.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}">${data.status}</span></div>
+                            </div>
+                            `,
+                            confirmButtonColor: '#8B4513',
+                            confirmButtonText: 'Close'
+                        });
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', 'Failed to fetch user details.', 'error');
+                    });
+            }
+        });
+    }
+</script>
+{% endblock %}

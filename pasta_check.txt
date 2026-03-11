@@ -1,0 +1,13 @@
+Name: Caesar Salad, Price: 385.00, Category: Pasta & Salads, Img: https://i.postimg.cc/15ftsWqj/1.webp
+Name: Lasagna, Price: 365.00, Category: Pasta & Salads, Img: https://i.postimg.cc/d15sKdtd/2.webp
+Name: Truffle Bacon, Price: 325.00, Category: Pasta & Salads, Img: https://i.postimg.cc/tg5yhP67/3.webp
+Name: Carbonara, Price: 325.00, Category: Pasta & Salads, Img: https://i.postimg.cc/pLMt4kYh/4.webp
+Name: Gourmet Tuyo Spaghetti, Price: 295.00, Category: Pasta & Salads, Img: https://i.postimg.cc/V6vynhmw/5.webp
+Name: Creamy Tomato Penne, Price: 229.00, Category: Pasta & Salads, Img: https://i.postimg.cc/jqW2rgNX/6.webp
+Name: Bolognese, Price: 365.00, Category: Pasta & Salads, Img: https://i.postimg.cc/ZKtbzTJc/7.webp
+Name: Puttanesca, Price: 295.00, Category: Pasta & Salads, Img: https://i.postimg.cc/Y2g73JQw/8.webp
+Name: Filipino Spaghetti, Price: 295.00, Category: Pasta & Salads, Img: https://i.postimg.cc/6p6NBqgw/9.webp
+Name: Italian Carbonara, Price: 329.00, Category: Best Sellers, Img: https://i.postimg.cc/13BFKLJG/Italian-Carbonara.png
+Name: Pesto, Price: 325.00, Category: Pasta & Salads, Img: https://i.postimg.cc/RhxjyZw4/11.webp
+Name: Wagyu Salad, Price: 525.00, Category: Pasta & Salads, Img: https://i.postimg.cc/vHMJvDYF/12.webp
+Name: Chicken Salad, Price: 495.00, Category: Pasta & Salads, Img: https://i.postimg.cc/vHMJvDYF/12.webp

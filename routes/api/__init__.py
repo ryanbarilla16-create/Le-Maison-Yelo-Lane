@@ -1,0 +1,1017 @@
+from flask import Blueprint, jsonify, request, current_app
+from flask_mail import Message
+from models import db, MenuItem, User, Reservation, Order, OrderItem, Review
+from werkzeug.security import generate_password_hash
+from datetime import datetime, date, time as dtime
+from utils import get_ph_time
+import re
+import random
+import traceback
+
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+# ═══ VALIDATION HELPERS (same as web) ═══
+def has_repeated_chars(s, limit=4):
+    if not s: return False
+    return bool(re.search(r'(.)\1{' + str(limit - 1) + r',}', s))
+
+def has_repeated_words(s):
+    words = s.lower().split()
+    return len(words) != len(set(words))
+
+def validate_name(name, field_name):
+    if not name: return None
+    if len(name) > 50: return f"{field_name} must be 50 characters or less."
+    if not re.match(r'^[A-Za-z\s\-]+$', name): return f"{field_name} can only contain letters, spaces, and dashes."
+    if has_repeated_chars(name, 5): return f"{field_name} contains too many repeated characters."
+    if has_repeated_words(name): return f"{field_name} cannot contain repeated words."
+    return None
+
+def validate_email(email):
+    if not email.endswith('@gmail.com'): return "Email must use @gmail.com domain."
+    local_part = email[:-10]
+    if not (6 <= len(local_part) <= 30): return "Email before @gmail.com must be 6-30 characters."
+    if not re.search(r'[A-Za-z]', local_part): return "Email must contain at least one letter."
+    if re.search(r'[\s_]', local_part): return "Email cannot contain spaces or underscores."
+    if local_part.startswith('.') or local_part.endswith('.'): return "Email cannot start or end with a period."
+    if '..' in local_part: return "Email cannot contain consecutive periods."
+    if not re.match(r'^[a-zA-Z0-9.]+$', local_part): return "Email can only contain letters, numbers, and periods."
+    return None
+
+def validate_username(username, first, last):
+    if not (5 <= len(username) <= 20): return "Username must be 5-20 characters."
+    if not re.match(r'^[A-Za-z0-9_]+$', username): return "Username can only contain letters, numbers, and underscores."
+    if has_repeated_chars(username, 5): return "Username contains too many repeated characters."
+    if username.lower() == first.lower() or username.lower() == last.lower():
+        return "Username cannot be identical to your first or last name."
+    return None
+
+def calculate_age(born):
+    today = date.today()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+def validate_password(password, confirm):
+    if len(password) < 6: return "Password must be at least 6 characters."
+    if not re.search(r'[A-Z]', password): return "Password must contain an uppercase letter."
+    if not re.search(r'[0-9]', password): return "Password must contain a number."
+    if not re.search(r'[^A-Za-z0-9]', password): return "Password must contain a special character."
+    if password != confirm: return "Passwords do not match."
+    return None
+
+def check_reservation_time(t):
+    if not (dtime(11, 30) <= t <= dtime(20, 30)):
+        return False
+    if t.minute not in (0, 30):
+        return False
+    return True
+
+# ═══ MENU API ═══
+@api_bp.route('/menu', methods=['GET'])
+def get_menu():
+    try:
+        items = MenuItem.query.filter_by(is_available=True).all()
+        menu_list = []
+        for item in items:
+            menu_list.append({
+                'id': item.id,
+                'name': item.name,
+                'description': item.description,
+                'price': float(item.price),
+                'category': item.category,
+                'image_url': item.image_url
+            })
+        return jsonify(menu_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/menu/categories', methods=['GET'])
+def get_categories():
+    try:
+        from sqlalchemy import func
+        cats = db.session.query(
+            MenuItem.category,
+            func.count(MenuItem.id).label('count'),
+            func.min(MenuItem.image_url).label('sample_image')
+        ).filter(MenuItem.is_available == True).group_by(MenuItem.category).all()
+        
+        result = [{'category': c.category, 'count': c.count, 'sample_image': c.sample_image} for c in cats]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/menu/bestsellers', methods=['GET'])
+def get_bestsellers():
+    try:
+        items = MenuItem.query.filter_by(is_available=True, category='Best Sellers').all()
+        result = [{'id': i.id, 'name': i.name, 'description': i.description, 'price': float(i.price), 'category': i.category, 'image_url': i.image_url} for i in items]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/menu/featured', methods=['GET'])
+def get_featured():
+    try:
+        from sqlalchemy import func
+        items = MenuItem.query.filter_by(is_available=True).order_by(func.random()).limit(6).all()
+        result = [{'id': i.id, 'name': i.name, 'description': i.description, 'price': float(i.price), 'category': i.category, 'image_url': i.image_url} for i in items]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ═══ AUTH API ═══
+@api_bp.route('/auth/signup', methods=['POST'])
+def api_signup():
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': 'No data provided.'}), 400
+
+    first_name = (data.get('first_name') or '').strip()
+    middle_name = (data.get('middle_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+    username = (data.get('username') or '').strip()
+    email = (data.get('email') or '').strip()
+    phone_number = (data.get('phone_number') or '').strip()
+    birthday_str = data.get('birthday', '')
+    password = data.get('password', '')
+    confirm_password = data.get('confirm_password', '')
+
+    if not all([first_name, last_name, username, email, phone_number, birthday_str, password, confirm_password]):
+        return jsonify({'success': False, 'message': 'All required fields must be filled.'}), 400
+
+    for name, label in [(first_name, 'First Name'), (last_name, 'Last Name')]:
+        err = validate_name(name, label)
+        if err: return jsonify({'success': False, 'message': err}), 400
+    if middle_name:
+        err = validate_name(middle_name, 'Middle Name')
+        if err: return jsonify({'success': False, 'message': err}), 400
+
+    err = validate_email(email)
+    if err: return jsonify({'success': False, 'message': err}), 400
+
+    err = validate_username(username, first_name, last_name)
+    if err: return jsonify({'success': False, 'message': err}), 400
+
+    full_identity = f"{first_name} {last_name}".lower()
+    if username.lower() == full_identity:
+        return jsonify({'success': False, 'message': 'Username cannot be identical to Full Name.'}), 400
+
+    try:
+        birthday = datetime.strptime(birthday_str, '%Y-%m-%d').date()
+        if calculate_age(birthday) < 18:
+            return jsonify({'success': False, 'message': 'You must be at least 18 years old to register.'}), 400
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid birthday format.'}), 400
+
+    err = validate_password(password, confirm_password)
+    if err: return jsonify({'success': False, 'message': err}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'Email already registered.'}), 400
+    if User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'Username already taken.'}), 400
+    if User.query.filter_by(first_name=first_name, last_name=last_name).first():
+        return jsonify({'success': False, 'message': 'User with this First and Last name already exists.'}), 400
+
+    new_user = User(
+        first_name=first_name, middle_name=middle_name, last_name=last_name,
+        username=username, email=email, phone_number=phone_number, birthday=birthday, status='PENDING'
+    )
+    new_user.set_password(password)
+
+    otp = f"{random.randint(100000, 999999)}"
+    new_user.otp_code = otp
+    new_user.otp_created_at = get_ph_time()
+    new_user.is_verified = False
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    print(f"--- OTP FOR {email} IS: {otp} ---")
+
+    # Send OTP via Gmail
+    try:
+        mail = current_app.extensions['mail']
+        msg = Message(
+            subject='Le Maison Yelo Lane - Your OTP Verification Code',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[email]
+        )
+        msg.html = f"""
+        <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
+                <p style="color: #999; font-size: 0.85rem; margin-top: 5px;">Email Verification</p>
+            </div>
+            <p style="color: #333;">Hello <strong>{first_name}</strong>,</p>
+            <p style="color: #555;">Please use the following OTP code to verify your email:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <span style="display: inline-block; background: linear-gradient(135deg, #8B4513, #A0522D); color: #fff; font-size: 2rem; font-weight: bold; letter-spacing: 8px; padding: 15px 35px; border-radius: 10px;">{otp}</span>
+            </div>
+            <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 10 minutes.</p>
+        </div>
+        """
+        mail.send(msg)
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+        traceback.print_exc()
+
+    return jsonify({'success': True, 'user_id': new_user.id, 'message': f'OTP sent to {email}.'}), 201
+
+@api_bp.route('/auth/verify_otp', methods=['POST'])
+def api_verify_otp():
+    data = request.json
+    user_id = data.get('user_id')
+    otp_input = (data.get('otp') or '').strip()
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found.'}), 404
+    
+    if user.otp_code == otp_input:
+        user.is_verified = True
+        user.otp_code = None
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Account verified! Please wait for admin approval.'}), 200
+    
+    return jsonify({'success': False, 'message': 'Invalid OTP.'}), 400
+
+@api_bp.route('/auth/resend_otp', methods=['POST'])
+def api_resend_otp():
+    data = request.json
+    user_id = data.get('user_id')
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found.'}), 404
+    
+    if user.is_verified:
+        return jsonify({'success': False, 'message': 'Account already verified.'}), 400
+    
+    if user.otp_created_at:
+        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        if elapsed < 300:
+            remaining = int(300 - elapsed)
+            return jsonify({'success': False, 'message': f'Please wait {remaining // 60}m {remaining % 60}s before requesting a new code.'}), 429
+    
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_created_at = get_ph_time()
+    db.session.commit()
+    
+    print(f"--- RESEND OTP FOR {user.email} IS: {otp} ---")
+    
+    try:
+        mail = current_app.extensions['mail']
+        msg = Message(
+            subject='Le Maison Yelo Lane - Your New OTP Code',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[user.email]
+        )
+        msg.html = f"""
+        <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
+            </div>
+            <p style="color: #333;">Hello <strong>{user.first_name}</strong>,</p>
+            <p style="color: #555;">Here is your new OTP verification code:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <span style="display: inline-block; background: linear-gradient(135deg, #8B4513, #A0522D); color: #fff; font-size: 2rem; font-weight: bold; letter-spacing: 8px; padding: 15px 35px; border-radius: 10px;">{otp}</span>
+            </div>
+        </div>
+        """
+        mail.send(msg)
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+    
+    return jsonify({'success': True, 'message': f'New OTP sent to {user.email}.'}), 200
+
+@api_bp.route('/auth/login', methods=['POST'])
+def api_login():
+    data = request.json
+    email = data.get('email', '')
+    password = data.get('password', '')
+    
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({'success': False, 'message': 'Invalid email or password.'}), 401
+    
+    if not user.is_verified:
+        return jsonify({'success': False, 'message': 'Please complete your OTP verification first.', 'needs_otp': True, 'user_id': user.id}), 403
+    
+    if user.status != 'ACTIVE' and user.role not in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
+        return jsonify({'success': False, 'message': 'Your account is pending admin approval.'}), 403
+    
+    if user.role in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
+        return jsonify({'success': False, 'message': 'Staff/Admin accounts cannot login via the mobile app.'}), 403
+    
+    return jsonify({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'first_name': user.first_name,
+            'middle_name': user.middle_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
+            'phone_number': user.phone_number,
+            'profile_picture_url': user.profile_picture_url,
+            'role': user.role,
+        }
+    }), 200
+
+# ═══ SOCIAL AUTH API (Mobile) ═══
+@api_bp.route('/auth/social', methods=['POST'])
+def api_social_auth():
+    import secrets
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': 'No data provided.'}), 400
+
+    email = data.get('email')
+    first_name = data.get('first_name', '')
+    last_name = data.get('last_name', '')
+    provider = data.get('provider', '')
+    picture_url = data.get('picture_url')
+
+    if not email:
+        return jsonify({'success': False, 'message': 'Email is required from social provider.'}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        # Update profile picture if missing
+        if picture_url and not user.profile_picture_url:
+            user.profile_picture_url = picture_url
+            db.session.commit()
+
+        # Block staff/admin from mobile login
+        if user.role in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
+            return jsonify({'success': False, 'message': 'Staff/Admin accounts cannot login via the mobile app.'}), 403
+
+        if user.status != 'ACTIVE':
+            return jsonify({'success': False, 'message': f'Your {provider} login was successful, but your account is pending admin approval.'}), 403
+
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'first_name': user.first_name,
+                'middle_name': user.middle_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'profile_picture_url': user.profile_picture_url,
+            }
+        }), 200
+
+    # Auto-create user since they used social login
+    base_username = (first_name + last_name).lower().replace(' ', '')
+    if len(base_username) < 5:
+        base_username = base_username + 'user'
+    username = f"{base_username}{secrets.randbelow(9999)}"
+
+    while User.query.filter_by(username=username).first():
+        username = f"{base_username}{secrets.randbelow(99999)}"
+
+    random_password = secrets.token_urlsafe(16)
+
+    new_user = User(
+        first_name=first_name,
+        last_name=last_name,
+        username=username,
+        email=email,
+        status='PENDING',
+        is_verified=True,
+        profile_picture_url=picture_url
+    )
+    new_user.set_password(random_password)
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({
+        'success': False,
+        'message': f'Welcome {first_name}! Your account was created via {provider} but requires admin approval before you can log in.'
+    }), 201
+
+# --- MOBILE SOCIAL LOGIN POLLING ---
+mobile_sessions = {}
+
+@api_bp.route('/auth/social/complete', methods=['POST'])
+def api_social_complete():
+    import secrets
+    data = request.json
+    session_id = data.get('session_id')
+    if not session_id:
+        return jsonify({'success': False, 'message': 'No session ID'}), 400
+
+    email = data.get('email')
+    first_name = data.get('first_name', '')
+    last_name = data.get('last_name', '')
+    provider = data.get('provider', '')
+    picture_url = data.get('picture_url')
+
+    if not email:
+        mobile_sessions[session_id] = {'success': False, 'status': 'failed', 'message': 'Email required.'}
+        return jsonify({'success': False})
+
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        if picture_url and not user.profile_picture_url:
+            user.profile_picture_url = picture_url
+            db.session.commit()
+
+        if user.role in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
+            mobile_sessions[session_id] = {'success': False, 'status': 'failed', 'message': 'Staff/Admin cannot login via mobile.'}
+            return jsonify({'success': True})
+
+        if user.status != 'ACTIVE':
+            mobile_sessions[session_id] = {'success': False, 'status': 'failed', 'message': f'Your {provider} login was successful, but account is pending approval.'}
+            return jsonify({'success': True})
+
+        mobile_sessions[session_id] = {
+            'success': True,
+            'user': {
+                'id': user.id,
+                'first_name': user.first_name,
+                'middle_name': user.middle_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'profile_picture_url': user.profile_picture_url,
+            }
+        }
+        return jsonify({'success': True})
+
+    # Auto-create user
+    base_username = (first_name + last_name).lower().replace(' ', '')
+    if len(base_username) < 5:
+        base_username += 'user'
+    username = f"{base_username}{secrets.randbelow(9999)}"
+    while User.query.filter_by(username=username).first():
+        username = f"{base_username}{secrets.randbelow(99999)}"
+
+    new_user = User(
+        first_name=first_name,
+        last_name=last_name,
+        username=username,
+        email=email,
+        status='PENDING',
+        is_verified=True,
+        profile_picture_url=picture_url
+    )
+    new_user.set_password(secrets.token_urlsafe(16))
+    db.session.add(new_user)
+    db.session.commit()
+
+    mobile_sessions[session_id] = {
+        'success': False,
+        'status': 'failed', 
+        'message': f'Welcome {first_name}! Account created via {provider} but requires admin approval.'
+    }
+    return jsonify({'success': True})
+
+@api_bp.route('/auth/social/poll', methods=['GET'])
+def api_social_poll():
+    session_id = request.args.get('session_id')
+    if session_id in mobile_sessions:
+        return jsonify(mobile_sessions.pop(session_id)), 200
+    return jsonify({'success': False, 'status': 'pending'}), 200
+
+
+# ═══ USER DASHBOARD API ═══
+@api_bp.route('/user/<int:user_id>/dashboard', methods=['GET'])
+def api_user_dashboard(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    today = date.today()
+    upcoming = Reservation.query.filter(
+        Reservation.user_id == user_id,
+        Reservation.date >= today,
+        Reservation.status.in_(['PENDING', 'CONFIRMED'])
+    ).order_by(Reservation.date.asc(), Reservation.time.asc()).limit(3).all()
+    
+    total_visits = Reservation.query.filter(
+        Reservation.user_id == user_id,
+        Reservation.status == 'COMPLETED'
+    ).count()
+    
+    recent_orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).limit(3).all()
+    
+    return jsonify({
+        'upcoming_reservations': [{
+            'id': r.id, 'date': r.date.strftime('%b %d, %Y'), 'time': r.time.strftime('%I:%M %p'),
+            'guest_count': r.guest_count, 'occasion': r.occasion, 'booking_type': r.booking_type, 'status': r.status
+        } for r in upcoming],
+        'total_visits': total_visits,
+        'loyalty_status': 'Gold' if total_visits >= 10 else 'Silver' if total_visits >= 5 else 'Bronze' if total_visits >= 1 else 'New',
+        'recent_orders': [{
+            'id': o.id, 'total_amount': float(o.total_amount), 'status': o.status,
+            'created_at': o.created_at.strftime('%b %d, %Y'), 'item_count': len(o.items),
+            'first_item': o.items[0].menu_item.name if o.items else ''
+        } for o in recent_orders]
+    }), 200
+
+# ═══ ORDERS API ═══
+@api_bp.route('/user/<int:user_id>/orders', methods=['GET'])
+def api_user_orders(user_id):
+    orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
+    
+    user_reviews = Review.query.filter_by(user_id=user_id).all()
+    reviews_by_order = {r.order_id: r.rating for r in user_reviews if r.order_id}
+    
+    result = []
+    for o in orders:
+        result.append({
+            'id': o.id,
+            'total_amount': float(o.total_amount),
+            'status': o.status,
+            'payment_status': o.payment_status,
+            'dining_option': o.dining_option,
+            'payment_method': o.payment_method,
+            'delivery_address': o.delivery_address,
+            'delivery_status': o.delivery_status,
+            'notes': o.notes,
+            'created_at': o.created_at.strftime('%b %d, %Y - %I:%M %p'),
+            'items': [{'name': item.menu_item.name, 'quantity': item.quantity, 'price': float(item.price_at_time)} for item in o.items],
+            'review_rating': reviews_by_order.get(o.id)
+        })
+    
+    pending_count = sum(1 for o in orders if o.status == 'PENDING')
+    preparing_count = sum(1 for o in orders if o.status == 'PREPARING')
+    completed_count = sum(1 for o in orders if o.status == 'COMPLETED')
+    
+    return jsonify({
+        'orders': result,
+        'pending_count': pending_count,
+        'preparing_count': preparing_count,
+        'completed_count': completed_count
+    }), 200
+
+@api_bp.route('/order/checkout', methods=['POST'])
+def api_checkout():
+    data = request.json
+    user_id = data.get('user_id')
+    cart_items = data.get('items', [])  # [{menu_item_id, quantity}]
+    notes = data.get('notes', '')
+    dining_option = data.get('dining_option', 'DINE_IN')
+    payment_method = data.get('payment_method', 'COUNTER')
+    
+    if not user_id or not cart_items:
+        return jsonify({'success': False, 'message': 'Cart is empty.'}), 400
+    
+    total = 0
+    order_items = []
+    for ci in cart_items:
+        menu_item = MenuItem.query.get(ci['menu_item_id'])
+        if menu_item and menu_item.is_available:
+            price = float(menu_item.price)
+            subtotal = price * ci['quantity']
+            total += subtotal
+            order_items.append(OrderItem(
+                menu_item_id=menu_item.id,
+                quantity=ci['quantity'],
+                price_at_time=price
+            ))
+    
+    if not order_items:
+        return jsonify({'success': False, 'message': 'Items in cart are no longer available.'}), 400
+    
+    new_order = Order(
+        user_id=user_id,
+        total_amount=total,
+        status='PENDING',
+        dining_option=dining_option,
+        payment_method=payment_method,
+        notes=notes
+    )
+    if dining_option == 'DELIVERY':
+        new_order.delivery_address = data.get('delivery_address', '')
+        new_order.delivery_status = 'WAITING'
+
+    db.session.add(new_order)
+    db.session.flush()
+    
+    for oi in order_items:
+        oi.order_id = new_order.id
+        db.session.add(oi)
+    
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Order placed successfully!', 'order_id': new_order.id}), 201
+
+@api_bp.route('/order/<int:order_id>/review', methods=['POST'])
+def api_add_review(order_id):
+    data = request.json
+    user_id = data.get('user_id')
+    rating = data.get('rating')
+    comment = (data.get('comment') or '').strip()
+    
+    order = Order.query.get(order_id)
+    if not order or order.user_id != user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized.'}), 403
+    if order.status != 'COMPLETED':
+        return jsonify({'success': False, 'message': 'You can only review completed orders.'}), 400
+    
+    existing = Review.query.filter_by(order_id=order_id).first()
+    if existing:
+        return jsonify({'success': False, 'message': 'Already reviewed.'}), 400
+    
+    if not rating or rating < 1 or rating > 5:
+        return jsonify({'success': False, 'message': 'Rating must be 1-5.'}), 400
+    
+    new_review = Review(user_id=user_id, order_id=order_id, rating=rating, comment=comment, status='PENDING')
+    db.session.add(new_review)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Review submitted!'}), 201
+
+# ═══ RESERVATIONS API ═══
+@api_bp.route('/reserve', methods=['POST'])
+def api_reserve():
+    data = request.json
+    user_id = data.get('user_id')
+    res_date_str = data.get('date')
+    res_time_str = data.get('time')
+    guest_count_str = data.get('guest_count')
+    occasion = data.get('occasion', '')
+    booking_type = data.get('booking_type', 'REGULAR')
+    
+    try:
+        res_date = datetime.strptime(res_date_str, '%Y-%m-%d').date()
+        hour, minute = map(int, res_time_str.split(':'))
+        res_time = dtime(hour, minute)
+        guest_count = int(guest_count_str)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': 'Invalid data format.'}), 400
+    
+    today = date.today()
+    diff = (res_date - today).days
+    if diff < 1:
+        return jsonify({'success': False, 'message': 'Reservation must be at least 1 day in advance.'}), 400
+    if diff > 14:
+        return jsonify({'success': False, 'message': 'Reservation can be max 14 days in advance.'}), 400
+    
+    if not check_reservation_time(res_time):
+        return jsonify({'success': False, 'message': 'Time must be between 11:30 AM - 8:30 PM with 30-minute intervals.'}), 400
+    
+    if guest_count <= 0:
+        return jsonify({'success': False, 'message': 'Guest count must be at least 1.'}), 400
+    
+    if booking_type == 'EXCLUSIVE':
+        if guest_count > 50:
+            return jsonify({'success': False, 'message': 'Exclusive Venue can hold up to 50 guests maximum.'}), 400
+    else:
+        if guest_count > 20:
+            return jsonify({'success': False, 'message': 'Regular tables max at 20 guests.'}), 400
+    
+    active_res = Reservation.query.filter(
+        Reservation.date == res_date,
+        Reservation.status.in_(['PENDING', 'CONFIRMED'])
+    ).all()
+    
+    close_time = dtime(20, 30)
+    
+    if booking_type == 'EXCLUSIVE':
+        for r in active_res:
+            if r.time >= res_time and r.time <= close_time:
+                return jsonify({'success': False, 'message': 'Conflicting reservations in your requested time block.'}), 400
+            if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
+                return jsonify({'success': False, 'message': 'Conflicting exclusive booking.'}), 400
+    else:
+        for r in active_res:
+            if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
+                return jsonify({'success': False, 'message': 'Time slot blocked by an Exclusive Venue booking.'}), 400
+        
+        total_guests_at_time = sum([r.guest_count for r in active_res if r.time == res_time])
+        if total_guests_at_time + guest_count > 50:
+            return jsonify({'success': False, 'message': 'Time slot is fully booked. Not enough seats.'}), 400
+    
+    new_res = Reservation(
+        user_id=user_id,
+        date=res_date,
+        time=res_time,
+        guest_count=guest_count,
+        occasion=occasion,
+        booking_type=booking_type
+    )
+    db.session.add(new_res)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Reservation submitted! Pending admin approval.'}), 201
+
+@api_bp.route('/user/<int:user_id>/reservations', methods=['GET'])
+def api_user_reservations(user_id):
+    today = date.today()
+    upcoming = Reservation.query.filter(
+        Reservation.user_id == user_id,
+        Reservation.date >= today,
+        Reservation.status.in_(['PENDING', 'CONFIRMED'])
+    ).order_by(Reservation.date.asc(), Reservation.time.asc()).all()
+    
+    past = Reservation.query.filter(
+        Reservation.user_id == user_id,
+        Reservation.status.in_(['COMPLETED', 'REJECTED'])
+    ).order_by(Reservation.created_at.desc()).limit(10).all()
+    
+    return jsonify({
+        'upcoming': [{
+            'id': r.id, 'date': r.date.strftime('%Y-%m-%d'), 'date_formatted': r.date.strftime('%b %d, %Y'),
+            'time': r.time.strftime('%H:%M'), 'time_formatted': r.time.strftime('%I:%M %p'),
+            'guest_count': r.guest_count, 'occasion': r.occasion, 'booking_type': r.booking_type, 'status': r.status
+        } for r in upcoming],
+        'past': [{
+            'id': r.id, 'date_formatted': r.date.strftime('%b %d, %Y'),
+            'time_formatted': r.time.strftime('%I:%M %p'),
+            'guest_count': r.guest_count, 'occasion': r.occasion, 'status': r.status
+        } for r in past]
+    }), 200
+
+# ═══ PROFILE API ═══
+@api_bp.route('/user/<int:user_id>/profile', methods=['GET'])
+def api_get_profile(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({
+        'id': user.id,
+        'first_name': user.first_name,
+        'middle_name': user.middle_name,
+        'last_name': user.last_name,
+        'username': user.username,
+        'email': user.email,
+        'phone_number': user.phone_number,
+        'profile_picture_url': user.profile_picture_url,
+        'birthday': user.birthday.strftime('%Y-%m-%d') if user.birthday else None,
+    }), 200
+
+@api_bp.route('/user/<int:user_id>/profile', methods=['PUT'])
+def api_update_profile(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.json
+    first_name = (data.get('first_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+    username = (data.get('username') or '').strip()
+    email = (data.get('email') or '').strip()
+    phone_number = (data.get('phone_number') or '').strip()
+    
+    if not all([first_name, last_name, username, email, phone_number]):
+        return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+    
+    if email != user.email and User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'Email already registered.'}), 400
+    if username != user.username and User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'Username already taken.'}), 400
+    
+    user.first_name = first_name
+    user.last_name = last_name
+    user.username = username
+    user.email = email
+    user.phone_number = phone_number
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Profile updated!'}), 200
+
+# ═══ RIDER API ENDPOINTS ═══
+@api_bp.route('/rider/deliveries', methods=['GET'])
+def rider_get_deliveries():
+    """Get all DELIVERY orders for rider dashboard"""
+    rider_id = request.args.get('rider_id', type=int)
+    
+    # Available = DELIVERY dining + no rider assigned yet (or WAITING)
+    # Show PENDING, PREPARING, and COMPLETED orders so rider sees them immediately
+    available = Order.query.filter(
+        Order.dining_option == 'DELIVERY',
+        Order.status.in_(['PENDING', 'PREPARING', 'COMPLETED']),
+        (Order.rider_id == None) | (Order.delivery_status == 'WAITING')
+    ).order_by(Order.created_at.desc()).all()
+    
+    # My active deliveries
+    my_active = []
+    if rider_id:
+        my_active = Order.query.filter(
+            Order.rider_id == rider_id,
+            Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY'])
+        ).order_by(Order.created_at.desc()).all()
+    
+    # My completed deliveries (all history)
+    my_completed = []
+    if rider_id:
+        my_completed = Order.query.filter(
+            Order.rider_id == rider_id,
+            Order.delivery_status == 'DELIVERED'
+        ).order_by(Order.created_at.desc()).all()
+    
+    def order_to_dict(o):
+        return {
+            'id': o.id,
+            'customer_name': f"{o.user.first_name} {o.user.last_name}" if o.user else (o.customer_name or 'Walk-in'),
+            'customer_phone': o.user.phone_number if o.user else None,
+            'delivery_address': o.delivery_address or 'No address provided',
+            'total_amount': float(o.total_amount),
+            'payment_method': o.payment_method,
+            'payment_status': o.payment_status,
+            'delivery_status': o.delivery_status or 'WAITING',
+            'kitchen_status': o.status,  # PENDING, PREPARING, COMPLETED - for rider to know kitchen progress
+            'status': o.status,
+            'created_at': o.created_at.isoformat(),
+            'items': [{
+                'name': item.menu_item.name,
+                'quantity': item.quantity,
+                'price': float(item.price_at_time),
+            } for item in o.items],
+            'rider_id': o.rider_id,
+        }
+    
+    return jsonify({
+        'success': True,
+        'available': [order_to_dict(o) for o in available],
+        'active': [order_to_dict(o) for o in my_active],
+        'completed': [order_to_dict(o) for o in my_completed],
+    })
+
+@api_bp.route('/rider/accept/<int:order_id>', methods=['POST'])
+def rider_accept_delivery(order_id):
+    """Rider accepts/reserves a delivery order - stays WAITING until kitchen completes"""
+    data = request.json or {}
+    rider_id = data.get('rider_id')
+    if not rider_id:
+        return jsonify({'success': False, 'message': 'Rider ID required.'}), 400
+    
+    order = Order.query.get_or_404(order_id)
+    if order.status != 'COMPLETED':
+        return jsonify({'success': False, 'message': 'Cannot accept yet! Kitchen is still preparing this order.'}), 400
+        
+    if order.rider_id and order.delivery_status not in [None, 'WAITING']:
+        return jsonify({'success': False, 'message': 'Order already taken by another rider.'}), 400
+    
+    order.rider_id = rider_id
+    # Stay as WAITING - rider reserves the order but cannot pick up until kitchen is done
+    order.delivery_status = 'WAITING'
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'Order #{order_id} reserved! Wait for kitchen to finish preparing.'})
+
+@api_bp.route('/rider/update/<int:order_id>', methods=['POST'])
+def rider_update_delivery(order_id):
+    """Rider updates delivery status with strict workflow enforcement"""
+    data = request.json or {}
+    new_status = data.get('delivery_status')
+    rider_id = data.get('rider_id')
+    
+    if new_status not in ['PICKED_UP', 'ON_THE_WAY', 'DELIVERED']:
+        return jsonify({'success': False, 'message': 'Invalid delivery status.'}), 400
+    
+    order = Order.query.get_or_404(order_id)
+    if order.rider_id != rider_id:
+        return jsonify({'success': False, 'message': 'This order is not assigned to you.'}), 403
+    
+    # === STRICT WORKFLOW ENFORCEMENT ===
+    # PICKED_UP: Only allowed if Kitchen has marked order as COMPLETED
+    if new_status == 'PICKED_UP':
+        if order.status != 'COMPLETED':
+            return jsonify({
+                'success': False, 
+                'message': 'Cannot pick up yet! Kitchen is still preparing this order. Please wait for kitchen to finish.'
+            }), 400
+        if order.delivery_status not in [None, 'WAITING']:
+            return jsonify({'success': False, 'message': 'Invalid status transition.'}), 400
+    
+    # ON_THE_WAY: Only allowed if currently PICKED_UP
+    if new_status == 'ON_THE_WAY':
+        if order.delivery_status != 'PICKED_UP':
+            return jsonify({'success': False, 'message': 'You must pick up the order first before going on the way.'}), 400
+    
+    # DELIVERED: Only allowed if currently ON_THE_WAY
+    if new_status == 'DELIVERED':
+        if order.delivery_status != 'ON_THE_WAY':
+            return jsonify({'success': False, 'message': 'You must be on the way before marking as delivered.'}), 400
+    
+    order.delivery_status = new_status
+    
+    # If COD and delivered, handle amount tendered
+    if new_status == 'DELIVERED' and order.payment_method == 'COUNTER':
+        amount_tendered = data.get('amount_tendered')
+        if amount_tendered:
+            order.amount_tendered = float(amount_tendered)
+            order.change_amount = float(amount_tendered) - float(order.total_amount)
+            order.payment_status = 'PAID'
+    
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'Delivery status updated to {new_status}!'})
+
+@api_bp.route('/rider/summary/<int:rider_id>', methods=['GET'])
+def rider_summary(rider_id):
+    total_deliveries = Order.query.filter(
+        Order.rider_id == rider_id,
+        Order.delivery_status == 'DELIVERED'
+    ).count()
+    
+    active_deliveries = Order.query.filter(
+        Order.rider_id == rider_id,
+        Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY'])
+    ).count()
+    
+    return jsonify({
+        'success': True,
+        'total_deliveries_today': total_deliveries,
+        'active_deliveries': active_deliveries,
+    })
+
+# ═══ RIDER LOCATION TRACKING ═══
+# In-memory store for rider locations (no DB migration needed)
+_rider_locations = {}  # {rider_id: {lat, lng, timestamp, rider_name, order_ids}}
+
+@api_bp.route('/rider/location', methods=['POST'])
+def rider_update_location():
+    """Rider sends their current GPS coordinates"""
+    data = request.json or {}
+    rider_id = data.get('rider_id')
+    lat = data.get('latitude')
+    lng = data.get('longitude')
+    
+    if not rider_id or lat is None or lng is None:
+        return jsonify({'success': False, 'message': 'Missing rider_id, latitude, or longitude.'}), 400
+    
+    rider = User.query.get(rider_id)
+    rider_name = f"{rider.first_name} {rider.last_name}" if rider else 'Unknown'
+    
+    # Get active order IDs for this rider
+    active_orders = Order.query.filter(
+        Order.rider_id == rider_id,
+        Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
+    ).all()
+    order_ids = [o.id for o in active_orders]
+    
+    _rider_locations[rider_id] = {
+        'lat': float(lat),
+        'lng': float(lng),
+        'timestamp': get_ph_time().isoformat(),
+        'rider_name': rider_name,
+        'rider_id': rider_id,
+        'order_ids': order_ids,
+    }
+    
+    return jsonify({'success': True, 'message': 'Location updated.'})
+
+@api_bp.route('/rider/locations', methods=['GET'])
+def get_all_rider_locations():
+    """Admin: Get all active rider locations for the map"""
+    # Clean up stale locations (older than 2 minutes)
+    now = get_ph_time()
+    stale_ids = []
+    for rid, loc in _rider_locations.items():
+        try:
+            ts = datetime.fromisoformat(loc['timestamp'])
+            if (now - ts).total_seconds() > 120:
+                stale_ids.append(rid)
+        except Exception:
+            stale_ids.append(rid)
+    for rid in stale_ids:
+        del _rider_locations[rid]
+    
+    return jsonify({
+        'success': True,
+        'riders': list(_rider_locations.values())
+    })
+
+@api_bp.route('/delivery/track/<int:order_id>', methods=['GET'])
+def track_delivery(order_id):
+    """Customer: Track a specific delivery order on the map"""
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'Order not found.'}), 404
+    
+    if order.dining_option != 'DELIVERY':
+        return jsonify({'success': False, 'message': 'Not a delivery order.'}), 400
+    
+    rider_location = None
+    if order.rider_id and order.rider_id in _rider_locations:
+        loc = _rider_locations[order.rider_id]
+        rider_location = {
+            'lat': loc['lat'],
+            'lng': loc['lng'],
+            'rider_name': loc['rider_name'],
+            'timestamp': loc['timestamp'],
+        }
+    
+    rider_name = None
+    if order.rider:
+        rider_name = f"{order.rider.first_name} {order.rider.last_name}"
+    
+    return jsonify({
+        'success': True,
+        'order_id': order.id,
+        'delivery_status': order.delivery_status or 'WAITING',
+        'delivery_address': order.delivery_address,
+        'rider_name': rider_name,
+        'rider_location': rider_location,
+    })
+

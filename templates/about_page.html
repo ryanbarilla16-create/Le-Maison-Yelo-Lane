@@ -1,0 +1,49 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}About Us{% endblock %}
+
+{% block content %}
+<main style="max-width: 1000px; margin: 0 auto; color: var(--text-main);">
+    <div class="card border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+        <img src="https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=2070&auto=format&fit=crop"
+            style="width: 100%; height: 350px; object-fit: cover;">
+
+        <div class="card-body p-5">
+            <h1 style="font-family: 'Georgia', serif; color: var(--primary-color); font-weight: bold; margin-bottom: 1.5rem;"
+                class="text-center">Our Story</h1>
+
+            <p style="font-size: 1.15rem; line-height: 1.8; color: var(--text-muted); margin-bottom: 2rem;">
+                Le Maison de Yelo Lane was founded on a simple principle: to bring the authentic, refined aesthetic of
+                Parisian cafes to our local neighborhood. We believe that coffee is more than just a morning ritual; it
+                is a meticulously crafted art form meant to be shared in a warm, sophisticated setting.
+            </p>
+
+            <div class="row text-center mt-5 mb-4">
+                <div class="col-md-4 mb-4">
+                    <i class="fas fa-coffee fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <h4 style="font-family: 'Georgia', serif; font-weight: bold;">Artisanal Blends</h4>
+                    <p class="text-muted small">Sourced globally, roasted locally. Our beans are carefully chosen to
+                        deliver a smooth, unparalleled flavor profile.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <i class="fas fa-leaf fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <h4 style="font-family: 'Georgia', serif; font-weight: bold;">Organic Sourcing</h4>
+                    <p class="text-muted small">We prioritize organic sustainability, ensuring every cup supports
+                        ethical farming practices worldwide.</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <i class="fas fa-couch fa-3x mb-3" style="color: var(--primary-color);"></i>
+                    <h4 style="font-family: 'Georgia', serif; font-weight: bold;">Refined Atmosphere</h4>
+                    <p class="text-muted small">Our spaces are designed with elegance, blending modern chic with classic
+                        European warmth.</p>
+                </div>
+            </div>
+
+            <p
+                style="font-size: 1.15rem; line-height: 1.8; color: var(--text-muted); text-align: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 2rem; font-style: italic;">
+                "To inspire and nurture the human spirit — one person, one cup and one neighborhood at a time."
+            </p>
+        </div>
+    </div>
+</main>
+{% endblock %}

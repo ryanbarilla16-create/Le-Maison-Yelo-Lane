@@ -1,0 +1,392 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="row w-100 justify-content-center m-0 p-3">
+    <div class="col-12 col-md-10 col-lg-6 col-xl-5 p-0">
+        <div class="card shadow-lg border-0"
+            style="border-radius: 24px; background-color: rgba(255, 255, 255, 0.95); overflow: hidden;">
+            <div class="card-header text-center border-0"
+                style="background: linear-gradient(to right, rgba(139, 69, 19, 0.05), rgba(210, 105, 30, 0.05)); padding: 3rem 2rem 1.5rem;">
+                <h2 class="fw-bold mb-2"
+                    style="font-family: 'Georgia', serif; color: var(--primary-color); font-size: 2.25rem;">Create an
+                    Account</h2>
+                <p class="text-muted" style="font-size: 1.05rem;">Join our exclusive dining community.</p>
+            </div>
+
+            <div class="card-body p-4 p-md-5 pt-3">
+
+                <div class="row g-3 mb-4 mt-2">
+                    <div class="col-6">
+                        <button type="button" id="google-signup-btn" onclick="handleGoogleLogin()"
+                            class="btn btn-outline-dark w-100 rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm"
+                            style="border: 1px solid #e2e8f0; transition: all 0.2s;">
+                            <img src="https://cdn-icons-png.flaticon.com/512/300/300221.png" alt="Google"
+                                style="width: 20px;">
+                            <span class="fw-bold text-muted" style="font-size: 0.95rem;">Google</span>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" id="facebook-signup-btn" onclick="handleFacebookLogin()"
+                            class="btn btn-outline-dark w-100 rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm"
+                            style="border: 1px solid #e2e8f0; transition: all 0.2s;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg"
+                                alt="Facebook" style="width: 20px;">
+                            <span class="fw-bold text-muted" style="font-size: 0.95rem;">Facebook</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center mb-4">
+                    <hr class="flex-grow-1" style="border-top: 1px solid #e0e0e0;">
+                    <span class="mx-3 text-muted small fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">OR SIGN
+                        UP WITH EMAIL</span>
+                    <hr class="flex-grow-1" style="border-top: 1px solid #e0e0e0;">
+                </div>
+
+                <form method="POST" action="{{ url_for('main.signup') }}" onsubmit="return validateForm()">
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4">Personal Information</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="first_name" class="fw-bold text-muted small mb-2">First Name</label>
+                            <input type="text" id="first_name" name="first_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" required
+                                value="{{ request.form.get('first_name', '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="middle_name" class="fw-bold text-muted small mb-2">Middle Name</label>
+                            <input type="text" id="middle_name" name="middle_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" placeholder="(Optional)"
+                                value="{{ request.form.get('middle_name', '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="last_name" class="fw-bold text-muted small mb-2">Last Name</label>
+                            <input type="text" id="last_name" name="last_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" required
+                                value="{{ request.form.get('last_name', '') }}">
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4 mt-5">Contact Details</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="email" class="fw-bold text-muted small mb-2">Email Address</label>
+                            <input type="email" id="email" name="email"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" required value="{{ request.form.get('email', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="phone_number" class="fw-bold text-muted small mb-2">Phone Number</label>
+                            <input type="text" id="phone_number" name="phone_number"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" required maxlength="11"
+                                value="{{ request.form.get('phone_number', '') }}">
+                            <div id="phoneError" class="text-danger small mt-1"
+                                style="display: none; padding-left: 5px;">Invalid phone number</div>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4 mt-5">Account Details</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="username" class="fw-bold text-muted small mb-2">Username</label>
+                            <input type="text" id="username" name="username"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" minlength="5" maxlength="20" required
+                                value="{{ request.form.get('username', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="birthday" class="fw-bold text-muted small mb-2">Birthday</label>
+                            {% set today = get_ph_time().date() %}
+                            {% set min_date = (today.year - 80) ~ "-01-01" %}
+                            {% set max_date = today.strftime('%Y-%m-%d') %}
+                            <input type="date" id="birthday" name="birthday"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" required min="{{ min_date }}" max="{{ max_date }}"
+                                value="{{ request.form.get('birthday', '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="password" class="fw-bold text-muted small mb-2">Password</label>
+                            <div class="position-relative">
+                                <input type="password" id="password" name="password"
+                                    class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                    style="border-radius: 10px; padding-right: 2.5rem;" minlength="6" required
+                                    placeholder="••••••••" oninput="checkStrength()">
+                                <i class="fas fa-eye" onclick="togglePasswordVisibility('password', this)"
+                                    style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #a0a0a0; font-size: 1.1rem; z-index: 10;"></i>
+                            </div>
+                            <div class="password-strength mt-2"
+                                style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                                <div id="strength-bar" class="strength-bar h-100"
+                                    style="width: 0%; transition: 0.3s ease;"></div>
+                            </div>
+                            <div id="strength-text" class="strength-text small text-end text-muted mt-1"
+                                style="font-size: 0.75rem;">Password Strength</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="confirm_password" class="fw-bold text-muted small mb-2">Confirm Password</label>
+                            <div class="position-relative">
+                                <input type="password" id="confirm_password" name="confirm_password"
+                                    class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                    style="border-radius: 10px; padding-right: 2.5rem;" required placeholder="••••••••">
+                                <i class="fas fa-eye" onclick="togglePasswordVisibility('confirm_password', this)"
+                                    style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #a0a0a0; font-size: 1.1rem; z-index: 10;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-4 mb-5">
+                        <!-- We still leave this internal form terms requirement for DB validation, but UI looks cleaner -->
+                        <input class="form-check-input" type="checkbox" id="terms" name="terms" required
+                            style="cursor: pointer; transform: scale(1.1); margin-top: 0.25rem;">
+                        <label class="form-check-label text-muted small ms-2" for="terms" style="cursor: pointer;">
+                            I confirm my agreement with the Site <a href="#" class="text-decoration-none"
+                                style="color: var(--primary-color);">Terms of Service</a> & <a href="#"
+                                class="text-decoration-none" style="color: var(--primary-color);">Privacy Policy</a>.
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn w-100 rounded-pill py-3 fw-bold text-white shadow-sm"
+                        style="background-color: var(--primary-color); font-size: 1.15rem; transition: transform 0.2s;">Register
+                        Account</button>
+
+                    <div class="text-center mt-4">
+                        <p class="text-muted small">
+                            Already have an account? <a href="{{ url_for('main.login') }}"
+                                class="fw-bold text-decoration-none pb-1"
+                                style="color: var(--primary-hover); border-bottom: 2px solid var(--primary-hover);">Sign
+                                in instead</a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Auto-fill from social login if pending
+        const pendingDataStr = sessionStorage.getItem('social_signup_pending');
+        if (pendingDataStr) {
+            try {
+                const pendingData = JSON.parse(pendingDataStr);
+                if (pendingData.first_name) document.getElementById('first_name').value = pendingData.first_name;
+                if (pendingData.last_name) document.getElementById('last_name').value = pendingData.last_name;
+                if (pendingData.email) document.getElementById('email').value = pendingData.email;
+
+                // Clear it so it doesn't persistently fill 
+                sessionStorage.removeItem('social_signup_pending');
+
+                // Visual cue
+                setTimeout(() => {
+                    document.getElementById('username').focus();
+                    document.getElementById('email').style.backgroundColor = '#eef2ff';
+                }, 500);
+            } catch (e) { }
+        }
+
+        const phoneInput = document.getElementById('phone_number');
+        const phoneError = document.getElementById('phoneError');
+
+        if (phoneInput) {
+            phoneInput.addEventListener('input', function (e) {
+                this.value = this.value.replace(/[^0-9]/g, '');
+                phoneError.style.display = 'none';
+                this.style.border = '';
+            });
+        }
+    });
+
+    function showError(msg) {
+        const phoneInput = document.getElementById('phone_number');
+        const phoneError = document.getElementById('phoneError');
+        phoneError.textContent = msg;
+        phoneError.style.display = 'block';
+        phoneInput.style.border = '2px solid #ef4444';
+
+        phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function checkStrength() {
+        const pwd = document.getElementById('password').value;
+        const bar = document.getElementById('strength-bar');
+        const txt = document.getElementById('strength-text');
+
+        let strength = 0;
+        if (pwd.length >= 6) strength += 25;
+        if (/[A-Z]/.test(pwd)) strength += 25;
+        if (/[0-9]/.test(pwd)) strength += 25;
+        if (/[^A-Za-z0-9]/.test(pwd)) strength += 25;
+
+        bar.style.width = strength + '%';
+        if (strength <= 25) { bar.style.background = '#ef4444'; txt.textContent = 'Weak'; }
+        else if (strength <= 50) { bar.style.background = '#f59e0b'; txt.textContent = 'Fair'; }
+        else if (strength <= 75) { bar.style.background = '#3b82f6'; txt.textContent = 'Good'; }
+        else { bar.style.background = '#22c55e'; txt.textContent = 'Strong'; }
+    }
+
+    function validateForm() {
+        const phoneInput = document.getElementById('phone_number');
+        const phone = phoneInput.value;
+
+        const phRegex = /^09\d{9}$/;
+        if (!phRegex.test(phone)) {
+            showError("Needs to be exactly 11 digits and start with 09.");
+            return false;
+        }
+
+        const digitsOnly = phone.substring(2);
+        if (/^([0-9])\1{8}$/.test(digitsOnly)) {
+            showError("Invalid sequence (repeating). Please input a valid mobile number.");
+            return false;
+        }
+
+        const names = [document.getElementById('first_name').value, document.getElementById('last_name').value];
+        const middlename = document.getElementById('middle_name').value;
+        if (middlename) names.push(middlename);
+
+        const nameRegex = /^[A-Za-z\s\-]+$/;
+        for (let name of names) {
+            if (!nameRegex.test(name)) {
+                alert("Names can only contain letters, spaces, and dashes.");
+                return false;
+            }
+        }
+
+        const email = document.getElementById('email').value;
+        if (!email.endsWith('@gmail.com')) {
+            alert("Email must end with @gmail.com (Gmail Only)");
+            return false;
+        }
+
+        const emailLocal = email.replace('@gmail.com', '');
+        if (emailLocal.length < 6 || emailLocal.length > 30) {
+            alert("Email character length before @gmail.com must be 6 to 30.");
+            return false;
+        }
+
+        const birthdayStr = document.getElementById('birthday').value;
+        const bday = new Date(birthdayStr);
+        const today = new Date();
+        let age = today.getFullYear() - bday.getFullYear();
+        if (today.getMonth() < bday.getMonth() || (today.getMonth() === bday.getMonth() && today.getDate() < bday.getDate())) {
+            age--;
+        }
+        if (age < 18) {
+            alert("You must be at least 18 years old to register.");
+            return false;
+        }
+
+        const pwd = document.getElementById('password').value;
+        const confirmResult = document.getElementById('confirm_password').value;
+        if (pwd !== confirmResult) {
+            alert("Passwords do not match.");
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- Social Login Integration ---
+    function sendSocialAuth(provider, email, firstName, lastName, pictureUrl) {
+        fetch('/social_auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                provider: provider,
+                email: email,
+                first_name: firstName,
+                last_name: lastName,
+                picture_url: pictureUrl
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else if (data.needs_registration) {
+                    // Auto-fill the form and ask them to finish
+                    document.getElementById('first_name').value = data.data.first_name || '';
+                    document.getElementById('last_name').value = data.data.last_name || '';
+                    document.getElementById('email').value = data.data.email || '';
+
+                    // Show a nice alert asking them to finish up
+                    alert(data.message + "\n\nPlease provide your phone number, username, birthday, and set a password to continue.");
+
+                    // Scroll to missing required field smoothly
+                    document.getElementById('username').focus();
+                } else {
+                    alert(data.message || "An error occurred during social login.");
+                }
+            });
+    }
+
+    // --- Facebook Setup ---
+    window.fbAsyncInit = function () {
+        FB.init({
+            appId: '{{ FACEBOOK_APP_ID }}',
+            cookie: true,
+            xfbml: true,
+            version: 'v18.0'
+        });
+    };
+    function handleFacebookLogin() {
+        if ('{{ FACEBOOK_APP_ID }}'.includes('HERE') || '{{ FACEBOOK_APP_ID }}' === 'None') {
+            alert("⚠️ Developer Setup Required:\nPlease set FACEBOOK_APP_ID in your .env file to enable actual Facebook authentication.");
+            return;
+        }
+        FB.login(function (response) {
+            if (response.authResponse) {
+                FB.api('/me', { fields: 'name,email,first_name,last_name,picture.type(large)' }, function (userResponse) {
+                    const pictureUrl = userResponse.picture && userResponse.picture.data ? userResponse.picture.data.url : null;
+                    sendSocialAuth('facebook', userResponse.email, userResponse.first_name, userResponse.last_name, pictureUrl);
+                });
+            } else {
+                console.log('User cancelled login or did not fully authorize.');
+            }
+        }, { scope: 'public_profile,email' });
+    }
+
+    // --- Google Setup ---
+    let googleClient;
+    function handleGoogleLogin() {
+        if ('{{ GOOGLE_CLIENT_ID }}'.includes('HERE') || '{{ GOOGLE_CLIENT_ID }}' === 'None') {
+            alert("⚠️ Developer Setup Required:\nPlease set GOOGLE_CLIENT_ID in your .env file to enable actual Google authentication.");
+            return;
+        }
+
+        if (!googleClient) {
+            googleClient = google.accounts.oauth2.initTokenClient({
+                client_id: '{{ GOOGLE_CLIENT_ID }}',
+                scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                        })
+                            .then(res => res.json())
+                            .then(userInfo => {
+                                sendSocialAuth('google', userInfo.email, userInfo.given_name, userInfo.family_name, userInfo.picture);
+                            })
+                            .catch(err => console.error('Error fetching Google user info:', err));
+                    }
+                }
+            });
+        }
+        googleClient.requestAccessToken();
+    }
+</script>
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+{% endblock %}

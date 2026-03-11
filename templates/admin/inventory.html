@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% block title %}Inventory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Inventory</h1>
+    <p>Track stock status and availability of menu items.</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: var(--admin-blue);"><i
+                class="fas fa-box"></i></div>
+        <div class="stat-label">Total Items</div>
+        <div class="stat-value">{{ total_items }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: var(--admin-green);"><i
+                class="fas fa-check-circle"></i></div>
+        <div class="stat-label">In Stock</div>
+        <div class="stat-value">{{ total_items - out_of_stock }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: var(--admin-red);"><i
+                class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-label">Out of Stock</div>
+        <div class="stat-value">{{ out_of_stock }}</div>
+    </div>
+</div>
+
+<div class="admin-table-wrap">
+    <div class="admin-table-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <h3 class="m-0">All Inventory</h3>
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="category-filter-wrapper">
+                <select id="categoryFilter" class="form-select shadow-sm"
+                    style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px; min-width: 180px; cursor: pointer;">
+                    <option value="">All Categories</option>
+                    <!-- Dynamically populated -->
+                </select>
+            </div>
+            <div class="search-box-wrapper" style="position: relative; min-width: 250px;">
+                <i class="fas fa-search"
+                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--admin-text-muted); opacity: 0.6;"></i>
+                <input type="text" id="inventorySearch" class="form-control shadow-sm" placeholder="Search item..."
+                    style="padding-left: 35px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px;">
+            </div>
+        </div>
+    </div>
+    <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                    <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td style="font-weight: 600;">{{ item.name }}</td>
+                    <td><span class="badge-status badge-completed">{{ item.category }}</span></td>
+                    <td style="font-weight: 700; color: var(--admin-accent);">&#8369;{{ "%.2f"|format(item.price) }}
+                    </td>
+                    <td>
+                        {% if item.is_available %}
+                        <span class="badge-status badge-active">In Stock</span>
+                        {% else %}
+                        <span class="badge-status badge-rejected">Out of Stock</span>
+                        {% endif %}
+                    </td>
+                    {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                    <td>
+                        <form method="POST" action="{{ url_for('admin.toggle_stock', item_id=item.id) }}">
+                            {% if item.is_available %}
+                            <button class="btn-admin btn-admin-danger" style="font-size: 0.78rem;"><i
+                                    class="fas fa-ban"></i> Mark Unavailable</button>
+                            {% else %}
+                            <button class="btn-admin btn-admin-success" style="font-size: 0.78rem;"><i
+                                    class="fas fa-check"></i> Restock</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    const searchInput = document.getElementById('inventorySearch');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const rows = document.querySelectorAll('.admin-table tbody tr');
+
+    // 1. Populate Category Dropdown Dynamically
+    function populateCategories() {
+        const categories = new Set();
+        rows.forEach(row => {
+            const cat = row.cells[1].textContent.trim();
+            if (cat) categories.add(cat);
+        });
+
+        // Sort categories alphabetically
+        const sortedCats = Array.from(categories).sort();
+        sortedCats.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.toLowerCase();
+            option.textContent = cat;
+            categoryFilter.appendChild(option);
+        });
+    }
+
+    // 2. Multi-Filter Logic (Search + Category)
+    function applyFilters() {
+        const searchQuery = searchInput.value.toLowerCase().trim();
+        const selectedCategory = categoryFilter.value.toLowerCase();
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const name = row.cells[0].textContent.toLowerCase();
+            const category = row.cells[1].textContent.toLowerCase();
+
+            const matchesSearch = name.includes(searchQuery);
+            const matchesCategory = selectedCategory === "" || category === selectedCategory;
+
+            if (matchesSearch && matchesCategory) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        console.log(`Filtering complete: ${visibleCount} items visible`);
+    }
+
+    // Event Listeners
+    searchInput.addEventListener('input', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', populateCategories);
+</script>
+{% endblock %}
+{% endblock %}

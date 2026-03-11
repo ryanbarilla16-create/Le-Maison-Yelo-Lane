@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Le Maison Yelo Lane</string>
+    <string name="facebook_app_id">2031079187624124</string>
+    <string name="facebook_client_token">2031079187624124</string>
+    <string name="fb_login_protocol_scheme">fb2031079187624124</string>
+</resources>

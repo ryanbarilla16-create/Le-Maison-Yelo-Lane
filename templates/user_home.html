@@ -1,0 +1,535 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Welcome, {{ current_user.first_name }}{% endblock %}
+
+{% block content %}
+<main style="padding: 0 1rem;">
+
+    <!-- ═══ WELCOME HERO BANNER ═══ -->
+    <section
+        style="position: relative; width: 100vw; max-width: 100vw; height: 45vh; min-height: 320px; overflow: hidden; margin-top: -56px; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
+        <div style="position: absolute; inset: 0; z-index: 0;">
+            <img src="https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=2070&auto=format&fit=crop"
+                style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.4);">
+        </div>
+        <div
+            style="position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center;">
+            <div style="text-align: center; padding: 2rem;">
+                <p
+                    style="font-family: 'Georgia', serif; font-style: italic; font-size: 1.2rem; color: #d4a862; margin-bottom: 0.5rem;">
+                    Welcome back,</p>
+                <h1
+                    style="font-family: 'Georgia', serif; font-size: 3rem; font-weight: bold; color: #ffffff; margin-bottom: 0.5rem;">
+                    {{ current_user.first_name }} {{ current_user.last_name }}
+                </h1>
+                <p
+                    style="color: rgba(255,255,255,0.7); font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase;">
+                    Le Maison de Yelo Lane</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ QUICK ACTION CARDS ═══ -->
+    <section class="mx-md-4 mt-4 mb-5">
+        <div class="row g-3">
+            <div class="col-md-3 col-6">
+                <a href="{{ url_for('main.reserve') }}" style="text-decoration: none;">
+                    <div style="background: #ffffff; border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); transition: all 0.3s;"
+                        onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                        <div
+                            style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #8B4513, #A0522D); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.2rem;">
+                            <i class="fas fa-calendar-plus"></i>
+                        </div>
+                        <h6 style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">Reserve a Table
+                        </h6>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Book your next visit</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6">
+                <a href="{{ url_for('main.menu_page') }}" style="text-decoration: none;">
+                    <div style="background: #ffffff; border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); transition: all 0.3s;"
+                        onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                        <div
+                            style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #d4a862, #c49652); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.2rem;">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <h6 style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">View Menu</h6>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Browse our dishes</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6">
+                <a href="{{ url_for('main.about_page') }}" style="text-decoration: none;">
+                    <div style="background: #ffffff; border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); transition: all 0.3s;"
+                        onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                        <div
+                            style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #5D4037, #795548); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.2rem;">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <h6 style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">About Us</h6>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Our story & mission</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3 col-6">
+                <a href="{{ url_for('main.reviews_page') }}" style="text-decoration: none;">
+                    <div style="background: #ffffff; border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); transition: all 0.3s;"
+                        onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                        <div
+                            style="width: 50px; height: 50px; border-radius: 12px; background: linear-gradient(135deg, #fca311, #e6950f); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.2rem;">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <h6 style="font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">Reviews</h6>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Guest testimonials</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ YOUR STATS ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div
+                    style="background: #ffffff; border-radius: 12px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08);">
+                    <div class="d-flex align-items-center">
+                        <div
+                            style="width: 55px; height: 55px; border-radius: 50%; background: rgba(139,69,19,0.1); display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                            <i class="fas fa-calendar-check"
+                                style="font-size: 1.3rem; color: var(--primary-color);"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-weight: 800; color: var(--text-main); margin: 0; font-size: 1.75rem;">{{
+                                upcoming|length }}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Upcoming Reservations
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div
+                    style="background: #ffffff; border-radius: 12px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08);">
+                    <div class="d-flex align-items-center">
+                        <div
+                            style="width: 55px; height: 55px; border-radius: 50%; background: rgba(56,142,60,0.1); display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                            <i class="fas fa-check-circle" style="font-size: 1.3rem; color: #388e3c;"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-weight: 800; color: var(--text-main); margin: 0; font-size: 1.75rem;">{{
+                                total_visits }}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Completed Visits</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div
+                    style="background: #ffffff; border-radius: 12px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08);">
+                    <div class="d-flex align-items-center">
+                        <div
+                            style="width: 55px; height: 55px; border-radius: 50%; background: rgba(212,168,98,0.15); display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                            <i class="fas fa-trophy" style="font-size: 1.3rem; color: #d4a862;"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-weight: 800; color: var(--text-main); margin: 0; font-size: 1.75rem;">
+                                {% if total_visits >= 10 %}Gold
+                                {% elif total_visits >= 5 %}Silver
+                                {% elif total_visits >= 1 %}Bronze
+                                {% else %}New
+                                {% endif %}
+                            </h3>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Loyalty Status</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ COMPACT: UPCOMING RESERVATIONS + RECENT ORDERS (side by side) ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="row g-3">
+            <!-- UPCOMING RESERVATIONS (left) -->
+            <div class="col-lg-6">
+                <div
+                    style="background: #ffffff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); height: 100%;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5
+                            style="font-family: 'Georgia', serif; font-weight: bold; color: var(--text-main); margin: 0; font-size: 1.1rem;">
+                            <i class="fas fa-clock me-2" style="color: var(--primary-color);"></i>Upcoming Reservations
+                        </h5>
+                        <a href="{{ url_for('main.reserve') }}" class="btn btn-sm rounded-pill px-3 fw-bold"
+                            style="background-color: var(--primary-color); color: white; border: none; font-size: 0.75rem;">
+                            <i class="fas fa-plus me-1"></i> New
+                        </a>
+                    </div>
+
+                    {% if upcoming %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for res in upcoming %}
+                        <div
+                            style="background: rgba(139,69,19,0.03); border-radius: 10px; padding: 0.85rem 1rem; border: 1px solid rgba(139,69,19,0.06);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">{{
+                                        res.date.strftime('%b %d, %Y') }}</span>
+                                    <span class="text-muted mx-1">·</span>
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">{{
+                                        res.time.strftime('%I:%M %p') }}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);"><i
+                                            class="fas fa-users me-1"></i>{{ res.guest_count }}</span>
+                                    {% if res.status == 'CONFIRMED' %}
+                                    <span
+                                        style="background: rgba(56,142,60,0.1); color: #388e3c; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">
+                                        <i class="fas fa-check-circle me-1"></i>Confirmed
+                                    </span>
+                                    {% elif res.status == 'PENDING' %}
+                                    <span
+                                        style="background: rgba(245,124,0,0.1); color: #f57c00; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">
+                                        <i class="fas fa-hourglass-half me-1"></i>Pending
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if res.occasion %}
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">{{
+                                res.occasion }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="far fa-calendar"
+                            style="font-size: 2rem; color: rgba(139,69,19,0.15); margin-bottom: 0.5rem;"></i>
+                        <p class="text-muted mb-2" style="font-size: 0.85rem;">No upcoming reservations</p>
+                        <a href="{{ url_for('main.reserve') }}" class="btn btn-sm rounded-pill px-3 fw-bold"
+                            style="background-color: var(--primary-color); color: white; border: none; font-size: 0.8rem;">Book
+                            a Table</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- RECENT ORDERS (right) -->
+            <div class="col-lg-6">
+                <div
+                    style="background: #ffffff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08); height: 100%;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5
+                            style="font-family: 'Georgia', serif; font-weight: bold; color: var(--text-main); margin: 0; font-size: 1.1rem;">
+                            <i class="fas fa-shopping-bag me-2" style="color: var(--primary-color);"></i>Recent Orders
+                        </h5>
+                        <a href="{{ url_for('main.my_orders') }}" class="btn btn-sm rounded-pill px-3 fw-bold"
+                            style="background-color: var(--primary-color); color: white; border: none; font-size: 0.75rem;">
+                            View All <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+
+                    {% if recent_orders %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for order in recent_orders[:3] %}
+                        <div
+                            style="background: rgba(139,69,19,0.03); border-radius: 10px; padding: 0.85rem 1rem; border: 1px solid rgba(139,69,19,0.06);">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">Order
+                                        #{{ order.id }}</span>
+                                    <span class="text-muted mx-1">·</span>
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">{{
+                                        order.created_at.strftime('%b %d') }}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span style="font-weight: 700; color: var(--primary-color); font-size: 0.9rem;">₱{{
+                                        "%.2f"|format(order.total_amount) }}</span>
+                                    {% if order.status == 'COMPLETED' %}
+                                    <span class="badge bg-success rounded-pill" style="font-size: 0.65rem;">Done</span>
+                                    {% elif order.status == 'PENDING' %}
+                                    <span class="badge bg-warning text-dark rounded-pill"
+                                        style="font-size: 0.65rem;">Pending</span>
+                                    {% elif order.status == 'PREPARING' %}
+                                    <span class="badge bg-info text-dark rounded-pill"
+                                        style="font-size: 0.65rem;">Preparing</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary rounded-pill" style="font-size: 0.65rem;">{{
+                                        order.status }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+                                {{ order.items|length }} item{{ 's' if order.items|length > 1 else '' }}
+                                {% if order.items %}
+                                — {{ order.items[0].menu_item.name }}{% if order.items|length > 1 %}, +{{
+                                order.items|length - 1 }} more{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-shopping-bag"
+                            style="font-size: 2rem; color: rgba(139,69,19,0.15); margin-bottom: 0.5rem;"></i>
+                        <p class="text-muted mb-2" style="font-size: 0.85rem;">No orders yet</p>
+                        <a href="{{ url_for('main.menu_page') }}" class="btn btn-sm rounded-pill px-3 fw-bold"
+                            style="background-color: var(--primary-color); color: white; border: none; font-size: 0.8rem;">Browse
+                            Menu</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ BESTSELLERS / TODAY'S SPECIALS ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <p class="text-uppercase fw-bold mb-0"
+                    style="color: var(--primary-color); letter-spacing: 2px; font-size: 0.8rem;">🔥 Bestsellers</p>
+                <h3 style="font-family: 'Georgia', serif; font-weight: bold; color: var(--text-main);">Today's Specials
+                </h3>
+            </div>
+            <a href="{{ url_for('main.menu_page') }}" class="btn text-white rounded-pill px-4 fw-bold"
+                style="background-color: var(--primary-color); border: none;">
+                Full Menu <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+        <div class="row g-3">
+            {% for item in bestsellers %}
+            <div class="col-md-4 col-6">
+                <div style="background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.06); transition: all 0.3s;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                    {% if item.image_url %}
+                    <div style="height: 170px; overflow: hidden; position: relative;">
+                        <img src="{{ item.image_url }}"
+                            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s;"
+                            onmouseover="this.style.transform='scale(1.05)';"
+                            onmouseout="this.style.transform='scale(1)';">
+                        <div style="position: absolute; top: 8px; left: 8px;">
+                            <span
+                                style="background: linear-gradient(135deg, #d4a862, #c49652); color: #fff; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700;">
+                                <i class="fas fa-fire me-1"></i>Popular
+                            </span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div
+                        style="height: 170px; background: linear-gradient(135deg, #8B4513, #A0522D); display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-utensils" style="font-size: 2.5rem; color: rgba(255,255,255,0.3);"></i>
+                    </div>
+                    {% endif %}
+                    <div style="padding: 1.15rem;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6
+                                style="font-family: 'Georgia', serif; font-weight: 700; color: var(--text-main); margin-bottom: 0.3rem; font-size: 0.95rem;">
+                                {{ item.name }}</h6>
+                            <span
+                                style="font-weight: 800; color: var(--primary-color); font-size: 0.95rem; white-space: nowrap;">₱{{
+                                item.price }}</span>
+                        </div>
+                        <span
+                            style="background: rgba(139,69,19,0.06); color: var(--text-muted); padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">{{
+                            item.category }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- ═══ PAST VISITS ═══ -->
+    {% if past %}
+    <section class="mx-md-4 mb-5">
+        <div
+            style="background: #ffffff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.08);">
+            <h3
+                style="font-family: 'Georgia', serif; font-weight: bold; color: var(--text-main); margin-bottom: 1.25rem;">
+                <i class="fas fa-history me-2" style="color: var(--text-muted);"></i>Recent History
+            </h3>
+            <div class="row g-3">
+                {% for res in past %}
+                <div class="col-md-4">
+                    <div
+                        style="background: rgba(139,69,19,0.03); border-radius: 10px; padding: 1.25rem; border: 1px solid rgba(139,69,19,0.06);">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span style="font-weight: 700; color: var(--text-main);">{{ res.date.strftime('%b %d, %Y')
+                                }}</span>
+                            {% if res.status == 'COMPLETED' %}
+                            <span
+                                style="background: rgba(56,142,60,0.1); color: #388e3c; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">Completed</span>
+                            {% else %}
+                            <span
+                                style="background: rgba(211,47,47,0.1); color: #d32f2f; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">{{
+                                res.status }}</span>
+                            {% endif %}
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                            <i class="fas fa-clock me-1"></i> {{ res.time.strftime('%I:%M %p') }} ·
+                            <i class="fas fa-users me-1"></i> {{ res.guest_count }} guests
+                            {% if res.occasion %} · {{ res.occasion }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- ═══ FEATURED MENU ITEMS ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <p class="text-uppercase fw-bold mb-0"
+                    style="color: var(--primary-color); letter-spacing: 2px; font-size: 0.8rem;">Curated For You</p>
+                <h3 style="font-family: 'Georgia', serif; font-weight: bold; color: var(--text-main);">Today's Featured
+                    Picks</h3>
+            </div>
+            <a href="{{ url_for('main.menu_page') }}" class="btn text-white rounded-pill px-4 fw-bold"
+                style="background-color: var(--primary-color); border: none;">
+                Full Menu <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+        <div class="row g-3">
+            {% for item in featured %}
+            <div class="col-md-4 col-6">
+                <div style="background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.06); transition: all 0.3s;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                    {% if item.image_url %}
+                    <div style="height: 170px; overflow: hidden;">
+                        <img src="{{ item.image_url }}"
+                            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s;"
+                            onmouseover="this.style.transform='scale(1.05)';"
+                            onmouseout="this.style.transform='scale(1)';">
+                    </div>
+                    {% else %}
+                    <div
+                        style="height: 170px; background: linear-gradient(135deg, #8B4513, #A0522D); display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-utensils" style="font-size: 2.5rem; color: rgba(255,255,255,0.3);"></i>
+                    </div>
+                    {% endif %}
+                    <div style="padding: 1.15rem;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6
+                                style="font-family: 'Georgia', serif; font-weight: 700; color: var(--text-main); margin-bottom: 0.3rem; font-size: 0.95rem;">
+                                {{ item.name }}</h6>
+                            <span
+                                style="font-weight: 800; color: var(--primary-color); font-size: 0.95rem; white-space: nowrap;">₱{{
+                                item.price }}</span>
+                        </div>
+                        <span
+                            style="background: rgba(139,69,19,0.06); color: var(--text-muted); padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">{{
+                            item.category }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- ═══ MENU CATEGORIES ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="text-center mb-4">
+            <p class="text-uppercase fw-bold mb-1"
+                style="color: var(--primary-color); letter-spacing: 3px; font-size: 0.8rem;">Browse By</p>
+            <h3 style="font-family: 'Georgia', serif; font-size: 2rem; color: var(--text-main); font-weight: bold;">Menu
+                Categories</h3>
+        </div>
+        <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: stretch;">
+            {% for cat in categories %}
+            <a href="{{ url_for('main.menu_page') }}"
+                style="text-decoration: none; color: inherit; display: block; height: 100%;">
+                <div style="background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(139,69,19,0.06); transition: all 0.3s; height: 100%; display: flex; flex-direction: column;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 25px rgba(139,69,19,0.1)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)';">
+                    {% if cat.sample_image %}
+                    <div style="height: 120px; overflow: hidden; flex-shrink: 0;">
+                        <img src="{{ cat.sample_image }}"
+                            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s;"
+                            onmouseover="this.style.transform='scale(1.06)';"
+                            onmouseout="this.style.transform='scale(1)';">
+                    </div>
+                    {% else %}
+                    <div
+                        style="height: 120px; background: linear-gradient(135deg, #8B4513, #A0522D); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-utensils" style="font-size: 2rem; color: rgba(255,255,255,0.3);"></i>
+                    </div>
+                    {% endif %}
+                    <div style="padding: 1rem 1.15rem; flex-grow: 1; display: flex; flex-direction: column;">
+                        <h5
+                            style="font-family: 'Georgia', serif; font-weight: 700; font-size: 1rem; color: var(--text-main); margin-bottom: 0.15rem;">
+                            {{ cat.category }}</h5>
+                        <p style="color: var(--text-muted); font-size: 0.75rem; margin: 0; margin-top: auto;">{{
+                            cat.count }} item{{ 's'
+                            if cat.count > 1 else '' }}</p>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- ═══ LOCATION & HOURS ═══ -->
+    <section class="mx-md-4 mb-5">
+        <div class="row g-0 rounded-4 overflow-hidden"
+            style="box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid rgba(139,69,19,0.08);">
+            <div class="col-md-6 d-flex flex-column justify-content-center p-5" style="background-color: #ffffff;">
+                <h3 class="mb-4" style="font-family: 'Georgia', serif; font-size: 2rem; color: var(--text-main);">Visit
+                    Us</h3>
+                <div class="d-flex align-items-start mb-3">
+                    <i class="fas fa-map-marker-alt mt-1 me-3"
+                        style="font-size: 1.2rem; color: var(--primary-color);"></i>
+                    <div>
+                        <h6
+                            style="font-weight: bold; margin-bottom: 0.15rem; color: var(--text-main); font-size: 0.9rem;">
+                            Location</h6>
+                        <p style="color: var(--text-muted); margin: 0; font-size: 0.85rem;">Yelo Lane, General Taino
+                            Street<br>Pagsanjan, Laguna, Philippines</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start mb-3">
+                    <i class="fas fa-clock mt-1 me-3" style="font-size: 1.2rem; color: var(--primary-color);"></i>
+                    <div>
+                        <h6
+                            style="font-weight: bold; margin-bottom: 0.15rem; color: var(--text-main); font-size: 0.9rem;">
+                            Hours</h6>
+                        <p style="color: var(--text-muted); margin: 0; font-size: 0.85rem;">Mon - Sun · 8:00 AM - 10:00
+                            PM</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-phone mt-1 me-3" style="font-size: 1.2rem; color: var(--primary-color);"></i>
+                    <div>
+                        <h6
+                            style="font-weight: bold; margin-bottom: 0.15rem; color: var(--text-main); font-size: 0.9rem;">
+                            Contact</h6>
+                        <p style="color: var(--text-muted); margin: 0; font-size: 0.85rem;">+63 (912) 345-6789 ·
+                            hello@lemaison.com</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 p-0" style="min-height: 350px;">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15467.433431776097!2d121.44287413955078!3d14.261899999999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397e29b4e723529%3A0xc6cb12b545f4add7!2sPagsanjan%2C%20Laguna!5e0!3m2!1sen!2sph!4v1700000000000!5m2!1sen!2sph"
+                    width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
+            </div>
+        </div>
+    </section>
+
+</main>
+{% endblock %}

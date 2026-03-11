@@ -1,0 +1,396 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<main>
+    <!-- ═══ HERO 1: Full-Width Cinematic Banner ═══ -->
+    <section
+        style="position: relative; width: 100vw; max-width: 100vw; height: 100vh; min-height: 600px; overflow: hidden; margin-top: -56px; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
+        <!-- Background Image and Gradient Overlay -->
+        <div style="position: absolute; inset: 0; z-index: 0; background-color: #0c0c0c;">
+            <div
+                style="position: absolute; inset: 0; background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=100&w=3200&auto=format&fit=crop'); background-size: cover; background-position: right center; opacity: 0.95;">
+            </div>
+            <!-- Dark gradient on the left, fading to transparent on the right -->
+            <div
+                style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(12,12,12,0.95) 0%, rgba(12,12,12,0.85) 40%, rgba(12,12,12,0) 100%);">
+            </div>
+        </div>
+
+        <!-- Left-aligned Content Overlay -->
+        <div
+            style="position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: flex-start; padding-left: 8%; padding-right: 2rem;">
+            <div style="text-align: left; max-width: 650px;">
+                <h1
+                    style="font-family: 'Georgia', serif; font-size: 4.5rem; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin-bottom: 1.25rem; line-height: 1.1; text-shadow: 2px 2px 10px rgba(0,0,0,0.6);">
+                    Good food, great company.</h1>
+                <p
+                    style="font-family: 'Inter', sans-serif; font-size: 1.25rem; color: #e0e0e0; font-weight: 400; margin-bottom: 3rem; text-shadow: 1px 1px 5px rgba(0,0,0,0.8); line-height: 1.6; max-width: 550px;">
+                    Discover a thoughtfully crafted menu designed to bring you and your <span
+                        style="font-style: italic; color: #d4a862;">famille</span> together.</p>
+                <a href="{{ url_for('main.menu_page') }}"
+                    style="display: inline-block; padding: 1.1rem 3.5rem; background-color: #d4a862; color: #000000; text-decoration: none; border-radius: 4px; font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(212,168,98,0.3);"
+                    onmouseover="this.style.backgroundColor='#c3964e'; this.style.transform='translateY(-2px)';"
+                    onmouseout="this.style.backgroundColor='#d4a862'; this.style.transform='translateY(0)';">
+                    ORDER NOW
+                </a>
+            </div>
+        </div>
+        <!-- Scroll Indicator -->
+        <div
+            style="position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 2; text-align: center; animation: bounce 2s infinite;">
+            <i class="fas fa-chevron-down" style="color: rgba(212,168,98,0.6); font-size: 1.5rem;"></i>
+        </div>
+    </section>
+
+    <!-- ═══ HERO 2: Split Layout (Drift into Joy) ═══ -->
+    <div class="row align-items-center mb-5 mx-0 mx-md-4 mt-5"
+        style="background-color: rgba(255, 255, 255, 0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+        <div class="col-md-6 p-5 text-md-start text-center">
+            <p class="text-uppercase fw-bold mb-1" style="color: var(--primary-color); letter-spacing: 2px;">{{
+                site.hero2.title1 }}</p>
+            <h2
+                style="font-family: 'Georgia', serif; font-size: 3.5rem; color: var(--text-main); font-weight: bold; line-height: 1.2;">
+                {{ site.hero2.title2|replace('\n', '<br>')|safe }}</h2>
+            <p class="mt-4 mb-5 text-muted" style="font-size: 1.1rem; max-width: 450px;">
+                {{ site.hero2.description }}
+            </p>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('main.reserve') }}" class="btn btn-dark rounded-pill px-5 py-2 fw-bold"
+                style="background-color: var(--primary-color); border: none;">Book a Table</a>
+            {% else %}
+            <a href="{{ url_for('main.signup') }}" class="btn btn-dark rounded-pill px-5 py-2 fw-bold"
+                style="background-color: var(--primary-color); border: none;">Discover the Flavors</a>
+            {% endif %}
+        </div>
+        <div class="col-md-6 p-0 d-none d-md-block">
+            <img src="{{ site.hero2.image_url }}" class="img-fluid w-100 h-100"
+                style="object-fit: cover; min-height: 500px;">
+        </div>
+    </div>
+
+    <!-- ═══ MENU CATEGORIES SHOWCASE ═══ -->
+    <section class="mx-0 mx-md-4 mt-5 mb-5">
+        <div class="text-center mb-4">
+            <p class="text-uppercase fw-bold mb-1"
+                style="color: var(--primary-color); letter-spacing: 3px; font-size: 0.85rem;">Explore Our</p>
+            <h2 style="font-family: 'Georgia', serif; font-size: 2.5rem; color: var(--text-main); font-weight: bold;">
+                Menu Categories</h2>
+            <p class="text-muted mx-auto" style="max-width: 500px; font-size: 0.95rem;">Discover our curated selection
+                of dishes crafted with the finest ingredients.</p>
+        </div>
+
+        <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; padding: 0 0.5rem;">
+            {% for cat in categories %}
+            <a href="{{ url_for('main.menu_page') }}"
+                style="text-decoration: none; color: inherit; display: block; height: 100%;">
+                <div style="background: rgba(255,255,255,0.95); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); transition: all 0.3s; cursor: pointer; border: 1px solid rgba(139,69,19,0.08); height: 100%; display: flex; flex-direction: column;"
+                    onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(139,69,19,0.12)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(0,0,0,0.06)';">
+                    {% if cat.sample_image %}
+                    <div style="height: 160px; overflow: hidden; flex-shrink: 0;">
+                        <img src="{{ cat.sample_image }}"
+                            style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s;"
+                            onmouseover="this.style.transform='scale(1.08)';"
+                            onmouseout="this.style.transform='scale(1)';">
+                    </div>
+                    {% else %}
+                    <div
+                        style="height: 160px; flex-shrink: 0; background: linear-gradient(135deg, #8B4513, #A0522D); display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(255,255,255,0.3);"></i>
+                    </div>
+                    {% endif %}
+                    <div
+                        style="padding: 1.15rem 1.25rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start;">
+                        <h4
+                            style="font-family: 'Georgia', serif; font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.25rem;">
+                            <i class="fas fa-utensils me-1"
+                                style="color: var(--primary-color); font-size: 0.85rem;"></i> {{ cat.category }}
+                        </h4>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0; margin-top: auto;">{{
+                            cat.count }} item{{ 's' if
+                            cat.count > 1 else '' }} available</p>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.menu_page') }}" class="btn btn-dark rounded-pill px-5 py-2 fw-bold"
+                style="background-color: var(--primary-color); border: none; font-size: 0.9rem;">
+                <i class="fas fa-book-open me-2"></i>View Full Menu
+            </a>
+        </div>
+    </section>
+
+    <!-- ═══ CONTENT CARDS ═══ -->
+    <div class="row mt-5 mb-5 mx-0 mx-md-4 g-4 z-1 align-items-stretch">
+        <!-- Column Card 1 -->
+        <div class="col-12 col-lg-6 px-lg-3 d-flex">
+            <div class="card flex-fill w-100 border-0 flex-md-row"
+                style="background-color: rgba(255,255,255,0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                <div class="col-md-5 p-0 d-flex" style="min-height: 300px;">
+                    <img src="{{ site.card1.image_url }}" class="img-fluid w-100"
+                        style="object-fit: cover; min-height: 100%;">
+                </div>
+                <div class="card-body col-md-7 p-5 d-flex flex-column justify-content-center text-center">
+                    <h3 class="card-title fw-bold mb-4" style="font-family: 'Georgia', serif; color: var(--text-main);">
+                        {{ site.card1.title }}</h3>
+                    <p class="card-text text-muted mb-4">{{ site.card1.description }}</p>
+                    <div><a href="{{ url_for('main.menu_page') }}" class="btn btn-dark rounded-pill px-5 py-2 fw-bold"
+                            style="background-color: #8B4513; border: none;">Discover More</a></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column Card 2 -->
+        <div class="col-12 col-lg-6 px-lg-3 d-flex">
+            <div class="card flex-fill w-100 border-0 flex-md-row"
+                style="background-color: rgba(255,255,255,0.95); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                <div class="col-md-5 p-0 order-md-2 d-flex" style="min-height: 300px;">
+                    <img src="{{ site.card2.image_url }}" class="img-fluid w-100"
+                        style="object-fit: cover; min-height: 100%;">
+                </div>
+                <div class="card-body col-md-7 p-5 d-flex flex-column justify-content-center text-center order-md-1">
+                    <h3 class="card-title fw-bold mb-4" style="font-family: 'Georgia', serif; color: var(--text-main);">
+                        {{ site.card2.title }}</h3>
+                    <p class="card-text text-muted mb-4">{{ site.card2.description }}</p>
+                    <div><a href="{{ url_for('main.menu_page') }}" class="btn btn-dark rounded-pill px-5 py-2 fw-bold"
+                            style="background-color: #8B4513; border: none;">Discover More</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ WHY DINE WITH US ═══ -->
+    <section class="py-5 mx-0 mx-md-4 mb-5"
+        style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+        <div class="container pb-4">
+            <h2 class="text-center mb-5"
+                style="font-family: 'Georgia', serif; font-size: 2.5rem; color: var(--text-main);">Why dine with us</h2>
+            <div class="row g-4 text-center px-lg-4">
+                <!-- Feature 1 -->
+                <div class="col-md-3">
+                    <div class="mb-4" style="color: #fca311; font-size: 3.5rem;">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <h5
+                        style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold; font-size: 1.15rem;">
+                        Exceptional food experience</h5>
+                    <p class="text-muted mt-3" style="font-size: 0.9rem; line-height: 1.6;">From our ingredients down to
+                        the preparation (shout out to our chefs!), we make sure that you're enjoying quality dishes,
+                        served hot.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="col-md-3">
+                    <div class="mb-4" style="color: #fca311; font-size: 3.5rem;">
+                        <i class="fas fa-concierge-bell"></i>
+                    </div>
+                    <h5
+                        style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold; font-size: 1.15rem;">
+                        Accommodating staff</h5>
+                    <p class="text-muted mt-3" style="font-size: 0.9rem; line-height: 1.6;">Our staff are trained to
+                        provide excellent service to make your stay a pleasant one every single time.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="col-md-3">
+                    <div class="mb-4" style="color: #fca311; font-size: 3.5rem;">
+                        <i class="fas fa-seedling"></i>
+                    </div>
+                    <h5
+                        style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold; font-size: 1.15rem;">
+                        Varied food offerings</h5>
+                    <p class="text-muted mt-3" style="font-size: 0.9rem; line-height: 1.6;">Discover something new with
+                        each visit, ensuring a delightful experience for every taste and craving.</p>
+                </div>
+                <!-- Feature 4 -->
+                <div class="col-md-3">
+                    <div class="mb-4" style="color: #fca311; font-size: 3.5rem;">
+                        <i class="fas fa-coffee"></i>
+                    </div>
+                    <h5
+                        style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold; font-size: 1.15rem;">
+                        Great ambiance</h5>
+                    <p class="text-muted mt-3" style="font-size: 0.9rem; line-height: 1.6;">Did we mention that our cafe
+                        has a French flair? Enjoy a feel-good, cozy ambiance while taking Insta-worthy photos!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ REVIEWS / TESTIMONIALS ═══ -->
+    <section class="py-5" style="background-color: #ffffff; color: var(--text-main);">
+        <div class="container text-center py-4">
+            <h2 class="mb-5" style="font-family: 'Georgia', serif; font-size: 2.5rem; color: var(--text-main);">What Our
+                Guests Say</h2>
+            <div class="row justify-content-center g-4 px-lg-4">
+                {% if approved_reviews %}
+                {% for review in approved_reviews[:2] %}
+                <div class="col-md-5">
+                    <div class="p-5 text-start"
+                        style="background: #ffffff; border-radius: 12px; height: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid rgba(139,69,19,0.08);">
+                        <div style="color: #fca311; margin-bottom: 1.25rem; font-size: 1.1rem;">
+                            {% for _ in range(review.rating) %}
+                            <i class="fas fa-star"></i>
+                            {% endfor %}
+                        </div>
+                        <p style="font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--text-muted);">
+                            "{{ review.comment }}"</p>
+                        <hr style="border-color: rgba(139,69,19,0.1); margin: 1.5rem 0;">
+                        <div class="d-flex align-items-center">
+                            <div
+                                style="width: 45px; height: 45px; border-radius: 50%; background-color: var(--primary-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem;">
+                                {{ review.user.first_name[:1] }}{{ review.user.last_name[:1] }}</div>
+                            <div>
+                                <h6 style="color: var(--text-main); font-weight: bold; margin: 0; font-size: 1rem;">
+                                    {{ review.user.first_name }} {{ review.user.last_name[:1] }}.</h6>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Verified Customer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="col-md-5">
+                    <div class="p-5 text-start"
+                        style="background: #ffffff; border-radius: 12px; height: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid rgba(139,69,19,0.08);">
+                        <div style="color: #fca311; margin-bottom: 1.25rem; font-size: 1.1rem;">
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                                class="fas fa-star"></i><i class="fas fa-star"></i>
+                        </div>
+                        <p style="font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--text-muted);">
+                            "The best and most authentic French cuisine in Pagsanjan. The ambiance is breathtaking and
+                            the staff treats you like family. A must-visit!"</p>
+                        <hr style="border-color: rgba(139,69,19,0.1); margin: 1.5rem 0;">
+                        <div class="d-flex align-items-center">
+                            <div
+                                style="width: 45px; height: 45px; border-radius: 50%; background-color: var(--primary-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem;">
+                                M</div>
+                            <div>
+                                <h6 style="color: var(--text-main); font-weight: bold; margin: 0; font-size: 1rem;">
+                                    Maria S.</h6>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Local Guide</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="p-5 text-start"
+                        style="background: #ffffff; border-radius: 12px; height: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid rgba(139,69,19,0.08);">
+                        <div style="color: #fca311; margin-bottom: 1.25rem; font-size: 1.1rem;">
+                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                                class="fas fa-star"></i><i class="fas fa-star"></i>
+                        </div>
+                        <p style="font-style: italic; font-size: 1.05rem; line-height: 1.7; color: var(--text-muted);">
+                            "Exquisite from start to finish. The Signature Yelo Latte is out of this world. Highly
+                            recommend booking a table early on weekends!"</p>
+                        <hr style="border-color: rgba(139,69,19,0.1); margin: 1.5rem 0;">
+                        <div class="d-flex align-items-center">
+                            <div
+                                style="width: 45px; height: 45px; border-radius: 50%; background-color: var(--primary-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem;">
+                                J</div>
+                            <div>
+                                <h6 style="color: var(--text-main); font-weight: bold; margin: 0; font-size: 1rem;">
+                                    Jonathan D.</h6>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Coffee Enthusiast</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="mt-5 pt-3">
+                <a href="{{ url_for('main.reviews_page') }}" class="btn text-white rounded-pill px-4 fw-bold"
+                    style="background-color: var(--primary-color); border: none;">Read all reviews</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ MAP & LOCATION ═══ -->
+    <section class="py-5 mx-0 mx-md-4 mt-5 mb-5">
+        <div class="container-fluid px-lg-5">
+            <div class="row g-0 rounded-4 overflow-hidden"
+                style="box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(139,69,19,0.08);">
+                <div class="col-md-6 d-flex flex-column justify-content-center p-5 text-dark"
+                    style="background-color: #ffffff;">
+                    <h2 class="mb-4" style="font-family: 'Georgia', serif; font-size: 2.5rem; color: var(--text-main);">
+                        Visit Le Maison</h2>
+
+                    <div class="d-flex align-items-start mb-4">
+                        <i class="fas fa-map-marker-alt mt-1 me-3"
+                            style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                        <div>
+                            <h5 style="font-weight: bold; margin-bottom: 0.25rem; color: var(--text-main);">Our Location
+                            </h5>
+                            <p style="color: var(--text-muted); margin: 0;">Yelo Lane, General Taino
+                                Street<br>Pagsanjan, Laguna, Philippines</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start mb-4">
+                        <i class="fas fa-clock mt-1 me-3" style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                        <div>
+                            <h5 style="font-weight: bold; margin-bottom: 0.25rem; color: var(--text-main);">Opening
+                                Hours</h5>
+                            <p style="color: var(--text-muted); margin: 0;">Monday - Sunday<br>8:00 AM - 10:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start mb-4">
+                        <i class="fas fa-phone mt-1 me-3" style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                        <div>
+                            <h5 style="font-weight: bold; margin-bottom: 0.25rem; color: var(--text-main);">Contact Us
+                            </h5>
+                            <p style="color: var(--text-muted); margin: 0;">+63 (912) 345-6789<br>hello@lemaison.com</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <a href="{{ url_for('main.reserve') }}" class="btn rounded-pill px-5 py-2 fw-bold"
+                            style="background-color: var(--primary-color); color: #fff; border: none; font-size: 1rem;">Book
+                            a Table</a>
+                    </div>
+                </div>
+                <!-- Google Maps Embed -->
+                <div class="col-md-6 p-0" style="min-height: 400px;">
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15467.433431776097!2d121.44287413955078!3d14.261899999999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397e29b4e723529%3A0xc6cb12b545f4add7!2sPagsanjan%2C%20Laguna!5e0!3m2!1sen!2sph!4v1700000000000!5m2!1sen!2sph"
+                        width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<style>
+    @keyframes bounce {
+
+        0%,
+        20%,
+        50%,
+        80%,
+        100% {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        40% {
+            transform: translateX(-50%) translateY(-12px);
+        }
+
+        60% {
+            transform: translateX(-50%) translateY(-6px);
+        }
+    }
+
+    /* Hero 1 button hover */
+    section a:hover {
+        background: #d4a862 !important;
+        color: #1a1a1a !important;
+    }
+</style>
+{% endblock %}

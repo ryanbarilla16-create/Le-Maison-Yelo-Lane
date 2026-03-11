@@ -1,0 +1,148 @@
+<nav class="navbar main-nav fixed-top navbar-expand-md py-1"
+    style="background: rgba(255, 255, 255, 0.98); box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <div class="container-fluid px-md-5">
+        <a class="navbar-brand text-dark" href="{{ url_for('main.index') }}"
+            style="font-family: 'Georgia', serif; font-weight: bold; font-size: 1.15rem;">
+            <i class="fas fa-coffee" style="color: var(--primary-color); font-size: 0.95rem;"></i> Le maison yelo Lane
+        </a>
+
+        <ul class="nav nav-left me-auto d-md-flex d-none align-items-center ms-4">
+            <li class="nav-item me-3">
+                <a class="nav-link text-dark fw-bold" href="{{ url_for('main.menu_page') }}"
+                    style="letter-spacing: 1px;">MENU</a>
+            </li>
+            <li class="nav-item me-3">
+                <a class="nav-link text-dark fw-bold" href="{{ url_for('main.about_page') }}"
+                    style="letter-spacing: 1px;">ABOUT</a>
+            </li>
+            <li class="nav-item me-3">
+                <a class="nav-link text-dark fw-bold" href="{{ url_for('main.reviews_page') }}"
+                    style="letter-spacing: 1px;">REVIEWS</a>
+            </li>
+        </ul>
+
+        <ul class="nav nav-right ms-auto d-md-flex d-none align-items-center">
+            {% if current_user.is_authenticated %}
+            <li class="nav-item me-2">
+                <a href="{{ url_for('main.view_cart') }}"
+                    class="btn text-white rounded-circle position-relative shadow-sm"
+                    style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; background-color: var(--primary-color); border: none;">
+                    <i class="fas fa-shopping-cart fs-5"></i>
+                    {% set cart_count = session.get('cart', {})|length %}
+                    {% if cart_count > 0 %}
+                    <span
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-sm"
+                        style="font-size: 0.65rem;">
+                        {{ cart_count }}
+                    </span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item me-3">
+                <a href="{{ url_for('main.index') }}" class="btn text-white rounded-pill px-4 fw-bold shadow-sm"
+                    style="background-color: var(--primary-color); border: none;">
+                    <i class="fas fa-home me-1"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item me-3">
+                <a href="{{ url_for('main.my_orders') }}" class="btn text-white rounded-pill px-4 fw-bold shadow-sm"
+                    style="background-color: var(--primary-color); border: none;">
+                    <i class="fas fa-shopping-bag me-1"></i> My Orders
+                </a>
+            </li>
+            <li class="nav-item me-3">
+                <a href="{{ url_for('main.reserve') }}" class="btn text-white rounded-pill px-4 fw-bold shadow-sm"
+                    style="background-color: var(--primary-color); border: none;">Reserve Table</a>
+            </li>
+            <li class="nav-item dropdown d-flex align-items-center">
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle px-2"
+                    id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="color: var(--text-main);">
+                    {% if current_user.profile_picture_url %}
+                    <img src="{{ current_user.profile_picture_url }}" alt="Profile Picture" class="shadow-sm"
+                        style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(139,69,19,0.2);">
+                    {% else %}
+                    <div class="shadow-sm"
+                        style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #8B4513, #A0522D); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: 'Georgia', serif; font-size: 1.2rem; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(139,69,19,0.2);">
+                        {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
+                    </div>
+                    {% endif %}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3" aria-labelledby="profileDropdown"
+                    style="border-radius: 12px; min-width: 200px; padding: 0.5rem 0; right: 0;">
+                    <li class="px-3 py-2 border-bottom mb-1">
+                        <div class="fw-bold" style="color: var(--text-main); font-size: 0.95rem;">{{
+                            current_user.first_name }} {{ current_user.last_name }}</div>
+                        <small class="text-muted">{{ current_user.email }}</small>
+                    </li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('main.index') }}" style="font-weight: 500;"><i
+                                class="fas fa-home me-2 text-muted"></i>Dashboard</a></li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('main.my_orders') }}"
+                            style="font-weight: 500;"><i class="fas fa-shopping-bag me-2 text-muted"></i>My Orders</a>
+                    </li>
+                    <li><a class="dropdown-item py-2" href="{{ url_for('main.profile') }}" style="font-weight: 500;"><i
+                                class="fas fa-user-edit me-2 text-muted"></i>Edit Profile</a></li>
+                    <li>
+                        <hr class="dropdown-divider my-1">
+                    </li>
+                    <li><a class="dropdown-item py-2 text-danger fw-bold" href="{{ url_for('main.logout') }}"><i
+                                class="fas fa-sign-out-alt me-2"></i>Sign out</a></li>
+                </ul>
+            </li>
+            {% else %}
+            <li class="nav-item me-3">
+                <button onclick="$('#termsModal').modal('show'); window.authIntent = 'login';"
+                    class="btn btn-outline-dark rounded-pill px-4 fw-bold">Sign in</button>
+            </li>
+            <li class="nav-item">
+                <button onclick="$('#termsModal').modal('show'); window.authIntent = 'signup';"
+                    class="btn text-white rounded-pill px-4 fw-bold shadow-sm"
+                    style="background-color: var(--primary-color); border: none;">Join Now</button>
+            </li>
+            {% endif %}
+        </ul>
+
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</nav>
+
+<div class="collapse d-md-none p-3 fixed-top" id="mobileMenu"
+    style="top: 70px; background: rgba(255, 255, 255, 0.98); z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <ul class="navbar-nav">
+        <li class="nav-item border-bottom py-2"><a class="nav-link fw-bold text-dark"
+                href="{{ url_for('main.menu_page') }}">MENU</a></li>
+        <li class="nav-item border-bottom py-2"><a class="nav-link fw-bold text-dark"
+                href="{{ url_for('main.about_page') }}">ABOUT</a></li>
+        <li class="nav-item border-bottom py-2"><a class="nav-link fw-bold text-dark"
+                href="{{ url_for('main.reviews_page') }}">REVIEWS</a></li>
+        {% if current_user.is_authenticated %}
+        <li class="nav-item mt-3"><a href="{{ url_for('main.index') }}"
+                class="btn text-white w-100 rounded-pill fw-bold mb-2 shadow-sm"
+                style="background-color: var(--primary-color); border: none;">
+                <i class="fas fa-home me-1"></i> Dashboard</a></li>
+        <li class="nav-item border-bottom py-2"><a class="nav-link fw-bold text-dark"
+                href="{{ url_for('main.my_orders') }}"><i class="fas fa-shopping-bag me-2 text-muted"></i>My
+                Orders</a></li>
+        <li class="nav-item"><a href="{{ url_for('main.profile') }}"
+                class="btn btn-outline-dark w-100 rounded-pill fw-bold mb-2 shadow-sm"
+                style="border: 1px solid rgba(139,69,19,0.2);">
+                <i class="fas fa-user-edit me-1"></i> Edit Profile</a></li>
+        <li class="nav-item"><a href="{{ url_for('main.reserve') }}"
+                class="btn text-white w-100 rounded-pill fw-bold mb-2 shadow-sm"
+                style="background-color: var(--primary-color); border: none;">Reserve Table</a></li>
+        <li class="nav-item"><a href="{{ url_for('main.logout') }}"
+                class="btn btn-outline-danger w-100 rounded-pill fw-bold"><i class="fas fa-sign-out-alt me-1"></i>
+                Logout</a></li>
+        {% else %}
+        <li class="nav-item mt-3"><button
+                onclick="$('#mobileMenu').collapse('hide'); $('#termsModal').modal('show'); window.authIntent = 'login';"
+                class="btn btn-outline-dark w-100 rounded-pill fw-bold mb-2">Sign in</button></li>
+        <li class="nav-item"><button
+                onclick="$('#mobileMenu').collapse('hide'); $('#termsModal').modal('show'); window.authIntent = 'signup';"
+                class="btn text-white w-100 rounded-pill fw-bold shadow-sm"
+                style="background-color: var(--primary-color); border: none;">Join Now</button></li>
+        {% endif %}
+    </ul>
+</div>

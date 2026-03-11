@@ -1,0 +1,367 @@
+{% extends "admin/base.html" %}
+{% block title %}Menu Management{% endblock %}
+
+{% block content %}
+<div class="page-header"
+    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Menu Management</h1>
+        <p>Add, edit, or remove menu items visually.</p>
+    </div>
+    {% if current_user.role|upper == 'ADMIN' %}
+    <button class="btn-admin btn-admin-primary" data-bs-toggle="modal" data-bs-target="#addMenuModal"><i
+            class="fas fa-plus"></i> Add Item</button>
+    {% endif %}
+</div>
+
+<!-- Extract Categories Data (Name, Image, Count) -->
+{% set categories_data = {} %}
+{% for item in items %}
+{% if item.category not in categories_data %}
+{% set _ = categories_data.update({item.category: {'image': item.image_url, 'count': 1}}) %}
+{% else %}
+{% set count = categories_data[item.category]['count'] + 1 %}
+{% set _ = categories_data.update({item.category: {'image': categories_data[item.category]['image'], 'count': count}})
+%}
+{% endif %}
+{% endfor %}
+
+<!-- 1. Categories Grid View -->
+<div id="categories-grid-view">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+        {% for cat_name, info in categories_data.items() %}
+        <div class="menu-grid-card category-card" onclick="showCategory('{{ cat_name }}')"
+            style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
+            <div class="menu-card-img-wrap"
+                style="height: 160px; overflow: hidden; background: #faf6f1; flex-shrink: 0;">
+                {% if info.image %}
+                <img src="{{ info.image }}" class="menu-card-img" style="transition: transform 0.6s ease;"
+                    alt="{{ cat_name }}">
+                {% else %}
+                <div
+                    style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #faf6f1;">
+                    <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 69, 19, 0.1);"></i>
+                </div>
+                {% endif %}
+            </div>
+            <div class="menu-card-body" style="padding: 1.25rem; flex-grow: 1; display: flex; flex-direction: column;">
+                <h4 class="menu-card-title m-0">{{ cat_name }}</h4>
+                <p class="menu-card-desc mb-0 mt-auto" style="color: var(--admin-text-muted); padding-top: 0.5rem;">{{
+                    info.count }} items</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 2. Items View (Initially Hidden) -->
+<div id="items-view" style="display: none;">
+    <div class="mb-4">
+        <button onclick="showCategoriesGrid()"
+            style="background: white; border: 1px solid rgba(139, 69, 19, 0.2); padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; color: var(--admin-text); cursor: pointer; transition: all 0.2s ease;">
+            <i class="fas fa-arrow-left me-2"></i> Back to Categories
+        </button>
+    </div>
+
+    {% for cat in categories_list %}
+    {% set cat_items = items | selectattr("category", "equalto", cat) | list %}
+    {% if cat_items %}
+    <div class="menu-category-section" data-category="{{ cat }}" style="display: none;">
+        <h2
+            style="font-family: 'Inter', sans-serif; font-weight: bold; color: var(--admin-text); margin-bottom: 1.5rem;">
+            {{ cat }}</h2>
+        <div class="menu-grid">
+            {% for item in cat_items %}
+            <div class="menu-grid-card menu-item-card">
+                <div class="menu-card-img-wrap">
+                    {% if not item.is_available %}
+                    <div class="menu-card-status" style="color: var(--admin-red);">OUT OF STOCK</div>
+                    {% endif %}
+
+                    {% if current_user.role|upper == 'ADMIN' %}
+                    <div class="menu-card-actions">
+                        <button class="menu-card-icons" data-bs-toggle="modal" data-bs-target="#editModal{{ item.id }}"
+                            onclick="event.stopPropagation()">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <form method="POST" action="{{ url_for('admin.menu_delete', item_id=item.id) }}"
+                            onsubmit="return confirm('Delete this item permanently?')" style="margin: 0;">
+                            <button class="menu-card-icons delete" type="submit" onclick="event.stopPropagation()">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    {% if item.image_url %}
+                    <img src="{{ item.image_url }}" class="menu-card-img">
+                    {% else %}
+                    <div
+                        style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fbf8f5;">
+                        <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 69, 19, 0.1);"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="menu-card-body">
+                    <h4 class="menu-card-title">{{ item.name }}</h4>
+                    <p class="menu-card-desc">{{ item.description }}</p>
+                    <div class="menu-card-footer">
+                        <div class="menu-card-price">&#8369;{{ "%.2f"|format(item.price) }}</div>
+                        <div class="menu-card-category">{{ item.category }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Modal -->
+            <div class="modal fade admin-modal" id="editModal{{ item.id }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ url_for('admin.menu_edit', item_id=item.id) }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Edit: {{ item.name }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3"><label>Name</label><input class="form-control" name="name"
+                                        value="{{ item.name }}" required maxlength="50"></div>
+                                <div class="mb-3"><label>Description</label><textarea class="form-control"
+                                        name="description" rows="2" maxlength="255">{{ item.description }}</textarea>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6 mb-3"><label>Price (&#8369;)</label><input class="form-control"
+                                            name="price" type="number" step="0.01" min="0" max="99999.99"
+                                            value="{{ item.price }}" required>
+                                    </div>
+                                    <div class="col-6 mb-3"><label>Category</label>
+                                        <select class="form-control" name="category" required>
+                                            {% for c in categories_list %}
+                                            <option value="{{ c }}" {{ 'selected' if c==item.category }}>{{ c }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3"><label>Image URL</label><input class="form-control" name="image_url"
+                                        type="url" value="{{ item.image_url }}" maxlength="255"></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox"
+                                        name="is_available" id="avail{{ item.id }}" {{ 'checked' if item.is_available
+                                        }}>
+                                    <label class="form-check-label" for="avail{{ item.id }}">Available</label>
+                                </div>
+                            </div>
+                            <div class="modal-footer"><button type="submit" class="btn-admin btn-admin-primary">Save
+                                    Changes</button></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade admin-modal" id="addMenuModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('admin.menu_add') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Menu Item</h5><button type="button" class="btn-close"
+                        data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label>Name</label><input class="form-control" name="name" required
+                            maxlength="50"></div>
+                    <div class="mb-3"><label>Description</label><textarea class="form-control" name="description"
+                            rows="2" maxlength="255"></textarea></div>
+                    <div class="row">
+                        <div class="col-6 mb-3"><label>Price (&#8369;)</label><input class="form-control" name="price"
+                                type="number" step="0.01" min="0" max="99999.99" required></div>
+                        <div class="col-6 mb-3"><label>Category</label>
+                            <select class="form-control" name="category" required>
+                                {% for cat in categories_list %}
+                                <option value="{{ cat }}">{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3"><label>Image URL</label><input class="form-control" name="image_url" type="url"
+                            maxlength="255"></div>
+                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox"
+                            name="is_available" id="availNew" checked><label class="form-check-label"
+                            for="availNew">Available</label></div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn-admin btn-admin-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ─── MENU GRID NEW ──────────────────────────── */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .menu-grid-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid rgba(139, 69, 19, 0.1);
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .menu-grid-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(139, 69, 19, 0.08);
+    }
+
+    .category-card:hover .menu-card-img {
+        transform: scale(1.08) !important;
+    }
+
+    .menu-card-img-wrap {
+        position: relative;
+        height: 180px;
+        background: #faf6f1;
+        overflow: hidden;
+    }
+
+    .menu-card-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .menu-card-actions {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .menu-card-icons {
+        background: #ffffff;
+        border-radius: 6px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--admin-text-muted);
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s;
+    }
+
+    .menu-card-icons:hover {
+        color: var(--admin-accent);
+    }
+
+    .menu-card-icons.delete:hover {
+        color: var(--admin-red);
+    }
+
+    .menu-card-status {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        color: var(--admin-text);
+    }
+
+    .menu-card-body {
+        padding: 1.25rem;
+    }
+
+    .menu-card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--admin-text);
+        margin: 0 0 0.4rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .menu-card-desc {
+        font-size: 0.8rem;
+        color: var(--admin-text-muted);
+        margin: 0 0 1rem;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        height: 2.8em;
+    }
+
+    .menu-card-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .menu-card-price {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #d4a862;
+    }
+
+    .menu-card-category {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: #bcaaa4;
+    }
+</style>
+
+<script>
+    function showCategory(categoryName) {
+        document.getElementById('categories-grid-view').style.display = 'none';
+        document.getElementById('items-view').style.display = 'block';
+
+        const sections = document.querySelectorAll('.menu-category-section');
+        sections.forEach(function (section) {
+            if (section.getAttribute('data-category') === categoryName) {
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        });
+    }
+
+    function showCategoriesGrid() {
+        document.getElementById('items-view').style.display = 'none';
+        document.getElementById('categories-grid-view').style.display = 'block';
+
+        // Remove category from URL so refresh doesn't reopen it automatically if they went back
+        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const openCategory = urlParams.get('category');
+        if (openCategory) {
+            showCategory(openCategory);
+        }
+    });
+</script>
+
+<!-- Bootstrap JS needed for Modal if not already loaded in base -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

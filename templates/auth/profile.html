@@ -1,0 +1,201 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="row w-100 justify-content-center m-0 p-3"
+    style="margin-top: 5rem !important; margin-bottom: 3rem !important;">
+    <div class="col-12 col-md-10 col-lg-8 col-xl-7 col-xxl-6 p-0">
+        <div class="card shadow-lg border-0"
+            style="border-radius: 24px; background-color: rgba(255, 255, 255, 0.95); overflow: hidden;">
+            <div class="card-header text-center border-0"
+                style="background: linear-gradient(to right, rgba(139, 69, 19, 0.05), rgba(210, 105, 30, 0.05)); padding: 3rem 2rem 1.5rem;">
+                <h2 class="fw-bold mb-2"
+                    style="font-family: 'Georgia', serif; color: var(--primary-color); font-size: 2.25rem;">Edit Profile
+                </h2>
+                <p class="text-muted" style="font-size: 1.05rem;">Keep your personal details up to date.</p>
+            </div>
+
+            <div class="card-body p-4 p-md-5 pt-3">
+                <form id="profileForm" action="{{ url_for('main.profile') }}" method="POST"
+                    enctype="multipart/form-data" onsubmit="return validateProfile()">
+
+                    <div class="text-center mb-4 mt-3">
+                        <div class="position-relative d-inline-block">
+                            {% if current_user.profile_picture_url %}
+                            <img id="profile-pic-preview" src="{{ current_user.profile_picture_url }}"
+                                class="rounded-circle shadow"
+                                style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #fff;">
+                            <div id="profile-pic-preview-div" style="display: none;"></div>
+                            {% else %}
+                            <div id="profile-pic-preview-div"
+                                class="rounded-circle shadow d-flex align-items-center justify-content-center"
+                                style="width: 120px; height: 120px; background: linear-gradient(135deg, #8B4513, #A0522D); color: white; font-family: 'Georgia', serif; font-size: 3rem; border: 3px solid #fff;">
+                                {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
+                            </div>
+                            <img id="profile-pic-preview" class="rounded-circle shadow"
+                                style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #fff; display: none;">
+                            {% endif %}
+
+                            <label for="profile_picture"
+                                class="position-absolute bottom-0 end-0 bg-white rounded-circle shadow p-2"
+                                style="cursor: pointer; transform: translate(20%, 20%); border: 1px solid #ddd; z-index: 10;">
+                                <i class="fas fa-camera" style="color: var(--primary-color);"></i>
+                            </label>
+                            <input type="file" id="profile_picture" name="profile_picture" class="d-none"
+                                accept="image/*" onchange="previewProfileImage(event)">
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4 mt-3">Personal Information</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="first_name" class="fw-bold text-muted small mb-2">First Name</label>
+                            <input type="text" id="first_name" name="first_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" required
+                                value="{{ current_user.first_name }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="middle_name" class="fw-bold text-muted small mb-2">Middle Name</label>
+                            <input type="text" id="middle_name" name="middle_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" placeholder="(Optional)"
+                                value="{{ current_user.middle_name or '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="last_name" class="fw-bold text-muted small mb-2">Last Name</label>
+                            <input type="text" id="last_name" name="last_name"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" maxlength="50" required
+                                value="{{ current_user.last_name }}">
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4 mt-5">Contact Details</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="phone_number" class="fw-bold text-muted small mb-2">Phone Number</label>
+                            <!-- Validation added via JS for sleek UX -->
+                            <input type="text" id="phone_number" name="phone_number"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" required placeholder="09xxxxxxxxx"
+                                value="{{ current_user.phone_number or '' }}" maxlength="11">
+                            <div id="phoneError" class="text-danger small mt-1"
+                                style="display: none; padding-left: 5px;">Invalid phone number</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="fw-bold text-muted small mb-2">Email Address</label>
+                            <input type="email" id="email" name="email"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" required value="{{ current_user.email }}">
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold fs-6 text-muted border-bottom pb-2 mb-4 mt-5">Account Details</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-12">
+                            <label for="username" class="fw-bold text-muted small mb-2">Username</label>
+                            <input type="text" id="username" name="username"
+                                class="form-control form-control-lg bg-light border-0 shadow-sm"
+                                style="border-radius: 10px;" minlength="5" maxlength="20" required
+                                value="{{ current_user.username }}">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-5 mb-3 gap-3">
+                        <a href="{{ url_for('main.index') }}"
+                            class="btn btn-light shadow-sm rounded-pill fw-bold w-50 py-3"
+                            style="color: var(--text-main);">Cancel</a>
+                        <button type="submit" class="btn text-white rounded-pill fw-bold shadow-sm w-50 py-3"
+                            style="background-color: var(--primary-color); font-size: 1.05rem; transition: transform 0.2s;">
+                            Save Changes
+                        </button>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <p class="text-muted" style="font-size: 0.85rem;"><i class="fas fa-shield-alt me-1"></i> Your
+                            personal
+                            information is kept secure and confidential.</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewProfileImage(event) {
+        const input = event.target;
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = document.getElementById('profile-pic-preview');
+                const div = document.getElementById('profile-pic-preview-div');
+                if (div) { div.style.display = 'none'; }
+                img.src = e.target.result;
+                img.style.display = 'block';
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    const phoneInput = document.getElementById('phone_number');
+    const phoneError = document.getElementById('phoneError');
+
+    phoneInput.addEventListener('input', function (e) {
+        // Numbers only allowed while typing for a smooth experience
+        this.value = this.value.replace(/[^0-9]/g, '');
+        phoneError.style.display = 'none';
+        this.style.border = '';
+    });
+
+    function validateProfile() {
+        const phone = phoneInput.value;
+
+        // Validation for PH format: Must start with 09 and exactly 11 digits
+        const phRegex = /^09\d{9}$/;
+        if (!phRegex.test(phone)) {
+            showError("Needs to be exactly 11 digits and start with 09.");
+            return false;
+        }
+
+        // Check against easily guessed repeating sequences (like 09999999999 or 09111111111 or 09121212121)
+        const digitsOnly = phone.substring(2);
+
+        // Block purely repeating number formats
+        if (/^([0-9])\1{8}$/.test(digitsOnly)) {
+            showError("Invalid sequence (repeating). Please input a valid mobile number.");
+            return false;
+        }
+
+        // Check names format as well smoothly
+        const names = [document.getElementById('first_name').value, document.getElementById('last_name').value];
+        const nameRegex = /^[A-Za-z\s\-]+$/;
+        for (let name of names) {
+            if (!nameRegex.test(name)) {
+                alert("Names can only contain letters, spaces, and dashes.");
+                return false;
+            }
+        }
+
+        // Email domain check smoothly
+        const email = document.getElementById('email').value;
+        if (!email.endsWith('@gmail.com')) {
+            alert("Email must end with @gmail.com");
+            return false;
+        }
+
+        return true;
+    }
+
+    function showError(msg) {
+        phoneError.textContent = msg;
+        phoneError.style.display = 'block';
+        phoneInput.style.border = '2px solid #ef4444';
+
+        // Scroll slightly up to emphasize error so they don't lose focus
+        phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+</script>
+{% endblock %}

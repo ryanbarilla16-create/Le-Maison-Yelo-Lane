@@ -1,0 +1,117 @@
+{% extends "admin/base.html" %}
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard Overview</h1>
+    <p>Welcome back, {{ current_user.first_name }}. Here's what's happening today.</p>
+</div>
+
+<!-- TOP WIDGETS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: var(--admin-blue);"><i
+                class="fas fa-receipt"></i></div>
+        <div class="stat-label">Total Reservations</div>
+        <div class="stat-value">{{ total_reservations }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: var(--admin-green);"><i
+                class="fas fa-check-circle"></i></div>
+        <div class="stat-label">Confirmed</div>
+        <div class="stat-value">{{ confirmed_reservations }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: var(--admin-yellow);"><i
+                class="fas fa-clock"></i></div>
+        <div class="stat-label">Pending Orders</div>
+        <div class="stat-value">{{ pending_reservations }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(200,121,65,0.15); color: var(--admin-accent);"><i
+                class="fas fa-users"></i></div>
+        <div class="stat-label">Total Customers</div>
+        <div class="stat-value">{{ total_customers }}</div>
+    </div>
+</div>
+
+<!-- CARDS ROW -->
+<div class="admin-cards-grid">
+    <!-- Recent Activity -->
+    <div class="admin-card">
+        <h3><i class="fas fa-history me-2" style="color: var(--admin-accent);"></i> Recent Reservations</h3>
+        {% if recent_reservations %}
+        {% for res in recent_reservations %}
+        <div class="admin-alert admin-alert-warning" style="justify-content: space-between;">
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <i class="fas fa-calendar-check"></i>
+                <div>
+                    <div style="font-weight: 600;">{{ res.user.first_name }} {{ res.user.last_name }}</div>
+                    <div style="font-size: 0.78rem; color: var(--admin-text-muted);">{{ res.date.strftime('%b %d') }} at
+                        {{ res.time.strftime('%I:%M %p') }} &middot; {{ res.guest_count }} guests</div>
+                </div>
+            </div>
+            <span class="badge-status badge-{{ res.status|lower }}">{{ res.status }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color: var(--admin-text-muted); font-size: 0.9rem; text-align: center; padding: 2rem 0;">No recent
+            reservations.</p>
+        {% endif %}
+    </div>
+
+    <!-- Critical Alerts -->
+    <div class="admin-card">
+        <h3><i class="fas fa-triangle-exclamation me-2" style="color: var(--admin-red);"></i> Critical Alerts</h3>
+        {% if pending_users > 0 %}
+        <div class="admin-alert admin-alert-warning">
+            <i class="fas fa-user-clock"></i>
+            <div>
+                <strong>{{ pending_users }} pending account{{ 's' if pending_users > 1 else '' }}</strong>
+                <div style="font-size: 0.78rem; color: var(--admin-text-muted);">Awaiting admin approval</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if low_stock_items %}
+        {% for item in low_stock_items %}
+        <div class="admin-alert admin-alert-danger">
+            <i class="fas fa-box-open"></i>
+            <div>
+                <strong>{{ item.name }}</strong>
+                <div style="font-size: 0.78rem; color: var(--admin-text-muted);">Marked as unavailable</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if pending_users == 0 and not low_stock_items %}
+        <p style="color: var(--admin-green); font-size: 0.9rem; text-align: center; padding: 2rem 0;">
+            <i class="fas fa-check-circle fa-2x mb-2 d-block"></i> All systems nominal.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="stats-grid">
+    <div class="stat-card" style="text-align: center;">
+        <div class="stat-icon mx-auto" style="background: rgba(139,92,246,0.15); color: #8b5cf6;"><i
+                class="fas fa-utensils"></i></div>
+        <div class="stat-value">{{ total_menu }}</div>
+        <div class="stat-label">Menu Items</div>
+    </div>
+    <div class="stat-card" style="text-align: center;">
+        <div class="stat-icon mx-auto" style="background: rgba(34,197,94,0.15); color: var(--admin-green);"><i
+                class="fas fa-user-check"></i></div>
+        <div class="stat-value">{{ total_customers - pending_users }}</div>
+        <div class="stat-label">Active Accounts</div>
+    </div>
+    <div class="stat-card" style="text-align: center;">
+        <div class="stat-icon mx-auto" style="background: rgba(245,158,11,0.15); color: var(--admin-yellow);"><i
+                class="fas fa-user-clock"></i></div>
+        <div class="stat-value">{{ pending_users }}</div>
+        <div class="stat-label">Pending Approvals</div>
+    </div>
+</div>
+{% endblock %}

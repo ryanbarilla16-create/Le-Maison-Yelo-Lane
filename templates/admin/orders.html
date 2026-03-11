@@ -1,0 +1,224 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Order Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
+        Order Management</h1>
+    <a href="{{ url_for('admin.walkin_order') }}" class="btn btn-sm rounded-pill fw-bold text-white shadow-sm px-4 py-2"
+        style="background: linear-gradient(135deg, #8B4513, #A0522D);">
+        <i class="fas fa-walking me-2"></i>New Walk-In Order
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="card-header bg-white border-bottom p-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold" style="color: var(--text-main);">Recent Orders</h5>
+
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin.orders', status='ALL') }}"
+                    class="btn btn-sm btn-outline-dark {% if status_filter == 'ALL' %}active{% endif %}">All</a>
+                <a href="{{ url_for('admin.orders', status='PENDING') }}"
+                    class="btn btn-sm btn-outline-warning {% if status_filter == 'PENDING' %}active{% endif %}">Pending</a>
+                <a href="{{ url_for('admin.orders', status='PREPARING') }}"
+                    class="btn btn-sm btn-outline-info {% if status_filter == 'PREPARING' %}active{% endif %}">Preparing</a>
+                <a href="{{ url_for('admin.orders', status='COMPLETED') }}"
+                    class="btn btn-sm btn-outline-success {% if status_filter == 'COMPLETED' %}active{% endif %}">Completed</a>
+                <a href="{{ url_for('admin.orders', status='CANCELLED') }}"
+                    class="btn btn-sm btn-outline-danger {% if status_filter == 'CANCELLED' %}active{% endif %}">Cancelled</a>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead style="background-color: rgba(0,0,0,0.02);">
+                    <tr>
+                        <th class="ps-4">Order ID</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Date & Time</th>
+                        <th>Status</th>
+                        <th class="pe-4 text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr class="order-row" style="cursor: pointer;" onclick="toggleOrderItems('{{ order.id }}', event)">
+                        <td class="ps-4 fw-bold">#{{ order.id }}</td>
+                        <td>
+                            {% if order.user %}
+                            <div class="fw-bold" style="color: var(--text-main);">{{ order.user.first_name }} {{
+                                order.user.last_name }}</div>
+                            {% else %}
+                            <div class="fw-bold" style="color: var(--text-main);"><i
+                                    class="fas fa-walking me-1 text-muted"></i>{{ order.customer_name or 'Walk-in' }}
+                            </div>
+                            <small class="text-muted">Walk-in Customer</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm text-secondary fw-bold rounded-pill border shadow-sm px-3 py-1"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseItems{{ order.id }}"
+                                aria-expanded="false" aria-controls="collapseItems{{ order.id }}"
+                                style="font-size: 0.8rem; background: #fff;">
+                                <i class="fas fa-shopping-basket me-1" style="color: var(--admin-accent);"></i> {{
+                                order.items|length }} Items
+                            </button>
+
+                            <div class="collapse mt-2" id="collapseItems{{ order.id }}">
+                                <div class="p-2 border rounded shadow-sm"
+                                    style="background: #fafafa; border-color: #eee !important;">
+                                    <ul class="list-unstyled mb-0" style="font-size: 0.85rem; color: #444;">
+                                        {% for item in order.items %}
+                                        <li class="mb-1"><span class="fw-bold" style="color: var(--text-main);">{{
+                                                item.quantity }}x</span> {{ item.menu_item.name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% if order.notes %}
+                                    <hr class="my-1 border-secondary opacity-25">
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;"><i
+                                            class="fas fa-sticky-note me-1"></i> <em>{{ order.notes }}</em></small>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mt-2 d-flex flex-wrap gap-1">
+                                {% if order.dining_option == 'DINE_IN' %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                    style="font-size: 0.70rem;"><i class="fas fa-utensils me-1"></i>Dine In</span>
+                                {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                    style="font-size: 0.70rem;"><i class="fas fa-shopping-bag me-1"></i>Take Out</span>
+                                {% endif %}
+
+                                {% if order.payment_method == 'COUNTER' %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                    style="font-size: 0.70rem;"><i class="fas fa-cash-register me-1"></i>Pay at
+                                    Counter</span>
+                                {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle"
+                                    style="font-size: 0.70rem;"><i class="fas fa-mobile-alt me-1"></i>Online
+                                    Payment</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="fw-bold text-success">₱{{ "%.2f"|format(order.total_amount) }}</td>
+                        <td>
+                            <div class="dropdown">
+                                {% if order.payment_status == 'PAID' %}
+                                <span
+                                    class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 dropdown-toggle"
+                                    style="cursor: pointer; font-size: 0.8rem;" data-bs-toggle="dropdown"><i
+                                        class="fas fa-check-circle me-1"></i> Paid</span>
+                                {% else %}
+                                <span
+                                    class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 dropdown-toggle"
+                                    style="cursor: pointer; font-size: 0.8rem;" data-bs-toggle="dropdown"><i
+                                        class="fas fa-times-circle me-1"></i> Unpaid</span>
+                                {% endif %}
+                                <ul class="dropdown-menu border-0 shadow-sm"
+                                    style="border-radius: 12px; font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0;"
+                                    onclick="event.stopPropagation()">
+                                    <li>
+                                        <form action="{{ url_for('admin.update_payment_status', order_id=order.id) }}"
+                                            method="POST" style="margin: 0;">
+                                            <input type="hidden" name="payment_status" value="PAID">
+                                            <button type="submit" class="dropdown-item text-success fw-bold py-1"><i
+                                                    class="fas fa-check-circle me-2"></i> Mark Paid</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form action="{{ url_for('admin.update_payment_status', order_id=order.id) }}"
+                                            method="POST" style="margin: 0;">
+                                            <input type="hidden" name="payment_status" value="UNPAID">
+                                            <button type="submit" class="dropdown-item text-danger fw-bold py-1"><i
+                                                    class="fas fa-times-circle me-2"></i> Mark Unpaid</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                        <td style="font-size: 0.9rem;" class="text-muted">
+                            {{ order.created_at.strftime('%b %d, %Y') }}<br>
+                            {{ order.created_at.strftime('%I:%M %p') }}
+                        </td>
+                        <td>
+                            {% if order.status == 'PENDING' %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+                            {% elif order.status == 'PREPARING' %}
+                            <span class="badge" style="background-color: #2196F3; color: white;"><i
+                                    class="fas fa-fire-burner me-1"></i>Preparing</span>
+                            {% elif order.status == 'COMPLETED' %}
+                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="fas fa-times me-1"></i>{{ order.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end">
+                            <a href="{{ url_for('admin.print_receipt', order_id=order.id) }}" target="_blank"
+                                class="btn btn-sm btn-outline-secondary rounded-pill" onclick="event.stopPropagation()">
+                                <i class="fas fa-print"></i> Print
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-shopping-bag fs-3 mb-2 opacity-50"></i><br>
+                            No orders found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleOrderItems(orderId, event) {
+        // Don't toggle if clicking a button, link, or within a dropdown
+        if (event.target.closest('button') || event.target.closest('a') || event.target.closest('.dropdown-menu')) {
+            return;
+        }
+
+        const collapseEl = document.getElementById('collapseItems' + orderId);
+        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+        bsCollapse.toggle();
+
+        // Optional: Toggle row highlight
+        const row = event.target.closest('tr');
+        row.style.backgroundColor = collapseEl.classList.contains('show') ? 'transparent' : 'rgba(139, 69, 19, 0.03)';
+    }
+</script>
+
+<style>
+    .order-row:hover {
+        background-color: rgba(139, 69, 19, 0.05) !important;
+        transition: background-color 0.2s ease;
+    }
+
+    .order-row.active {
+        background-color: rgba(139, 69, 19, 0.08) !important;
+    }
+
+    .order-row td {
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+    .collapse-items-container {
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 12px;
+        margin-top: 8px;
+        padding: 12px;
+    }
+</style>
+{% endblock %}

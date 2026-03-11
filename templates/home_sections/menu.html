@@ -1,0 +1,45 @@
+<div class="form-wrapper wide" style="background: rgba(255, 255, 255, 0.9);">
+    <!-- Mini Menu Display Grid -->
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; text-align: left;">
+        {% for item in menu_items %}
+        <div style="background: white; border-radius: 16px; border: 1px solid rgba(139, 69, 19, 0.1); box-shadow: 0 10px 20px rgba(0,0,0,0.03); transition: transform 0.3s ease, box-shadow 0.3s ease; overflow: hidden;"
+            onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 15px 30px rgba(139,69,19,0.1)';"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.03)';">
+
+            <!-- Optional image check if we have image_url -->
+            {% if item.image_url %}
+            <div style="width: 100%; height: 180px; overflow: hidden;">
+                <img src="{{ item.image_url }}" alt="{{ item.name }}"
+                    style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;"
+                    onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            </div>
+            {% endif %}
+
+            <div style="padding: 1.5rem;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <h3
+                        style="color: var(--text-main); font-family: 'Georgia', serif; font-size: 1.25rem; font-weight: bold; margin: 0;">
+                        {{ item.name }}</h3>
+                    <span
+                        style="color: var(--primary-color); font-weight: 700; font-size: 1.1rem; background: rgba(139, 69, 19, 0.05); padding: 0.2rem 0.6rem; border-radius: 8px;">${{
+                        "%.2f"|format(item.price) }}</span>
+                </div>
+                <div style="margin-bottom: 0.8rem;">
+                    <span class="badge"
+                        style="background-color: var(--primary-color); opacity: 0.8; font-weight: 500;">{{ item.category
+                        }}</span>
+                </div>
+                <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.5; margin: 0;">{{
+                    item.description }}</p>
+            </div>
+        </div>
+        {% else %}
+        <div style="width: 100%; grid-column: 1 / -1; text-align: center; padding: 3rem;">
+            <i class="fas fa-receipt fa-3x" style="color: #dee2e6; margin-bottom: 1rem;"></i>
+            <h4 style="color: var(--text-muted);">No menu items available at the moment.</h4>
+        </div>
+        {% endfor %}
+    </div>
+</div>

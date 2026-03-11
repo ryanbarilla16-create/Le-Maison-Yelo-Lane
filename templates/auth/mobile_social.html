@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Logging in to Le Maison...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #f8f9fa;
+            margin: 0;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .button {
+            padding: 14px 28px;
+            border-radius: 24px;
+            color: white;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: opacity 0.2s;
+        }
+
+        .button:active {
+            opacity: 0.8;
+        }
+
+        .google {
+            background: #db4437;
+        }
+
+        .facebook {
+            background: #1877f2;
+        }
+
+        #status {
+            font-size: 16px;
+            color: #333;
+            line-height: 1.5;
+            margin-top: 20px;
+        }
+
+        .branding {
+            font-family: 'Georgia', serif;
+            font-size: 28px;
+            font-weight: bold;
+            color: #8B4513;
+            margin-bottom: 20px;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #8B4513;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="branding">Le Maison</div>
+    <div class="loader" id="loader"></div>
+    <div id="status">Preparing secure login...</div>
+    <div id="action-area"></div>
+
+    <script>
+        const provider = "{{ provider }}";
+        const sessionId = "{{ session_id }}";
+        const fbAppId = "{{ FACEBOOK_APP_ID }}";
+        const googleClientId = "{{ GOOGLE_CLIENT_ID }}";
+
+        function showLoader(text) {
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('status').innerHTML = text;
+            document.getElementById('action-area').style.display = 'none';
+        }
+
+        function sendSuccess(email, firstName, lastName, pictureUrl) {
+            showLoader("Authenticating with server...");
+            fetch('/api/auth/social/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    provider: provider.charAt(0).toUpperCase() + provider.slice(1),
+                    email: email,
+                    first_name: firstName,
+                    last_name: lastName,
+                    picture_url: pictureUrl
+                })
+            }).then(r => r.json()).then(res => {
+                document.getElementById('loader').style.display = 'none';
+                if (res.success) {
+                    document.getElementById('status').innerHTML = "<b>Login Successful!</b><br><br>Please wait a moment while we take you back to the app, or you can safely close this browser.";
+                } else {
+                    document.getElementById('status').innerText = "Account Action Required.";
+                }
+            }).catch(e => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('status').innerText = "Connection error. Please try again later.";
+            });
+        }
+
+        // --- Facebook ---
+        window.fbAsyncInit = function () {
+            FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v18.0' });
+            if (provider === 'facebook') {
+                document.getElementById('status').innerText = "To proceed, log in using Facebook.";
+                document.getElementById('action-area').innerHTML = '<button class="button facebook" onclick="doFb()">Continue with Facebook</button>';
+            }
+        };
+
+        function doFb() {
+            FB.login(function (response) {
+                if (response.authResponse) {
+                    FB.api('/me', { fields: 'name,email,first_name,last_name,picture.type(large)' }, function (res) {
+                        const pic = res.picture && res.picture.data ? res.picture.data.url : null;
+                        sendSuccess(res.email, res.first_name, res.last_name, pic);
+                    });
+                } else {
+                    document.getElementById('status').innerText = "Login was cancelled.";
+                }
+            }, { scope: 'public_profile,email' });
+        }
+
+        // --- Google ---
+        let googleClient;
+        function initGoogle() {
+            if (provider === 'google') {
+                document.getElementById('status').innerText = "To proceed, log in using Google.";
+                document.getElementById('action-area').innerHTML = '<button class="button google" onclick="doGoogle()">Continue with Google</button>';
+                googleClient = google.accounts.oauth2.initTokenClient({
+                    client_id: googleClientId,
+                    scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                            })
+                                .then(res => res.json())
+                                .then(userInfo => {
+                                    sendSuccess(userInfo.email, userInfo.given_name, userInfo.family_name, userInfo.picture);
+                                })
+                                .catch(e => {
+                                    document.getElementById('status').innerText = "Login error. Check console.";
+                                });
+                        }
+                    }
+                });
+            }
+        }
+        function doGoogle() {
+            googleClient.requestAccessToken();
+        }
+    </script>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="initGoogle()" async defer></script>
+</body>
+
+</html>

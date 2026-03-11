@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+{% block title %}Account Approvals{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Account Approvals</h1>
+    <p>Review and approve new user registrations.</p>
+</div>
+
+{% if pending %}
+<div class="admin-table-wrap">
+    <div class="admin-table-header">
+        <h3>Pending Accounts ({{ pending|length }})</h3>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Username</th>
+                    <th>Birthday</th>
+                    <th>Registered</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in pending %}
+                <tr>
+                    <td style="font-weight: 600;">{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>@{{ user.username }}</td>
+                    <td>
+                        {% if user.birthday %}
+                        {{ user.birthday.strftime('%b %d, %Y') }}
+                        {% else %}
+                        <span style="color: grey;">N/A (Social Login)</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: var(--admin-text-muted);">Verified</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <form method="POST" action="{{ url_for('admin.approve_user', user_id=user.id) }}"><button
+                                    class="btn-admin btn-admin-success"><i class="fas fa-check"></i> Approve</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin.reject_user', user_id=user.id) }}"><button
+                                    class="btn-admin btn-admin-danger"><i class="fas fa-times"></i> Reject</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="admin-card" style="text-align: center; padding: 4rem;">
+    <i class="fas fa-check-circle fa-4x mb-3" style="color: var(--admin-green);"></i>
+    <h3>All Caught Up!</h3>
+    <p style="color: var(--admin-text-muted);">No pending account approvals at this time.</p>
+</div>
+{% endif %}
+{% endblock %}

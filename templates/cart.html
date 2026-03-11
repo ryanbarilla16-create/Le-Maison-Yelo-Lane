@@ -1,0 +1,277 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Your Cart{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="margin-top: 5rem; min-height: 70vh;">
+    <h2 class="mb-4"
+        style="font-family: 'Georgia', serif; font-size: 2.5rem; color: var(--text-main); font-weight: bold;">
+        <i class="fas fa-shopping-cart" style="color: var(--primary-color);"></i> Your Cart
+    </h2>
+
+    {% if cart_items %}
+    <div class="row g-4">
+        <!-- Cart Items List -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm" style="border-radius: 16px; overflow: hidden;">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 1rem;">
+                        <thead style="background: rgba(139,69,19,0.05);">
+                            <tr>
+                                <th class="border-0 px-4 py-3 text-muted fw-bold">Item</th>
+                                <th class="border-0 py-3 text-muted fw-bold">Price</th>
+                                <th class="border-0 py-3 text-muted fw-bold">Qty</th>
+                                <th class="border-0 py-3 text-muted fw-bold text-end">Subtotal</th>
+                                <th class="border-0 py-3 text-end px-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c_item in cart_items %}
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <div class="d-flex align-items-center">
+                                        {% if c_item.item.image_url %}
+                                        <img src="{{ c_item.item.image_url }}" alt="{{ c_item.item.name }}"
+                                            style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 15px;">
+                                        {% else %}
+                                        <div
+                                            style="width: 60px; height: 60px; border-radius: 8px; background: #f0ebe1; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                            <i class="fas fa-utensils text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-0 fw-bold text-dark">{{ c_item.item.name }}</h6>
+                                            <small class="text-muted">{{ c_item.item.category }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-3 fw-bold text-muted">₱{{ "%.2f"|format(c_item.item.price) }}</td>
+                                <td class="py-3">
+                                    <span class="badge bg-light text-dark border px-3 py-2 fs-6">{{ c_item.quantity
+                                        }}</span>
+                                </td>
+                                <td class="py-3 text-end fw-bold" style="color: var(--primary-color);">₱{{
+                                    "%.2f"|format(c_item.subtotal) }}</td>
+                                <td class="py-3 text-end px-4">
+                                    <form action="{{ url_for('main.remove_from_cart', item_id=c_item.item.id) }}"
+                                        method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-2"
+                                            title="Remove Item">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary & Checkout -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm"
+                style="border-radius: 16px; background-color: #ffffff; position: sticky; top: 100px;">
+                <div class="card-body p-4">
+                    <h5 class="card-title fw-bold mb-4"
+                        style="font-family: 'Georgia', serif; border-bottom: 2px solid rgba(139,69,19,0.1); padding-bottom: 0.75rem;">
+                        Order Summary</h5>
+
+                    <div class="d-flex justify-content-between mb-3 text-muted">
+                        <span>Items Subtotal</span>
+                        <span>₱{{ "%.2f"|format(total) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-4 text-muted">
+                        <span>Tax & Fees</span>
+                        <span>Calculated at store</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-2 text-muted" id="delivery_fee_row"
+                        style="display: none !important;">
+                        <span>Delivery Fee</span>
+                        <span>₱50.00</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-4 mt-2"
+                        style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px;">
+                        <span class="fw-bold fs-5 text-dark">Total Amount</span>
+                        <span class="fw-bold fs-5" style="color: var(--primary-color);" id="totalAmountDisplay">₱{{
+                            "%.2f"|format(total) }}</span>
+                    </div>
+
+                    <form action="{{ url_for('main.checkout') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-dark" style="font-size: 0.95rem;">Dining
+                                Option</label>
+                            <div class="d-flex gap-2">
+                                <input type="radio" class="btn-check" name="dining_option" id="dine_in" value="DINE_IN"
+                                    checked>
+                                <label class="btn btn-outline-dark rounded-pill flex-fill py-2" for="dine_in"
+                                    style="font-size: 0.9rem;"><i class="fas fa-utensils me-1"></i>Dine In</label>
+
+                                <input type="radio" class="btn-check" name="dining_option" id="take_out"
+                                    value="TAKE_OUT">
+                                <label class="btn btn-outline-dark rounded-pill flex-fill py-2" for="take_out"
+                                    style="font-size: 0.9rem;"><i class="fas fa-shopping-bag me-1"></i>Take Out</label>
+
+                                <input type="radio" class="btn-check" name="dining_option" id="delivery"
+                                    value="DELIVERY">
+                                <label class="btn btn-outline-dark rounded-pill flex-fill py-2" for="delivery"
+                                    style="font-size: 0.9rem;"><i class="fas fa-motorcycle me-1"></i>Delivery</label>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Fields -->
+                        <div id="delivery_fields" style="display: none;" class="mb-4">
+                            <div class="card bg-light border-0 shadow-sm p-3 rounded-3">
+                                <label class="form-label fw-bold text-dark" style="font-size: 0.95rem;">Delivery
+                                    Location</label>
+                                <select name="delivery_area" id="delivery_area"
+                                    class="form-select mb-3 border-0 shadow-sm">
+                                    <option value="">Select your area...</option>
+                                    <option value="Santa Cruz, Laguna">Santa Cruz, Laguna</option>
+                                    <option value="Magdalena, Laguna">Magdalena, Laguna</option>
+                                    <option value="Los Baños, Laguna">Los Baños, Laguna</option>
+                                    <option value="Cavinti, Laguna">Cavinti, Laguna</option>
+                                </select>
+
+                                <label class="form-label fw-bold text-dark" style="font-size: 0.95rem;">Exact Address /
+                                    Landmark</label>
+                                <textarea name="delivery_address" id="delivery_address"
+                                    class="form-control border-0 shadow-sm" rows="2"
+                                    placeholder="House number, street name, near [landmark]..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-dark" style="font-size: 0.95rem;">Payment
+                                Method</label>
+                            <div class="d-flex flex-column gap-2">
+                                <input type="radio" class="btn-check" name="payment_method" id="pay_counter"
+                                    value="COUNTER" checked>
+                                <label class="btn btn-outline-dark rounded-3 text-start py-3 px-3 shadow-sm"
+                                    for="pay_counter">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold" id="label_pay_counter"><i
+                                                class="fas fa-cash-register text-success me-2"></i>Pay
+                                            at the Counter</span>
+                                    </div>
+                                    <small class="text-muted d-block mt-1 ps-4" id="desc_pay_counter"
+                                        style="font-size: 0.8rem;">Pay cash or
+                                        card in-store.</small>
+                                </label>
+
+                                <input type="radio" class="btn-check" name="payment_method" id="pay_online"
+                                    value="ONLINE">
+                                <label class="btn btn-outline-dark rounded-3 text-start py-3 px-3 shadow-sm"
+                                    for="pay_online">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold"><i class="fas fa-mobile-alt text-primary me-2"></i>Online
+                                            Payment (GCash via Xendit)</span>
+                                    </div>
+                                    <small class="text-muted d-block mt-1 ps-4" id="desc_pay_online"
+                                        style="font-size: 0.8rem;">Pay securely
+                                        via e-wallet.</small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="notes" class="form-label fw-bold text-dark" style="font-size: 0.95rem;">Special
+                                Instructions <small class="fw-normal text-muted">(Optional)</small></label>
+                            <textarea id="notes" name="notes" class="form-control rounded-3" rows="3"
+                                placeholder="e.g. Less sugar, extra napkins..."
+                                style="border: 1px solid rgba(139,69,19,0.2);"></textarea>
+                        </div>
+
+                        {% if current_user.is_authenticated %}
+                        <button type="submit" class="btn w-100 rounded-pill py-3 fw-bold shadow-sm"
+                            style="background-color: var(--primary-color); color: white; border: none; font-size: 1.1rem; letter-spacing: 1px;">
+                            <i class="fas fa-check-circle me-2"></i> Submit Order
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn w-100 rounded-pill py-3 fw-bold shadow-sm btn-outline-dark"
+                            onclick="$('#termsModal').modal('show'); window.authIntent = 'login';">
+                            Sign in to Checkout
+                        </button>
+                        {% endif %}
+                    </form>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('main.menu_page') }}" class="text-decoration-none text-muted"
+                            style="font-size: 0.9rem;">
+                            <i class="fas fa-arrow-left me-1"></i> Continue Shopping
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const baseTotal = parseFloat("{{ total }}");
+            const deliveryFee = 50.00;
+
+            document.querySelectorAll('input[name="dining_option"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const isDelivery = this.value === 'DELIVERY';
+                    const deliverySection = document.getElementById('delivery_fields');
+                    const feeRow = document.getElementById('delivery_fee_row');
+                    const totalDisplay = document.getElementById('totalAmountDisplay');
+
+                    const counterLabel = document.getElementById('label_pay_counter');
+                    const counterDesc = document.getElementById('desc_pay_counter');
+                    const onlineDesc = document.getElementById('desc_pay_online');
+
+                    const areaInput = document.getElementById('delivery_area');
+                    const addressInput = document.getElementById('delivery_address');
+
+                    if (isDelivery) {
+                        deliverySection.style.display = 'block';
+                        feeRow.style.setProperty('display', 'flex', 'important');
+                        totalDisplay.innerText = '₱' + (baseTotal + deliveryFee).toFixed(2);
+
+                        counterLabel.innerHTML = '<i class="fas fa-hand-holding-usd text-success me-2"></i>Cash on Delivery';
+                        counterDesc.innerText = 'Pay cash when your order arrives. Includes delivery fee.';
+                        onlineDesc.innerText = 'Pay securely via e-wallet. Includes delivery fee.';
+
+                        areaInput.required = true;
+                        addressInput.required = true;
+                    } else {
+                        deliverySection.style.display = 'none';
+                        feeRow.style.setProperty('display', 'none', 'important');
+                        totalDisplay.innerText = '₱' + baseTotal.toFixed(2);
+
+                        counterLabel.innerHTML = '<i class="fas fa-cash-register text-success me-2"></i>Pay at the Counter';
+                        counterDesc.innerText = 'Pay cash or card in-store.';
+                        onlineDesc.innerText = 'Pay securely via e-wallet.';
+
+                        areaInput.required = false;
+                        addressInput.required = false;
+                    }
+                });
+            });
+
+            // Initial check
+            const checkedOption = document.querySelector('input[name="dining_option"]:checked');
+            if (checkedOption && checkedOption.value === 'DELIVERY') {
+                checkedOption.dispatchEvent(new Event('change'));
+            }
+        });
+    </script>
+    {% else %}
+    <div class="text-center py-5">
+        <div style="font-size: 6rem; color: rgba(139,69,19,0.1); margin-bottom: 1.5rem;">
+            <i class="fas fa-shopping-basket"></i>
+        </div>
+        <h3 style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold;">Your cart is empty</h3>
+        <p class="text-muted mb-4">Looks like you haven't added any of our delicious items yet.</p>
+        <a href="{{ url_for('main.menu_page') }}" class="btn rounded-pill px-5 py-3 fw-bold text-white shadow"
+            style="background-color: var(--primary-color);">
+            Browse Menu
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

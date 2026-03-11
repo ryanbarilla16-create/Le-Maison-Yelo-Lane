@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Admin{% endblock %} | Le Maison Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/admin.css') }}" rel="stylesheet">
+</head>
+
+<body class="admin-body">
+
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="sidebar-brand">
+            <i class="fas fa-coffee"></i>
+            <span class="brand-text">
+                {% if current_user.role|upper in ['CASHIER', 'STAFF'] %}Le Maison POS
+                {% elif current_user.role|upper in ['INVENTORY_STAFF', 'INVENTORY'] %}Le Maison Inventory
+                {% elif current_user.role|upper == 'KITCHEN' %}Le Maison Kitchen
+                {% elif current_user.role|upper == 'RIDER' %}Le Maison Deliveries
+                {% else %}Le Maison Admin{% endif %}
+            </span>
+        </div>
+
+        <!-- MAIN -->
+        <div class="sidebar-group-title">Main</div>
+        <ul class="sidebar-nav">
+            {% if current_user.role|upper == 'ADMIN' %}
+            <li><a href="{{ url_for('admin.overview') }}"
+                    class="{% if request.endpoint == 'admin.overview' %}active{% endif %}"><i
+                        class="fas fa-th-large"></i><span class="sidebar-label">Overview</span></a></li>
+            <li><a href="{{ url_for('admin.analytics') }}"
+                    class="{% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i
+                        class="fas fa-chart-line"></i><span class="sidebar-label">Analytics</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper in ['ADMIN', 'INVENTORY_STAFF', 'INVENTORY', 'CASHIER', 'STAFF'] %}
+            <li><a href="{{ url_for('admin.menu') }}"
+                    class="{% if request.endpoint == 'admin.menu' %}active{% endif %}"><i
+                        class="fas fa-utensils"></i><span class="sidebar-label">Menu</span></a></li>
+            {% endif %}
+        </ul>
+
+        <!-- MANAGEMENT -->
+        <div class="sidebar-group-title">Management</div>
+        <ul class="sidebar-nav">
+            {% if current_user.role|upper == 'ADMIN' %}
+            <li><a href="{{ url_for('admin.approvals') }}"
+                    class="{% if request.endpoint == 'admin.approvals' %}active{% endif %}"><i
+                        class="fas fa-user-check"></i><span class="sidebar-label">Account Approvals</span></a></li>
+            <li><a href="{{ url_for('admin.users') }}"
+                    class="{% if request.endpoint == 'admin.users' %}active{% endif %}"><i
+                        class="fas fa-users-cog"></i><span class="sidebar-label">User Management</span></a></li>
+            <li><a href="{{ url_for('admin.reservations') }}"
+                    class="{% if request.endpoint == 'admin.reservations' %}active{% endif %}"><i
+                        class="fas fa-calendar-alt"></i><span class="sidebar-label">Reservations</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF'] %}
+            <li><a href="{{ url_for('admin.orders') }}"
+                    class="{% if request.endpoint == 'admin.orders' %}active{% endif %}"><i
+                        class="fas fa-shopping-bag"></i><span class="sidebar-label">Orders</span></a></li>
+            <li><a href="{{ url_for('admin.walkin_order') }}"
+                    class="{% if request.endpoint == 'admin.walkin_order' %}active{% endif %}"><i
+                        class="fas fa-walking"></i><span class="sidebar-label">Walk-In Order</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper == 'KITCHEN' %}
+            <li><a href="{{ url_for('admin.kitchen_view') }}"
+                    class="{% if request.endpoint == 'admin.kitchen_view' %}active{% endif %}"><i
+                        class="fas fa-fire-burner"></i><span class="sidebar-label">Kitchen View</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF', 'RIDER'] %}
+            <li><a href="{{ url_for('admin.deliveries') }}"
+                    class="{% if request.endpoint == 'admin.deliveries' %}active{% endif %}"><i
+                        class="fas fa-truck"></i><span class="sidebar-label">Deliveries</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper in ['ADMIN', 'INVENTORY_STAFF', 'INVENTORY', 'CASHIER', 'STAFF'] %}
+            <li><a href="{{ url_for('admin.inventory') }}"
+                    class="{% if request.endpoint == 'admin.inventory' %}active{% endif %}"><i
+                        class="fas fa-boxes-stacked"></i><span class="sidebar-label">Inventory</span></a></li>
+            {% endif %}
+
+            {% if current_user.role|upper == 'ADMIN' %}
+            <li><a href="{{ url_for('admin.reviews') }}"
+                    class="{% if request.endpoint == 'admin.reviews' %}active{% endif %}"><i
+                        class="fas fa-star-half-alt"></i><span class="sidebar-label">Reviews</span></a></li>
+            {% endif %}
+        </ul>
+
+        <!-- SYSTEM -->
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-group-title">System</div>
+        <ul class="sidebar-nav" style="margin-bottom: 1.5rem;">
+            {% if current_user.role|upper == 'ADMIN' %}
+            <li><a href="{{ url_for('admin.settings') }}"
+                    class="{% if request.endpoint == 'admin.settings' %}active{% endif %}"><i
+                        class="fas fa-gear"></i><span class="sidebar-label">Settings</span></a></li>
+            {% endif %}
+            <li><a href="{{ url_for('main.index') }}" target="_blank"><i class="fas fa-external-link-alt"></i><span
+                        class="sidebar-label">View Live Site</span></a></li>
+            <li><a href="{{ url_for('admin.admin_logout') }}"><i class="fas fa-sign-out-alt"></i><span
+                        class="sidebar-label">Logout</span></a></li>
+        </ul>
+    </aside>
+
+    <!-- TOP BAR -->
+    <header class="admin-topbar">
+        <button class="topbar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <div class="topbar-right">
+            <span style="font-size: 0.85rem; color: var(--admin-text-muted);">
+                <i class="fas fa-clock me-1"></i> <span id="liveDateTime"></span>
+            </span>
+            <div class="topbar-avatar">{{ current_user.first_name[0] if current_user.is_authenticated else 'A' }}</div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="admin-main">
+        <div class="admin-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert"
+                style="background: var(--admin-surface); border: 1px solid var(--admin-border); color: var(--admin-text); border-radius: 12px;">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('adminSidebar').classList.toggle('collapsed');
+            document.body.classList.toggle('sidebar-collapsed');
+        }
+
+        // Live clock
+        function updateClock() {
+            const now = new Date();
+            const el = document.getElementById('liveDateTime');
+            if (el) el.textContent = now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        updateClock();
+        setInterval(updateClock, 30000);
+
+        // ==========================================
+        // SINGLE PAGE APPLICATION (SPA) FAST LOADER
+        // ==========================================
+        let pageTimeouts = [];
+        let pageIntervals = [];
+
+        // Safe wrappers for pages with loops/fetching like Kitchen View and Deliveries
+        window.registerTimeout = function (fn, delay) { const id = setTimeout(fn, delay); pageTimeouts.push(id); return id; };
+        window.registerInterval = function (fn, delay) { const id = setInterval(fn, delay); pageIntervals.push(id); return id; };
+
+        function clearPageTimers() {
+            pageTimeouts.forEach(clearTimeout); pageTimeouts = [];
+            pageIntervals.forEach(clearInterval); pageIntervals = [];
+        }
+
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.spa) adminLoadPage(window.location.href, false);
+        });
+
+        document.body.addEventListener('click', function (e) {
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            // Ignore if it's external, logout, anchors, or Bootstrap toggles
+            if (link.hostname !== window.location.hostname ||
+                link.getAttribute('target') === '_blank' ||
+                link.href.includes('#') ||
+                link.href.includes('logout') ||
+                link.getAttribute('data-bs-toggle')) {
+                return;
+            }
+
+            // Only SPA handle the admin routes
+            if (link.href.includes('/admin/')) {
+                e.preventDefault();
+                adminLoadPage(link.href, true);
+            }
+        });
+
+        async function adminLoadPage(url, push) {
+            try {
+                if (!document.getElementById('spaLoader')) {
+                    const l = document.createElement('div');
+                    l.id = 'spaLoader';
+                    l.style = 'position:fixed;top:0;left:0;height:4px;background:#8B4513;z-index:99999;transition:width 0.2s;width:0%;';
+                    document.body.appendChild(l);
+                }
+                const loader = document.getElementById('spaLoader');
+                loader.style.width = '30%';
+
+                const resp = await fetch(url);
+                if (!resp.ok && resp.status >= 400 || (resp.redirected && resp.url.includes('login'))) {
+                    window.location.href = resp.url || url; // Fallback to full reload
+                    return;
+                }
+
+                const html = await resp.text();
+                loader.style.width = '70%';
+
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                // Clear any running background intervals from previous page
+                clearPageTimers();
+
+                const newContent = doc.querySelector('.admin-content');
+                if (!newContent) { window.location.href = url; return; }
+
+                // Swap Content
+                document.querySelector('.admin-content').innerHTML = newContent.innerHTML;
+                document.title = doc.title;
+
+                // Sync the Sidebar Highlights
+                document.querySelectorAll('.sidebar-nav a').forEach(a => {
+                    const cleanUrl = url.split('?')[0];
+                    if (a.href === url || a.href === cleanUrl) a.classList.add('active');
+                    else a.classList.remove('active');
+                });
+
+                if (push) history.pushState({ spa: true }, doc.title, url);
+
+                // Run Scripts imported by the new html content safely
+                document.querySelector('.admin-content').querySelectorAll('script').forEach(s => {
+                    const newScript = document.createElement('script');
+                    if (s.src) newScript.src = s.src;
+                    else newScript.textContent = s.textContent;
+                    document.body.appendChild(newScript);
+                    newScript.remove();
+                });
+
+                loader.style.width = '100%';
+                setTimeout(() => loader.style.width = '0', 300);
+
+            } catch (err) {
+                console.error("SPA Loader Error:", err);
+                window.location.href = url;
+            }
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>
