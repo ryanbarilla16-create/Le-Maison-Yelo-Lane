@@ -1,1 +1,0 @@
-<h2>Authentication failed.</h2><p>Could not get access token.</p><p>{'error': {'message': 'Invalid verification code format.', 'type': 'OAuthException', 'code': 100, 'fbtrace_id': 'AEhsAdvx1G4leqnlBcl4CcY'}}</p>
