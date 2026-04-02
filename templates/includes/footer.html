@@ -1,66 +1,157 @@
-<footer style="background: #fff; border-top: 1px solid rgba(93,64,55,0.08); margin-top: 3rem;">
-    <div class="row mx-auto px-4 pt-5 pb-4" style="max-width: 1200px;">
+<footer
+    style="background: linear-gradient(135deg, #3E2723, #5D4037); color: #fff; margin-top: 5rem; position: relative; overflow: hidden;">
+    <!-- Subtle leaf/coffee pattern overlay if available, or just a soft gradient -->
+    <div
+        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.03; pointer-events: none; background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');">
+    </div>
+
+    <div class="row mx-auto px-4 pt-5 pb-4" style="max-width: 1200px; position: relative; z-index: 2;">
         <div class="col-6 col-md-3 col-lg-2 mb-4">
-            <h6 style="font-weight: 700; font-size: 0.85rem; margin-bottom: 1.25rem; color: var(--text-main); letter-spacing: 0.5px;">About Us</h6>
+            <h6
+                style="font-weight: 700; font-size: 0.9rem; margin-bottom: 1.5rem; color: #D4A862; letter-spacing: 1px; text-transform: uppercase;">
+                About Us</h6>
             <ul class="list-unstyled" style="font-size: 0.85rem;">
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Our Company</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Stories and News</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Customer Service</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Careers</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.about_page') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Our
+                        Company</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='stories-and-news') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Stories and
+                        News</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='customer-service') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Customer
+                        Service</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='careers') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Careers</a>
+                </li>
             </ul>
         </div>
         <div class="col-6 col-md-3 col-lg-2 mb-4">
-            <h6 style="font-weight: 700; font-size: 0.85rem; margin-bottom: 1.25rem; color: var(--text-main); letter-spacing: 0.5px;">Order Online</h6>
+            <h6
+                style="font-weight: 700; font-size: 0.9rem; margin-bottom: 1.5rem; color: #D4A862; letter-spacing: 1px; text-transform: uppercase;">
+                Order Online</h6>
             <ul class="list-unstyled" style="font-size: 0.85rem;">
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Order on the App</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Delivery</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">Send eGifts</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='order-on-the-app') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Order on the
+                        App</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.menu_page') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Delivery</a>
+                </li>
             </ul>
         </div>
         <div class="col-6 col-md-3 col-lg-2 mb-4">
-            <h6 style="font-weight: 700; font-size: 0.85rem; margin-bottom: 1.25rem; color: var(--text-main); letter-spacing: 0.5px;">Rewards</h6>
+            <h6
+                style="font-weight: 700; font-size: 0.9rem; margin-bottom: 1.5rem; color: #D4A862; letter-spacing: 1px; text-transform: uppercase;">
+                Rewards</h6>
             <ul class="list-unstyled" style="font-size: 0.85rem;">
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">My Account</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">View Transactions</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">FAQs</a></li>
+                <li class="mb-2"><a
+                        href="{% if current_user.is_authenticated %}{{ url_for('main.profile') }}{% else %}{{ url_for('main.login') }}{% endif %}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">My Account</a>
+                </li>
+                <li class="mb-2"><a
+                        href="{% if current_user.is_authenticated %}{{ url_for('main.my_orders') }}{% else %}{{ url_for('main.login') }}{% endif %}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">View
+                        Transactions</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='faqs') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">FAQs</a></li>
             </ul>
         </div>
         <div class="col-6 col-md-3 col-lg-2 mb-4">
-            <h6 style="font-weight: 700; font-size: 0.85rem; margin-bottom: 1.25rem; color: var(--text-main); letter-spacing: 0.5px;">Social Impact</h6>
+            <h6
+                style="font-weight: 700; font-size: 0.9rem; margin-bottom: 1.5rem; color: #D4A862; letter-spacing: 1px; text-transform: uppercase;">
+                Social Impact</h6>
             <ul class="list-unstyled" style="font-size: 0.85rem;">
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted);">Community</a></li>
-                <li class="mb-2"><a href="#" style="text-decoration: none; color: var(--text-muted);">Sustainability</a></li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='community') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Community</a>
+                </li>
+                <li class="mb-2"><a href="{{ url_for('main.static_page', page_name='sustainability') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.7); transition: all 0.3s;"
+                        onmouseover="this.style.color='#fff'; this.style.paddingLeft='5px'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.7)'; this.style.paddingLeft='0'">Sustainability</a>
+                </li>
             </ul>
         </div>
         <div class="col-12 col-lg-4 mb-4 d-flex flex-column align-items-lg-end justify-content-start">
-            <div style="font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.75rem;">
-                <i class="fas fa-coffee" style="color: var(--primary-color); font-size: 0.9rem; margin-right: 4px;"></i> Le maison yelo Lane
+            <div
+                style="font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 1.4rem; color: #fff; margin-bottom: 1rem;">
+                <i class="fas fa-coffee" style="color: #D4A862; margin-right: 8px;"></i> Le maison yelo Lane
             </div>
+            <p
+                style="font-size: 0.8rem; color: rgba(255,255,255,0.5); text-align: lg-right; margin-bottom: 1.5rem; max-width: 300px;">
+                Crafting exceptional coffee experiences in the heart of Pagsanjan.
+            </p>
             <div class="d-flex gap-3 mb-3">
-                <a href="#" style="width: 36px; height: 36px; border-radius: 10px; background: rgba(93,64,55,0.06); display: flex; align-items: center; justify-content: center; color: var(--primary-color); transition: all 0.3s; text-decoration: none;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(93,64,55,0.06)'; this.style.color='var(--primary-color)'"><i class="fab fa-facebook-f"></i></a>
-                <a href="#" style="width: 36px; height: 36px; border-radius: 10px; background: rgba(93,64,55,0.06); display: flex; align-items: center; justify-content: center; color: var(--primary-color); transition: all 0.3s; text-decoration: none;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(93,64,55,0.06)'; this.style.color='var(--primary-color)'"><i class="fab fa-instagram"></i></a>
-                <a href="#" style="width: 36px; height: 36px; border-radius: 10px; background: rgba(93,64,55,0.06); display: flex; align-items: center; justify-content: center; color: var(--primary-color); transition: all 0.3s; text-decoration: none;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(93,64,55,0.06)'; this.style.color='var(--primary-color)'"><i class="fab fa-twitter"></i></a>
-                <a href="#" style="width: 36px; height: 36px; border-radius: 10px; background: rgba(93,64,55,0.06); display: flex; align-items: center; justify-content: center; color: var(--primary-color); transition: all 0.3s; text-decoration: none;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(93,64,55,0.06)'; this.style.color='var(--primary-color)'"><i class="fab fa-youtube"></i></a>
+                <a href="{{ site.footer.facebook_link }}" target="_blank"
+                    style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #fff; transition: all 0.3s; text-decoration: none; border: 1px solid rgba(255,255,255,0.1);"
+                    onmouseover="this.style.background='#fff'; this.style.color='#3E2723'; this.style.transform='translateY(-3px)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.style.transform='translateY(0)'"><i
+                        class="fab fa-facebook-f"></i></a>
+                <a href="{{ site.footer.instagram_link }}" target="_blank"
+                    style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #fff; transition: all 0.3s; text-decoration: none; border: 1px solid rgba(255,255,255,0.1);"
+                    onmouseover="this.style.background='#fff'; this.style.color='#3E2723'; this.style.transform='translateY(-3px)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.style.transform='translateY(0)'"><i
+                        class="fab fa-instagram"></i></a>
+                <a href="{{ site.footer.twitter_link }}" target="_blank"
+                    style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #fff; transition: all 0.3s; text-decoration: none; border: 1px solid rgba(255,255,255,0.1);"
+                    onmouseover="this.style.background='#fff'; this.style.color='#3E2723'; this.style.transform='translateY(-3px)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.style.transform='translateY(0)'"><i
+                        class="fab fa-twitter"></i></a>
+                <a href="{{ site.footer.youtube_link }}" target="_blank"
+                    style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #fff; transition: all 0.3s; text-decoration: none; border: 1px solid rgba(255,255,255,0.1);"
+                    onmouseover="this.style.background='#fff'; this.style.color='#3E2723'; this.style.transform='translateY(-3px)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'; this.style.transform='translateY(0)'"><i
+                        class="fab fa-youtube"></i></a>
             </div>
         </div>
     </div>
 
     <div class="mx-auto px-4" style="max-width: 1200px;">
-        <hr style="border-color: rgba(93,64,55,0.08); margin: 0;">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 0;">
     </div>
 
-    <div class="row mx-auto px-4 py-3 align-items-center" style="max-width: 1200px;">
+    <div class="row mx-auto px-4 py-4 align-items-center" style="max-width: 1200px; position: relative; z-index: 2;">
         <div class="col-md-8">
             <ul class="list-inline mb-0" style="font-size: 0.78rem;">
-                <li class="list-inline-item me-3"><a href="#" style="text-decoration: none; color: var(--text-muted); font-weight: 500;">Web Accessibility</a></li>
-                <li class="list-inline-item me-3" style="color: rgba(93,64,55,0.2);">|</li>
-                <li class="list-inline-item me-3"><a href="#" style="text-decoration: none; color: var(--text-muted); font-weight: 500;">Privacy Policy</a></li>
-                <li class="list-inline-item me-3" style="color: rgba(93,64,55,0.2);">|</li>
-                <li class="list-inline-item"><a href="#" style="text-decoration: none; color: var(--text-muted); font-weight: 500;">Terms of Use</a></li>
+                <li class="list-inline-item me-3"><a
+                        href="{{ url_for('main.static_page', page_name='web-accessibility') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.5); font-weight: 500; transition: color 0.2s;"
+                        onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">Web
+                        Accessibility</a></li>
+                <li class="list-inline-item me-3" style="color: rgba(255,255,255,0.1);">|</li>
+                <li class="list-inline-item me-3"><a
+                        href="{{ url_for('main.static_page', page_name='privacy-policy') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.5); font-weight: 500; transition: color 0.2s;"
+                        onmouseover="this.style.color='#fff'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.5)'">Privacy Policy</a></li>
+                <li class="list-inline-item me-3" style="color: rgba(255,255,255,0.1);">|</li>
+                <li class="list-inline-item"><a href="{{ url_for('main.static_page', page_name='terms-of-use') }}"
+                        style="text-decoration: none; color: rgba(255,255,255,0.5); font-weight: 500; transition: color 0.2s;"
+                        onmouseover="this.style.color='#fff'"
+                        onmouseout="this.style.color='rgba(255,255,255,0.5)'">Terms of Use</a></li>
             </ul>
         </div>
-        <div class="col-md-4 text-md-end mt-2 mt-md-0">
-            <span style="font-size: 0.75rem; color: var(--text-muted);">© 2026 Le maison yelo Lane. All rights reserved.</span>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <span style="font-size: 0.75rem; color: rgba(255,255,255,0.4);">© 2026 Le maison yelo Lane. All rights
+                reserved.</span>
         </div>
     </div>
 </footer>

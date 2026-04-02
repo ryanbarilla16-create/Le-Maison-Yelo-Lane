@@ -10,6 +10,7 @@ import 'screens/cart_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await ThemeManager().init(); // Load theme preference
   await CartScreen.loadCart();
   runApp(const MyApp());
 }
@@ -19,11 +20,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Le Maison Yelo Lane',
-      theme: appTheme(),
-      home: const SplashScreen(),
-      debugShowCheckedModeBanner: false,
+    return ListenableBuilder(
+      listenable: ThemeManager(),
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Le Maison Yelo Lane',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeManager().isDark ? ThemeMode.dark : ThemeMode.light,
+          home: const SplashScreen(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }

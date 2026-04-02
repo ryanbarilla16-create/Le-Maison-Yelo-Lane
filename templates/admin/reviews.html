@@ -59,6 +59,11 @@
                         </td>
                         <td style="font-size: 0.95rem; font-style: italic;">
                             "{{ review.comment }}"
+                            <div class="mt-2">
+                                <span class="badge bg-{{ review.ai_sentiment_color|default('secondary') }} bg-opacity-10 text-{{ review.ai_sentiment_color|default('secondary') }} border border-{{ review.ai_sentiment_color|default('secondary') }} rounded-pill" style="font-size: 0.75rem;">
+                                    {{ review.ai_sentiment_icon|default('😐') }} {{ review.ai_sentiment|default('NEUTRAL') }}
+                                </span>
+                            </div>
                         </td>
                         <td>
                             {% if review.status == 'PENDING' %}

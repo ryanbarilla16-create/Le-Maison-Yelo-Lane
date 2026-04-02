@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from .. import main_bp
 from models import db, MenuItem, Order, OrderItem, Review, User
 from datetime import datetime
-from utils import get_ph_time, create_notification
+from utils import get_ph_time, create_notification, validate_order
 import os
 import requests
 import base64
@@ -53,6 +53,44 @@ def add_to_cart(item_id):
     # Redirect back to menu or wherever they came from
     return redirect(request.referrer or url_for('main.menu_page'))
 
+@main_bp.route('/cart/update/<int:item_id>', methods=['POST'])
+def update_cart(item_id):
+    cart = session.get('cart', {})
+    item_id_str = str(item_id)
+    
+    if item_id_str in cart:
+        action = request.form.get('action')
+        if action == 'increment':
+            cart[item_id_str] += 1
+        elif action == 'decrement' and cart[item_id_str] > 1:
+            cart[item_id_str] -= 1
+        
+        session['cart'] = cart
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            total_items = sum(cart.values())
+            
+            # Recalculate totals for immediate UI feedback
+            new_subtotal = 0
+            grand_total = 0
+            for id_str, qty in cart.items():
+                m_item = MenuItem.query.get(int(id_str))
+                if m_item:
+                    item_sub = m_item.price * qty
+                    grand_total += item_sub
+                    if id_str == item_id_str:
+                        new_subtotal = item_sub
+            
+            return {
+                "status": "success", 
+                "cart_count": total_items, 
+                "new_quantity": cart[item_id_str],
+                "item_subtotal": f"₱{new_subtotal:,.2f}",
+                "grand_total": f"₱{grand_total:,.2f}"
+            }
+            
+    return redirect(url_for('main.view_cart'))
+
 @main_bp.route('/cart/remove/<int:item_id>', methods=['POST'])
 def remove_from_cart(item_id):
     cart = session.get('cart', {})
@@ -78,6 +116,15 @@ def checkout():
     delivery_area = request.form.get('delivery_area', '')
     delivery_address_input = request.form.get('delivery_address', '')
     
+    # --- ORDER VALIDATION LOGIC ---
+    items_data = [{'menu_item_id': int(id), 'quantity': qty} for id, qty in cart.items()]
+    is_valid, msg, status_override = validate_order(items_data, dining_option, payment_method, is_pos=False)
+    
+    if not is_valid:
+        flash(msg, "danger")
+        return redirect(url_for('main.view_cart'))
+    # ------------------------------
+
     total = 0
     order_items = []
     
@@ -107,7 +154,7 @@ def checkout():
     new_order = Order(
         user_id=current_user.id,
         total_amount=total,
-        status='PENDING',
+        status=status_override or 'PENDING', # Use status_override (e.g., 'HOLD')
         dining_option=dining_option,
         payment_method=payment_method,
         notes=notes

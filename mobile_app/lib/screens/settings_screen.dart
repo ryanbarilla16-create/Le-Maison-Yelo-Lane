@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'forgot_password_screen.dart';
+import 'chat_screen.dart';
 import '../services/api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -14,7 +15,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkMode = false;
   String _language = 'English';
   bool _isDeleting = false;
 
@@ -90,11 +90,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ThemeManager().isDark;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'Settings',
-          style: AppTextStyles.heading.copyWith(fontSize: 20),
+          style: ThemeText.heading(context).copyWith(fontSize: 20),
         ),
         centerTitle: true,
         leading: IconButton(
@@ -103,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         children: [
           _sectionHeader('Preferences'),
           _settingItem(
@@ -121,9 +123,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'Toggle dark interface for night use',
             icon: Icons.dark_mode_outlined,
             trailing: Switch.adaptive(
-              value: _darkMode,
+              value: isDark,
               activeColor: AppColors.primary,
-              onChanged: (val) => setState(() => _darkMode = val),
+              onChanged: (val) {
+                ThemeManager().toggleTheme();
+                setState(() {});
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -158,7 +163,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Help Center',
             subtitle: 'FAQs and support chat',
             icon: Icons.help_outline_rounded,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChatScreen()),
+              );
+            },
           ),
           _settingItem(
             title: 'Terms & Conditions',
@@ -206,7 +216,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: AppColors.primary.withOpacity(0.7),
+          color: Theme.of(context).brightness == Brightness.dark 
+              ? AppColors.darkMuted 
+              : AppColors.primary.withOpacity(0.45),
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 2,
@@ -223,12 +235,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Color? titleColor,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
+      color: isDark ? AppColors.darkCard : AppColors.cardBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.primary.withOpacity(0.05)),
+        side: BorderSide(color: isDark ? Colors.white.withOpacity(0.03) : AppColors.primary.withOpacity(0.04)),
       ),
       child: ListTile(
         onTap: onTap,
@@ -243,17 +258,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         title: Text(
           title,
-          style: TextStyle(
-            color: titleColor ?? AppColors.textMain,
+          style: ThemeText.body(context).copyWith(
+            color: titleColor,
             fontWeight: FontWeight.bold,
             fontSize: 15,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: AppTextStyles.muted.copyWith(fontSize: 12),
+          style: ThemeText.muted(context).copyWith(fontSize: 12),
         ),
-        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textMuted),
+        trailing: trailing ?? Icon(Icons.chevron_right_rounded, size: 20, color: isDark ? AppColors.darkMuted : AppColors.textMuted.withOpacity(0.5)),
       ),
     );
   }

@@ -20,23 +20,38 @@ def reserve():
         guest_count_str = request.form.get('guest_count')
         occasion = request.form.get('occasion')
         booking_type = request.form.get('booking_type')
+        duration_str = request.form.get('duration', '2')
 
         try:
             res_date = datetime.strptime(res_date_str, '%Y-%m-%d').date()
             hour, minute = map(int, res_time_str.split(':'))
             res_time = dtime(hour, minute)
             guest_count = int(guest_count_str)
+            duration = int(duration_str)
         except ValueError:
             flash("Invalid data format provided.", "danger")
             return redirect(url_for('main.reserve'))
 
         today = date.today()
         diff = (res_date - today).days
-        if diff < 1:
-            flash("Reservation must be at least 1 day in advance.", "danger")
-            return redirect(url_for('main.reserve'))
-        if diff > 14:
-            flash("Reservation can be max 14 days in advance.", "danger")
+        
+        if booking_type == 'EXCLUSIVE':
+            if diff < 3:
+                flash("Exclusive reservations must be made at least 3 days in advance.", "danger")
+                return redirect(url_for('main.reserve'))
+        else:
+            if diff < 0:
+                flash("Cannot book in the past.", "danger")
+                return redirect(url_for('main.reserve'))
+            if diff == 0:
+                from datetime import datetime as dt
+                curr_t = dt.now().time()
+                if res_time <= curr_t:
+                    flash("You cannot book a time slot that has already passed today.", "danger")
+                    return redirect(url_for('main.reserve'))
+
+        if diff > 60:
+            flash("Reservation can be max 2 months (60 days) in advance.", "danger")
             return redirect(url_for('main.reserve'))
 
         if not check_reservation_time(res_time):
@@ -61,40 +76,49 @@ def reserve():
             Reservation.status.in_(['PENDING', 'CONFIRMED'])
         ).all()
 
-        current_res_datetime = datetime.combine(res_date, res_time)
-        close_time = dtime(20, 30)
+        from datetime import timedelta
+        current_res_start = datetime.combine(res_date, res_time)
+        current_res_end = current_res_start + timedelta(hours=duration)
         
-        if booking_type == 'EXCLUSIVE':
-            conflict = False
-            for r in active_res:
-                if r.time >= res_time and r.time <= close_time:
-                    conflict = True
-                    break
-                if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
-                    conflict = True
-                    break
-            if conflict:
-                flash("Cannot book Exclusive Venue. There are conflicting reservations in your requested time block.", "danger")
-                return redirect(url_for('main.reserve'))
-        else:
-            conflict_excl = False
-            for r in active_res:
-                if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
-                    conflict_excl = True
-                    break
-            if conflict_excl:
-                flash("Time slot blocked by an Exclusive Venue booking.", "danger")
-                return redirect(url_for('main.reserve'))
+        conflict = False
+        conflict_msg = ""
+        
+        for r in active_res:
+            r_start = datetime.combine(r.date, r.time)
+            # handle old rows where duration might be None by defaulting to 2
+            r_dur = r.duration if r.duration is not None else 2
+            r_end = r_start + timedelta(hours=r_dur)
             
-            total_guests_at_time = sum([r.guest_count for r in active_res if r.time == res_time])
-            if total_guests_at_time + guest_count > 50:
-                flash("Capacity Guard: Time slot is fully booked. Not enough seats.", "danger")
+            # Check overlap logic: (Start A < End B) and (Start B < End A)
+            if current_res_start < r_end and r_start < current_res_end:
+                if booking_type == 'EXCLUSIVE' or r.booking_type == 'EXCLUSIVE':
+                    conflict = True
+                    conflict_msg = "Cannot book this slot. It conflicts with an existing Exclusive booking or overlaps with another reservation."
+                    break
+
+        if conflict:
+            flash(conflict_msg, "danger")
+            return redirect(url_for('main.reserve'))
+
+        if booking_type != 'EXCLUSIVE':
+            overlapping_guests = 0
+            for r in active_res:
+                if r.booking_type != 'EXCLUSIVE':
+                    r_start = datetime.combine(r.date, r.time)
+                    r_dur = r.duration if r.duration is not None else 2
+                    r_end = r_start + timedelta(hours=r_dur)
+                    if current_res_start < r_end and r_start < current_res_end:
+                        overlapping_guests += r.guest_count
+            
+            if overlapping_guests + guest_count > 50:
+                flash("Capacity Guard: Time slot is too full. Not enough seats.", "danger")
                 return redirect(url_for('main.reserve'))
 
         new_res = Reservation(
             user_id=current_user.id,
             date=res_date,
             time=res_time,
+            duration=duration,
             guest_count=guest_count,
             occasion=occasion,
             booking_type=booking_type

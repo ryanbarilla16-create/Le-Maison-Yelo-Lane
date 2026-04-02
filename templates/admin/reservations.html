@@ -2,6 +2,135 @@
 {% block title %}Reservations{% endblock %}
 
 {% block content %}
+<style>
+    /* Premium Table Assignment Modal */
+    .table-modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(62, 39, 35, 0.3);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .table-modal-card {
+        background: #fff;
+        width: 100%;
+        max-width: 400px;
+        border-radius: 24px;
+        padding: 2.2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(139, 69, 19, 0.1);
+        transform: translateY(20px);
+        animation: slideUp 0.4s ease forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .modal-head {
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-head h4 {
+        font-family: 'Playfair Display', serif;
+        color: #5D4037;
+        font-weight: 700;
+        margin: 0;
+        font-size: 1.4rem;
+    }
+
+    .modal-head p {
+        color: #8D6E63;
+        font-size: 0.85rem;
+        margin-top: 0.4rem;
+    }
+
+    .modal-input-group {
+        margin-bottom: 1.8rem;
+    }
+
+    .modal-input-group label {
+        display: block;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #5D4037;
+        margin-bottom: 0.6rem;
+    }
+
+    .modal-input-group input {
+        width: 100%;
+        padding: 0.85rem 1.2rem;
+        border: 1.5px solid rgba(139, 69, 19, 0.12);
+        border-radius: 12px;
+        font-size: 1rem;
+        color: #3E2723;
+        transition: all 0.3s;
+    }
+
+    .modal-input-group input:focus {
+        outline: none;
+        border-color: #8B4513;
+        box-shadow: 0 0 0 4px rgba(139, 69, 19, 0.08);
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 0.8rem;
+    }
+
+    .btn-modal {
+        flex: 1;
+        padding: 0.85rem;
+        border: none;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-assign {
+        background: #5D4037;
+        color: #fff;
+        box-shadow: 0 6px 15px rgba(93, 64, 55, 0.2);
+    }
+
+    .btn-assign:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(93, 64, 55, 0.3);
+    }
+
+    .btn-cancel {
+        background: #F5F0EB;
+        color: #8D6E63;
+    }
+
+    .btn-cancel:hover {
+        background: #EFEBE9;
+    }
+</style>
+
 <div class="page-header">
     <h1>Reservations</h1>
     <p>Manage incoming table bookings and exclusive events.</p>
@@ -31,6 +160,7 @@
                     <th>Guest</th>
                     <th>Type</th>
                     <th>Date & Time</th>
+                    <th>Table</th>
                     <th>Guests</th>
                     <th>Occasion</th>
                     <th>Status</th>
@@ -45,16 +175,17 @@
                             class="badge-status {{ 'badge-active' if res.booking_type == 'EXCLUSIVE' else 'badge-pending' }}">{{
                             res.booking_type }}</span></td>
                     <td>{{ res.date.strftime('%b %d, %Y') }} · {{ res.time.strftime('%I:%M %p') }}</td>
+                    <td><span style="font-weight: 700; color: #8B4513;">{{ res.table_number or '—' }}</span></td>
                     <td>{{ res.guest_count }}</td>
                     <td>{{ res.occasion or '—' }}</td>
                     <td><span class="badge-status badge-{{ res.status|lower }}">{{ res.status }}</span></td>
                     <td>
                         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
                             {% if res.status == 'PENDING' %}
-                            <form method="POST" action="{{ url_for('admin.update_reservation', res_id=res.id) }}"><input
-                                    type="hidden" name="status" value="CONFIRMED"><button
-                                    class="btn-admin btn-admin-success" style="font-size: 0.78rem;"><i
-                                        class="fas fa-check"></i> Confirm</button></form>
+                            <button class="btn-admin btn-admin-success" style="font-size: 0.78rem;"
+                                onclick="openTableModal('{{ res.id }}', '{{ res.user.first_name }}')">
+                                <i class="fas fa-check"></i> Confirm
+                            </button>
                             <form method="POST" action="{{ url_for('admin.update_reservation', res_id=res.id) }}"><input
                                     type="hidden" name="status" value="REJECTED"><button
                                     class="btn-admin btn-admin-danger" style="font-size: 0.78rem;"><i
@@ -71,14 +202,58 @@
                     </td>
                 </tr>
                 {% endfor %}
-                {% if not reservations %}
-                <tr>
-                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--admin-text-muted);">No
-                        reservations found for this filter.</td>
-                </tr>
-                {% endif %}
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- Table Assignment Modal -->
+<div id="tableModal" class="table-modal">
+    <div class="table-modal-card">
+        <div class="modal-head">
+            <h4>Assign Table</h4>
+            <p id="modalSubtext">Assigning a table for Ryan's reservation.</p>
+        </div>
+        <form id="modalConfirmForm" method="POST">
+            <input type="hidden" name="status" value="CONFIRMED">
+            <div class="modal-input-group">
+                <label for="table_number_input">Table Number / Label</label>
+                <input type="text" id="table_number_input" name="table_number" placeholder="e.g. 1, 5, or Inside 1"
+                    required autofocus>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal btn-cancel" onclick="closeTableModal()">Cancel</button>
+                <button type="submit" class="btn-modal btn-assign">Confirm & Assign</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openTableModal(resId, guestName) {
+        const modal = document.getElementById('tableModal');
+        const form = document.getElementById('modalConfirmForm');
+        const subtext = document.getElementById('modalSubtext');
+
+        // Dynamic URL for the form action
+        form.action = `/admin/reservations/update/${resId}`;
+        subtext.innerText = `Assigning a table for ${guestName}'s reservation.`;
+
+        modal.style.display = 'flex';
+        document.getElementById('table_number_input').focus();
+    }
+
+    function closeTableModal() {
+        document.getElementById('tableModal').style.display = 'none';
+        document.getElementById('table_number_input').value = '';
+    }
+
+    // Close on outside click
+    window.onclick = function (event) {
+        const modal = document.getElementById('tableModal');
+        if (event.target == modal) {
+            closeTableModal();
+        }
+    }
+</script>
 {% endblock %}

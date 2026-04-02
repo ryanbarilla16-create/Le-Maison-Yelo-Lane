@@ -13,7 +13,8 @@ class _ReserveScreenState extends State<ReserveScreen> {
   DateTime? _date;
   String? _time;
   int _guests = 2;
-  final String _bookingType = 'REGULAR';
+  String _bookingType = 'REGULAR';
+  int _duration = 2;
   final _occasionCtrl = TextEditingController();
   bool _loading = false;
   List<dynamic> _upcoming = [];
@@ -58,13 +59,33 @@ class _ReserveScreenState extends State<ReserveScreen> {
     }
   }
 
+  List<String> get _getAvailableTimeSlots {
+    if (_date == null) return _timeSlots;
+    final now = DateTime.now();
+    bool isToday = _date!.year == now.year && _date!.month == now.month && _date!.day == now.day;
+    if (!isToday) return _timeSlots;
+    
+    return _timeSlots.where((t) {
+      final p = t.split(':');
+      final h = int.parse(p[0]);
+      final m = int.parse(p[1]);
+      return (h > now.hour) || (h == now.hour && m > now.minute);
+    }).toList();
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final isExclusive = _bookingType == 'EXCLUSIVE';
+    final firstDay = isExclusive ? now.add(const Duration(days: 1)) : now;
+    
+    DateTime initial = _date ?? firstDay;
+    if (initial.isBefore(firstDay)) initial = firstDay;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: now.add(const Duration(days: 1)),
-      firstDate: now.add(const Duration(days: 1)),
-      lastDate: now.add(const Duration(days: 14)),
+      initialDate: initial,
+      firstDate: firstDay,
+      lastDate: now.add(const Duration(days: 60)),
       builder: (c, ch) => Theme(
         data: Theme.of(c).copyWith(
           colorScheme: const ColorScheme.light(primary: AppColors.primary),
@@ -72,7 +93,12 @@ class _ReserveScreenState extends State<ReserveScreen> {
         child: ch!,
       ),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) {
+      setState(() {
+        _date = picked;
+        _time = null; // reset to re-validate time slot
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -88,8 +114,9 @@ class _ReserveScreenState extends State<ReserveScreen> {
       _msg('Guest count must be at least 1.', false);
       return;
     }
-    if (_guests > 20) {
-      _msg('Maximum of 20 guests per reservation.', false);
+    final maxG = _bookingType == 'EXCLUSIVE' ? 50 : 20;
+    if (_guests > maxG) {
+      _msg('Maximum of $maxG guests for ${_bookingType.toLowerCase()} bookings.', false);
       return;
     }
 
@@ -105,6 +132,7 @@ class _ReserveScreenState extends State<ReserveScreen> {
       'guest_count': _guests,
       'occasion': _occasionCtrl.text.trim(),
       'booking_type': _bookingType,
+      'duration': _duration,
     });
     setState(() => _loading = false);
     if (res['success'] == true) {
@@ -170,6 +198,31 @@ class _ReserveScreenState extends State<ReserveScreen> {
                     style: AppTextStyles.muted,
                   ),
                   const SizedBox(height: 20),
+                  // Booking Type
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _bookingType,
+                    decoration: const InputDecoration(
+                      labelText: 'Booking Type',
+                      prefixIcon: Icon(Icons.category, color: AppColors.primary),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'REGULAR', child: Text('Standard Booking')),
+                      DropdownMenuItem(value: 'EXCLUSIVE', child: Text('Exclusive (Rent Whole Restaurant)')),
+                    ],
+                    onChanged: (v) => setState(() {
+                      if (v != null) {
+                        _bookingType = v;
+                        _date = null; // force re-select date for new constraints
+                        if (_bookingType == 'EXCLUSIVE') {
+                          _guests = _guests > 50 ? 50 : _guests;
+                        } else {
+                          _guests = _guests > 20 ? 20 : _guests;
+                        }
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 14),
                   // Date
                   GestureDetector(
                     onTap: _pickDate,
@@ -207,6 +260,7 @@ class _ReserveScreenState extends State<ReserveScreen> {
                   const SizedBox(height: 14),
                   // Time
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     value: _time,
                     hint: const Text('Select Time'),
                     decoration: const InputDecoration(
@@ -215,7 +269,7 @@ class _ReserveScreenState extends State<ReserveScreen> {
                         color: AppColors.primary,
                       ),
                     ),
-                    items: _timeSlots
+                    items: _getAvailableTimeSlots
                         .map(
                           (t) =>
                               DropdownMenuItem(value: t, child: Text(_fmt(t))),
@@ -280,6 +334,25 @@ class _ReserveScreenState extends State<ReserveScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+                  // Duration
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    value: _duration,
+                    decoration: const InputDecoration(
+                      labelText: 'Duration',
+                      prefixIcon: Icon(Icons.timer, color: AppColors.primary),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('1 Hour')),
+                      DropdownMenuItem(value: 2, child: Text('2 Hours (Standard)')),
+                      DropdownMenuItem(value: 3, child: Text('3 Hours')),
+                      DropdownMenuItem(value: 4, child: Text('4 Hours')),
+                      DropdownMenuItem(value: 5, child: Text('5 Hours')),
+                      DropdownMenuItem(value: 8, child: Text('8 Hours (Full Day)')),
+                    ],
+                    onChanged: (v) => setState(() => _duration = v ?? 2),
                   ),
                   const SizedBox(height: 14),
                   // Occasion (Optional)

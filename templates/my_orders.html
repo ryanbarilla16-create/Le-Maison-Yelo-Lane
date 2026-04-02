@@ -4,61 +4,431 @@
 
 {% block content %}
 <style>
-    .moPage { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; margin-top: 2rem; }
-    .moHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
-    .moBack { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.85rem; padding: 0.45rem 1rem; border-radius: 10px; transition: all 0.3s; }
-    .moBack:hover { background: rgba(93,64,55,0.06); color: var(--primary-color); }
-    .moTitle h2 { font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 1.8rem; margin: 0; }
-    .moTitle p { color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0; }
-    .moOrderBtn { background: linear-gradient(135deg, #5D4037, #795548); color: #fff; font-weight: 700; font-size: 0.85rem; padding: 0.6rem 1.5rem; border-radius: 50px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; box-shadow: 0 4px 14px rgba(93,64,55,0.2); }
-    .moOrderBtn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(93,64,55,0.3); color: #fff; }
+    .moPage {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        margin-top: 2rem;
+    }
 
-    .moStats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-    .moStat { background: #fff; border-radius: 16px; padding: 1.5rem; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0,0,0,0.03); transition: all 0.3s; }
-    .moStat:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
-    .moStat h4 { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 1.8rem; margin: 0; }
-    .moStat p { color: var(--text-muted); font-size: 0.78rem; margin: 0.25rem 0 0; font-weight: 600; }
+    .moHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
 
-    .moTabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; background: #fff; padding: 0.5rem; border-radius: 14px; border: 1px solid var(--border-color); }
-    .moTab { background: transparent; color: var(--text-muted); border: none; border-radius: 10px; padding: 0.5rem 1.25rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-    .moTab:hover { background: rgba(93,64,55,0.05); }
-    .moTab.active { background: var(--primary-color) !important; color: #fff !important; box-shadow: 0 3px 10px rgba(93,64,55,0.2); }
+    .moBack {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.45rem 1rem;
+        border-radius: 10px;
+        transition: all 0.3s;
+    }
 
-    .moCards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-    .moCard { background: #fff; border-radius: 18px; padding: 1.5rem; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0,0,0,0.03); transition: all 0.35s cubic-bezier(0.4,0,0.2,1); }
-    .moCard:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(93,64,55,0.08); }
-    .moCard-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(93,64,55,0.06); }
-    .moCard-id { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.1rem; }
-    .moCard-date { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
-    .moCard-price { font-family: 'Playfair Display', serif; font-weight: 800; color: var(--primary-color); font-size: 1.15rem; }
-    .moCard-items { list-style: none; padding: 0; margin: 0; }
-    .moCard-items li { display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.88rem; }
-    .moCard-items li .qty { color: var(--text-muted); margin-right: 4px; }
-    .moCard-notes { font-size: 0.78rem; color: var(--text-muted); font-style: italic; border-top: 1px dashed rgba(93,64,55,0.1); padding-top: 0.5rem; margin-top: 0.5rem; }
-    .moCard-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed rgba(93,64,55,0.1); }
-    .moTag { padding: 0.2rem 0.7rem; border-radius: 50px; font-size: 0.68rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+    .moBack:hover {
+        background: rgba(93, 64, 55, 0.06);
+        color: var(--primary-color);
+    }
 
-    .moBadge { padding: 0.2rem 0.7rem; border-radius: 50px; font-size: 0.68rem; font-weight: 700; }
-    .moBadge-done { background: #E8F5E9; color: #2E7D32; }
-    .moBadge-pending { background: #FFF8E1; color: #E65100; }
-    .moBadge-prep { background: #E3F2FD; color: #1565C0; }
-    .moBadge-cancel { background: #FFEBEE; color: #C62828; }
-    .moBadge-otw { background: #E8EAF6; color: #283593; }
+    .moTitle h2 {
+        font-family: 'Playfair Display', 'Georgia', serif;
+        font-weight: 700;
+        font-size: 1.8rem;
+        margin: 0;
+    }
 
-    .moEmpty { text-align: center; padding: 4rem 1rem; }
-    .moEmpty-icon { width: 80px; height: 80px; border-radius: 50%; background: rgba(93,64,55,0.05); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; }
-    .moEmpty-icon i { font-size: 2rem; color: rgba(93,64,55,0.2); }
-    .moEmpty h4 { font-family: 'Playfair Display', serif; margin-bottom: 0.5rem; }
-    .moEmpty p { color: var(--text-muted); margin-bottom: 1.5rem; }
+    .moTitle p {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin: 0.25rem 0 0;
+    }
 
-    .moRateBtn { background: transparent; border: 1.5px solid #D4A862; color: #D4A862; border-radius: 50px; padding: 0.2rem 0.75rem; font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.3s; }
-    .moRateBtn:hover { background: #D4A862; color: #fff; }
-    .moTrackBtn { background: transparent; border: 1.5px solid #283593; color: #283593; border-radius: 50px; padding: 0.2rem 0.75rem; font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.3s; }
-    .moTrackBtn:hover { background: #283593; color: #fff; }
+    .moOrderBtn {
+        background: linear-gradient(135deg, #5D4037, #795548);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 0.6rem 1.5rem;
+        border-radius: 50px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 14px rgba(93, 64, 55, 0.2);
+    }
+
+    .moOrderBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(93, 64, 55, 0.3);
+        color: #fff;
+    }
+
+    .moStats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .moStat {
+        background: #fff;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s;
+    }
+
+    .moStat:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .moStat h4 {
+        font-family: 'Playfair Display', serif;
+        font-weight: 800;
+        font-size: 1.8rem;
+        margin: 0;
+    }
+
+    .moStat p {
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        margin: 0.25rem 0 0;
+        font-weight: 600;
+    }
+
+    .moTabs {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+        background: #fff;
+        padding: 0.5rem;
+        border-radius: 14px;
+        border: 1px solid var(--border-color);
+    }
+
+    .moTab {
+        background: transparent;
+        color: var(--text-muted);
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .moTab:hover {
+        background: rgba(93, 64, 55, 0.05);
+    }
+
+    .moTab.active {
+        background: var(--primary-color) !important;
+        color: #fff !important;
+        box-shadow: 0 3px 10px rgba(93, 64, 55, 0.2);
+    }
+
+    .moCards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        grid-auto-rows: 1fr;
+        /* This helps match heights in the same row */
+    }
+
+    .moCard {
+        background: #fff;
+        border-radius: 24px;
+        padding: 1.75rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        /* Force height to match grid row */
+        min-height: 520px;
+        position: relative;
+    }
+
+    .moCard:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(93, 64, 55, 0.12);
+        border-color: rgba(93, 64, 55, 0.15);
+    }
+
+    .moCard-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding-bottom: 1rem;
+        margin-bottom: 1.25rem;
+        border-bottom: 2px solid rgba(93, 64, 55, 0.04);
+    }
+
+    .moCard-id {
+        font-family: 'Playfair Display', serif;
+        font-weight: 800;
+        font-size: 1.25rem;
+        color: #3E2723;
+    }
+
+    .moCard-date {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.2rem;
+        font-weight: 500;
+    }
+
+    .moCard-price {
+        font-family: 'Playfair Display', serif;
+        font-weight: 800;
+        color: var(--primary-color);
+        font-size: 1.3rem;
+        text-align: right;
+    }
+
+    /* ITEM SCROLL AREA - This keeps containers uniform */
+    .moCard-items-wrap {
+        flex: 1;
+        /* Takes up all available space to push tags to bottom */
+        overflow-y: auto;
+        margin-bottom: 1rem;
+        padding-right: 8px;
+    }
+
+    .moCard-items-wrap::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .moCard-items-wrap::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 4px;
+    }
+
+    .moCard-items {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .moCard-items li {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.6rem 0;
+        font-size: 0.9rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    .moCard-items li:last-child {
+        border-bottom: none;
+    }
+
+    .moCard-items li .qty {
+        background: rgba(93, 64, 55, 0.06);
+        color: var(--primary-color);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        margin-right: 8px;
+    }
+
+    .moCard-notes {
+        font-size: 0.8rem;
+        color: #795548;
+        background: #FFFBF0;
+        padding: 0.75rem;
+        border-radius: 12px;
+        margin-top: auto;
+        margin-bottom: 1rem;
+        border-left: 3px solid #FFC107;
+    }
+
+    /* FOOTER AREA - Tags and Actions */
+    .moCard-footer {
+        margin-top: auto;
+    }
+
+    .moCard-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(93, 64, 55, 0.08);
+    }
+
+    .moTag {
+        padding: 0.3rem 0.8rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(93, 64, 55, 0.04);
+        color: #5D4037;
+    }
+
+    .moBadge {
+        padding: 0.35rem 0.9rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .moBadge-done {
+        background: #E8F5E9;
+        color: #2E7D32;
+    }
+
+    .moBadge-pending {
+        background: #FFF8E1;
+        color: #E65100;
+    }
+
+    .moBadge-prep {
+        background: #E3F2FD;
+        color: #1565C0;
+    }
+
+    .moBadge-cancel {
+        background: #FFEBEE;
+        color: #C62828;
+    }
+
+    .moBadge-otw {
+        background: #E8EAF6;
+        color: #283593;
+    }
+
+    .moEmpty {
+        text-align: center;
+        padding: 4rem 1rem;
+    }
+
+    .moEmpty-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(93, 64, 55, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+    }
+
+    .moEmpty-icon i {
+        font-size: 2rem;
+        color: rgba(93, 64, 55, 0.2);
+    }
+
+    .moEmpty h4 {
+        font-family: 'Playfair Display', serif;
+        margin-bottom: 0.5rem;
+    }
+
+    .moEmpty p {
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+    }
+
+    .moRateBtn {
+        background: transparent;
+        border: 1.5px solid #D4A862;
+        color: #D4A862;
+        border-radius: 50px;
+        padding: 0.2rem 0.75rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .moRateBtn:hover {
+        background: #D4A862;
+        color: #fff;
+    }
+
+    .moTrackBtn {
+        background: transparent;
+        border: 1.5px solid #283593;
+        color: #283593;
+        border-radius: 50px;
+        padding: 0.2rem 0.75rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .moTrackBtn:hover {
+        background: #283593;
+        color: #fff;
+    }
 
     @media(max-width: 768px) {
-        .moStats { grid-template-columns: 1fr 1fr; }
-        .moCards { grid-template-columns: 1fr; }
+        .moStats {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .moCards {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .msg-bubble {
+        max-width: 80%;
+        padding: 8px 14px;
+        border-radius: 16px;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        clear: both;
+    }
+
+    .msg-sent {
+        background: linear-gradient(135deg, #5D4037, #795548);
+        color: white;
+        float: right;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-received {
+        background: #f0f0f0;
+        color: #333;
+        float: left;
+        border-bottom-left-radius: 4px;
+    }
+
+    .msg-time {
+        font-size: 0.65rem;
+        padding: 0 4px;
+        opacity: 0.7;
+        clear: both;
+        margin-bottom: 12px;
+    }
+
+    .time-sent {
+        float: right;
+    }
+
+    .time-received {
+        float: left;
     }
 </style>
 
@@ -68,7 +438,8 @@
         <div class="d-flex align-items-center gap-3">
             <a href="{{ url_for('main.index') }}" class="moBack"><i class="fas fa-arrow-left"></i> Back</a>
             <div class="moTitle">
-                <h2><i class="fas fa-shopping-bag me-2" style="color: var(--primary-color); font-size: 1.4rem;"></i>My Orders</h2>
+                <h2><i class="fas fa-shopping-bag me-2" style="color: var(--primary-color); font-size: 1.4rem;"></i>My
+                    Orders</h2>
                 <p>Track and manage all your orders</p>
             </div>
         </div>
@@ -77,10 +448,22 @@
 
     <!-- Stats -->
     <div class="moStats">
-        <div class="moStat"><h4 style="color: var(--primary-color);">{{ all_orders|length }}</h4><p>Total Orders</p></div>
-        <div class="moStat"><h4 style="color: #E65100;">{{ pending_count }}</h4><p>Pending</p></div>
-        <div class="moStat"><h4 style="color: #1565C0;">{{ preparing_count }}</h4><p>Preparing</p></div>
-        <div class="moStat"><h4 style="color: #2E7D32;">{{ completed_count }}</h4><p>Completed</p></div>
+        <div class="moStat">
+            <h4 style="color: var(--primary-color);">{{ all_orders|length }}</h4>
+            <p>Total Orders</p>
+        </div>
+        <div class="moStat">
+            <h4 style="color: #E65100;">{{ pending_count }}</h4>
+            <p>Pending</p>
+        </div>
+        <div class="moStat">
+            <h4 style="color: #1565C0;">{{ preparing_count }}</h4>
+            <p>Preparing</p>
+        </div>
+        <div class="moStat">
+            <h4 style="color: #2E7D32;">{{ completed_count }}</h4>
+            <p>Completed</p>
+        </div>
     </div>
 
     <!-- Filter Tabs -->
@@ -121,50 +504,70 @@
                     </div>
                 </div>
 
-                <ul class="moCard-items">
-                    {% for item in order.items %}
-                    <li><span><span class="qty">{{ item.quantity }}x</span> {{ item.menu_item.name }}</span><span style="color: var(--text-muted);">₱{{ "%.2f"|format(item.price_at_time * item.quantity) }}</span></li>
-                    {% endfor %}
-                </ul>
+                <div class="moCard-items-wrap">
+                    <ul class="moCard-items">
+                        {% for item in order.items %}
+                        <li>
+                            <span><span class="qty">{{ item.quantity }}x</span> {{ item.menu_item.name }}</span>
+                            <span style="color: var(--text-muted);">₱{{ "%.2f"|format(item.price_at_time *
+                                item.quantity) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
 
                 {% if order.notes %}
                 <div class="moCard-notes"><i class="fas fa-sticky-note me-1"></i> {{ order.notes }}</div>
                 {% endif %}
 
-                <div class="moCard-tags">
-                    {% if order.dining_option == 'DINE_IN' %}
-                    <span class="moTag" style="background: rgba(93,64,55,0.06); color: var(--primary-color);"><i class="fas fa-utensils"></i> Dine In</span>
-                    {% else %}
-                    <span class="moTag" style="background: rgba(93,64,55,0.06); color: var(--primary-color);"><i class="fas fa-shopping-bag"></i> Take Out</span>
-                    {% endif %}
-                    {% if order.payment_method == 'COUNTER' %}
-                    <span class="moTag" style="background: rgba(93,64,55,0.06); color: var(--primary-color);"><i class="fas fa-cash-register"></i> Counter</span>
-                    {% else %}
-                    <span class="moTag" style="background: rgba(93,64,55,0.06); color: var(--primary-color);"><i class="fas fa-mobile-alt"></i> Online</span>
-                    {% endif %}
-                    {% if order.payment_status == 'PAID' %}
-                    <span class="moTag" style="background: #E8F5E9; color: #2E7D32;"><i class="fas fa-check-circle"></i> Paid</span>
-                    {% else %}
-                    <span class="moTag" style="background: #FFEBEE; color: #C62828;"><i class="fas fa-times-circle"></i> Unpaid</span>
-                    {% endif %}
-                </div>
+                <div class="moCard-footer">
+                    <div class="moCard-tags">
+                        {% if order.dining_option == 'DINE_IN' %}
+                        <span class="moTag"><i class="fas fa-utensils"></i> Dine In</span>
+                        {% else %}
+                        <span class="moTag"><i class="fas fa-shopping-bag"></i> Pick-up</span>
+                        {% endif %}
 
-                <!-- Actions -->
-                {% if order.overall_status == 'COMPLETED' %}
-                <div class="mt-2 text-end">
-                    {% if order.id in user_reviews_by_order %}
-                    <div style="font-size: 0.78rem; color: #D4A862;">
-                        {% for _ in range(user_reviews_by_order[order.id].rating) %}<i class="fas fa-star"></i>{% endfor %}{% for _ in range(5 - user_reviews_by_order[order.id].rating) %}<i class="far fa-star"></i>{% endfor %}
+                        {% if order.payment_method == 'COUNTER' %}
+                        <span class="moTag"><i class="fas fa-cash-register"></i> Counter</span>
+                        {% else %}
+                        <span class="moTag"><i class="fas fa-mobile-alt"></i> Online</span>
+                        {% endif %}
+
+                        {% if order.payment_status == 'PAID' %}
+                        <span class="moTag" style="background: #E8F5E9; color: #2E7D32;"><i
+                                class="fas fa-check-circle"></i> Paid</span>
+                        {% else %}
+                        <span class="moTag" style="background: #FFEBEE; color: #C62828;"><i
+                                class="fas fa-times-circle"></i> Unpaid</span>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <button class="moRateBtn" data-bs-toggle="modal" data-bs-target="#reviewModal" onclick="document.getElementById('reviewOrderForm').action = '/order/{{ order.id }}/review';"><i class="fas fa-star me-1"></i>Rate Order</button>
+
+                    <!-- Actions -->
+                    {% if order.overall_status == 'COMPLETED' %}
+                    <div class="mt-3 text-end">
+                        {% if order.id in user_reviews_by_order %}
+                        <div style="font-size: 0.78rem; color: #D4A862;">
+                            {% for _ in range(user_reviews_by_order[order.id].rating) %}<i class="fas fa-star"></i>{%
+                            endfor %}{% for _ in range(5 - user_reviews_by_order[order.id].rating) %}<i
+                                class="far fa-star"></i>{% endfor %}
+                        </div>
+                        {% else %}
+                        <button class="moRateBtn" data-bs-toggle="modal" data-bs-target="#reviewModal"
+                            onclick="document.getElementById('reviewOrderForm').action = '/order/{{ order.id }}/review';"><i
+                                class="fas fa-star me-1"></i>Rate Order</button>
+                        {% endif %}
+                    </div>
+                    {% elif order.overall_status == 'ON_THE_WAY' %}
+                    <div class="mt-3 text-end">
+                        <button class="moRateBtn me-2" style="border-color: #5D4037; color: #5D4037;"
+                            onclick="openOrderChatModal({{ order.id }})"><i class="fas fa-comment-dots me-1"></i>Chat
+                            Rider</button>
+                        <button class="moTrackBtn" onclick="openTrackingModal({{ order.id }})"><i
+                                class="fas fa-location-arrow me-1"></i>Track Rider</button>
+                    </div>
                     {% endif %}
                 </div>
-                {% elif order.overall_status == 'ON_THE_WAY' %}
-                <div class="mt-2 text-end">
-                    <button class="moTrackBtn" onclick="openTrackingModal({{ order.id }})"><i class="fas fa-location-arrow me-1"></i>Track Rider</button>
-                </div>
-                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -183,37 +586,252 @@
     {% endif %}
 
     <!-- Review Modal -->
-    <div class="modal fade" id="reviewModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 16px 48px rgba(0,0,0,0.12); overflow: hidden;"><div class="modal-header border-0 pb-0 px-4 pt-4"><h5 class="modal-title" style="font-family: 'Playfair Display', serif; font-weight: 700;">Rate Your Experience</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body px-4 pb-4"><p style="color: var(--text-muted); font-size: 0.88rem;">We'd love to hear your feedback.</p><form id="reviewOrderForm" method="POST" action=""><div class="mb-4 text-center"><input type="hidden" name="rating" id="reviewRatingInput" value="5" required><div class="d-flex justify-content-center gap-2" style="font-size: 2.2rem; color: #e0e0e0;">{% for i in range(1,6) %}<i class="fas fa-star text-warning" onclick="setStarRating({{ i }})" id="star-{{ i }}" style="cursor:pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'"></i>{% endfor %}</div></div><div class="mb-3"><label class="form-label fw-bold" style="font-size:0.88rem; color: var(--text-muted);">Comment (Optional)</label><textarea class="form-control" name="comment" rows="3" placeholder="Tell us what you liked..." style="border-radius: 12px; border: 1px solid var(--border-color); resize: none;"></textarea></div><div class="d-grid mt-4"><button type="submit" class="btn text-white fw-bold" style="background: linear-gradient(135deg, #5D4037, #795548); border-radius: 50px; padding: 0.75rem; box-shadow: 0 4px 14px rgba(93,64,55,0.2);">Submit Review</button></div></form></div></div></div></div>
+    <div class="modal fade" id="reviewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content"
+                style="border-radius: 20px; border: none; box-shadow: 0 16px 48px rgba(0,0,0,0.12); overflow: hidden;">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h5 class="modal-title" style="font-family: 'Playfair Display', serif; font-weight: 700;">Rate Your
+                        Experience</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 pb-4">
+                    <p style="color: var(--text-muted); font-size: 0.88rem;">We'd love to hear your feedback.</p>
+                    <form id="reviewOrderForm" method="POST" action="">
+                        <div class="mb-4 text-center"><input type="hidden" name="rating" id="reviewRatingInput"
+                                value="5" required>
+                            <div class="d-flex justify-content-center gap-2" style="font-size: 2.2rem; color: #e0e0e0;">
+                                {% for i in range(1,6) %}<i class="fas fa-star text-warning"
+                                    onclick="setStarRating({{ i }})" id="star-{{ i }}"
+                                    style="cursor:pointer; transition: transform 0.2s;"
+                                    onmouseover="this.style.transform='scale(1.15)'"
+                                    onmouseout="this.style.transform='scale(1)'"></i>{% endfor %}</div>
+                        </div>
+                        <div class="mb-3"><label class="form-label fw-bold"
+                                style="font-size:0.88rem; color: var(--text-muted);">Comment (Optional)</label><textarea
+                                class="form-control" name="comment" rows="3" placeholder="Tell us what you liked..."
+                                style="border-radius: 12px; border: 1px solid var(--border-color); resize: none;"></textarea>
+                        </div>
+                        <div class="d-grid mt-4"><button type="submit" class="btn text-white fw-bold"
+                                style="background: linear-gradient(135deg, #5D4037, #795548); border-radius: 50px; padding: 0.75rem; box-shadow: 0 4px 14px rgba(93,64,55,0.2);">Submit
+                                Review</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Tracking Modal -->
-    <div class="modal fade" id="trackingModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content" style="border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 16px 48px rgba(0,0,0,0.15);"><div class="modal-header border-0 text-white pb-2" style="background: linear-gradient(135deg, #283593, #3949AB);"><h5 class="modal-title" style="font-family: 'Playfair Display', serif;"><i class="fas fa-map-marker-alt me-2"></i>Order #<span id="trackOrderId"></span></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="stopTracking()"></button></div><div class="px-3 pb-3 text-white shadow-sm" style="background: linear-gradient(135deg, #283593, #3949AB); position: relative; z-index: 10;"><div class="d-flex align-items-center mb-1"><div style="background: rgba(255,255,255,0.15); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 10px;"><i class="fas fa-motorcycle"></i></div><div><div class="fw-bold" style="font-size: 0.95rem;" id="trackRiderName">Locating rider...</div><div style="font-size: 0.7rem; opacity: 0.7;"><i class="fas fa-satellite-dish me-1"></i>Last update: <span id="trackLastUpdate">--</span></div></div></div></div><div class="modal-body p-0" style="position: relative;"><div id="trackingMap" style="height: 350px; width: 100%; background: #f5f0eb;"></div><div style="position: absolute; bottom: 15px; left: 15px; background: white; padding: 4px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 999; display: flex; align-items: center;"><i class="fas fa-circle text-success me-1 pulse-dot" style="font-size: 8px;"></i><span style="font-size: 0.7rem; font-weight: bold;">LIVE</span></div></div></div></div></div>
+    <div class="modal fade" id="trackingModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content"
+                style="border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 16px 48px rgba(0,0,0,0.15);">
+                <div class="modal-header border-0 text-white pb-2"
+                    style="background: linear-gradient(135deg, #283593, #3949AB);">
+                    <h5 class="modal-title" style="font-family: 'Playfair Display', serif;"><i
+                            class="fas fa-map-marker-alt me-2"></i>Order #<span id="trackOrderId"></span></h5><button
+                        type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        onclick="stopTracking()"></button>
+                </div>
+                <div class="px-3 pb-3 text-white shadow-sm"
+                    style="background: linear-gradient(135deg, #283593, #3949AB); position: relative; z-index: 10;">
+                    <div class="d-flex align-items-center mb-1">
+                        <div
+                            style="background: rgba(255,255,255,0.15); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                            <i class="fas fa-motorcycle"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold" style="font-size: 0.95rem;" id="trackRiderName">Locating rider...</div>
+                            <div style="font-size: 0.7rem; opacity: 0.7;"><i class="fas fa-satellite-dish me-1"></i>Last
+                                update: <span id="trackLastUpdate">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-0" style="position: relative;">
+                    <div id="trackingMap" style="height: 350px; width: 100%; background: #f5f0eb;"></div>
+                    <div
+                        style="position: absolute; bottom: 15px; left: 15px; background: white; padding: 4px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 999; display: flex; align-items: center;">
+                        <i class="fas fa-circle text-success me-1 pulse-dot" style="font-size: 8px;"></i><span
+                            style="font-size: 0.7rem; font-weight: bold;">LIVE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        function setStarRating(num) { document.getElementById('reviewRatingInput').value = num; for(let i=1; i<=5; i++) { document.getElementById('star-'+i).classList.toggle('text-warning', i<=num); } }
+        function setStarRating(num) { document.getElementById('reviewRatingInput').value = num; for (let i = 1; i <= 5; i++) { document.getElementById('star-' + i).classList.toggle('text-warning', i <= num); } }
         function filterOrders(status, btn) {
             const cards = document.querySelectorAll('.order-card'); let vis = 0;
-            cards.forEach(c => { if(status==='all'||c.dataset.status===status) { c.style.display=''; vis++; } else { c.style.display='none'; } });
-            document.getElementById('noOrdersFiltered').style.display = vis===0?'block':'none';
+            cards.forEach(c => { if (status === 'all' || c.dataset.status === status) { c.style.display = ''; vis++; } else { c.style.display = 'none'; } });
+            document.getElementById('noOrdersFiltered').style.display = vis === 0 ? 'block' : 'none';
             document.querySelectorAll('.moTab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
         }
     </script>
     <style>
-        @keyframes pulse-dot { 0%{transform:scale(.95);opacity:.5} 50%{transform:scale(1.1);opacity:1} 100%{transform:scale(.95);opacity:.5} }
-        .pulse-dot{animation:pulse-dot 1s infinite}
-        .store-marker{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#D4A862,#5D4037);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-        .rider-pulse-marker{width:16px;height:16px;border-radius:50%;background:#283593;border:3px solid #fff;box-shadow:0 0 0 3px rgba(40,53,147,.3),0 2px 6px rgba(0,0,0,.3);animation:pulse-ring-blue 1.5s cubic-bezier(.215,.61,.355,1) infinite}
-        @keyframes pulse-ring-blue{0%{box-shadow:0 0 0 0 rgba(40,53,147,.5),0 2px 6px rgba(0,0,0,.3)}80%,100%{box-shadow:0 0 0 12px rgba(40,53,147,0),0 2px 6px rgba(0,0,0,.3)}}
+        @keyframes pulse-dot {
+            0% {
+                transform: scale(.95);
+                opacity: .5
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 1
+            }
+
+            100% {
+                transform: scale(.95);
+                opacity: .5
+            }
+        }
+
+        .pulse-dot {
+            animation: pulse-dot 1s infinite
+        }
+
+        .store-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #D4A862, #5D4037);
+            border: 3px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .3)
+        }
+
+        .rider-pulse-marker {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #283593;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 3px rgba(40, 53, 147, .3), 0 2px 6px rgba(0, 0, 0, .3);
+            animation: pulse-ring-blue 1.5s cubic-bezier(.215, .61, .355, 1) infinite
+        }
+
+        @keyframes pulse-ring-blue {
+            0% {
+                box-shadow: 0 0 0 0 rgba(40, 53, 147, .5), 0 2px 6px rgba(0, 0, 0, .3)
+            }
+
+            80%,
+            100% {
+                box-shadow: 0 0 0 12px rgba(40, 53, 147, 0), 0 2px 6px rgba(0, 0, 0, .3)
+            }
+        }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Order Chat Modal -->
+    <div class="modal fade" id="orderChatModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content"
+                style="border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 16px 48px rgba(0,0,0,0.15);">
+                <div class="modal-header text-white"
+                    style="background: linear-gradient(135deg, #5D4037, #795548); border: none;">
+                    <h5 class="modal-title" style="font-family: 'Playfair Display', serif;"><i
+                            class="fas fa-comments me-2"></i> Chat with Rider</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        onclick="closeChat()"></button>
+                </div>
+                <div class="modal-body p-0"
+                    style="background: #fdfdfd; height: 350px; display: flex; flex-direction: column;">
+                    <div id="chatMessagesContainer"
+                        style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column;">
+                        <!-- dynamic msgs -->
+                    </div>
+                    <div
+                        style="border-top: 1px solid var(--border-color); padding: 10px; background: #fff; display: flex; gap: 8px;">
+                        <input type="text" id="chatMessageInput" class="form-control"
+                            style="border-radius: 20px; font-size:0.9rem;" placeholder="Type message..."
+                            onkeypress="if(event.key==='Enter') sendOrderChatMessage()">
+                        <button class="btn text-white"
+                            style="border-radius: 50%; width: 40px; height: 40px; background: #5D4037; flex-shrink:0;"
+                            onclick="sendOrderChatMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let trackMap=null,trackStoreMarker=null,trackRiderMarker=null,trackingInterval=null;const storeLatLng=[14.2730,121.4550];
-        function initTrackingMap(){if(trackMap!==null){trackMap.invalidateSize();return;}trackMap=L.map('trackingMap',{center:storeLatLng,zoom:15,zoomControl:false});L.control.zoom({position:'topright'}).addTo(trackMap);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19}).addTo(trackMap);const sIcon=L.divIcon({className:'',html:'<div class="store-marker"></div>',iconSize:[20,20],iconAnchor:[10,10]});trackStoreMarker=L.marker(storeLatLng,{icon:sIcon}).addTo(trackMap);trackStoreMarker.bindPopup('<b style="color:#5D4037">☕ Le Maison Store</b>');}
-        function openTrackingModal(id){document.getElementById('trackOrderId').textContent=id;document.getElementById('trackRiderName').textContent="Locating rider...";document.getElementById('trackLastUpdate').textContent="--";const m=new bootstrap.Modal(document.getElementById('trackingModal'));m.show();setTimeout(()=>{initTrackingMap();fetchRiderLocation(id);trackingInterval=setInterval(()=>fetchRiderLocation(id),5000);},300);}
-        function stopTracking(){if(trackingInterval){clearInterval(trackingInterval);trackingInterval=null;}}
-        function fetchRiderLocation(id){fetch(`/api/delivery/track/${id}`,{headers:{'Bypass-Tunnel-Reminder':'true'}}).then(r=>r.json()).then(d=>{if(d.success&&d.rider_location){const l=d.rider_location,rll=[l.lat,l.lng];document.getElementById('trackRiderName').textContent=d.rider_name;document.getElementById('trackLastUpdate').textContent=new Date(l.timestamp).toLocaleTimeString();if(trackRiderMarker){trackRiderMarker.setLatLng(rll);}else{const ri=L.divIcon({className:'',html:'<div class="rider-pulse-marker"></div>',iconSize:[16,16],iconAnchor:[8,8]});trackRiderMarker=L.marker(rll,{icon:ri}).addTo(trackMap);trackRiderMarker.bindPopup('<b>🏍️ '+d.rider_name+'</b><br><small>Rider on the way</small>');}if(!trackMap._userZoomed){trackMap.fitBounds(L.latLngBounds([storeLatLng,rll]),{padding:[40,40],maxZoom:16});}}else{document.getElementById('trackRiderName').textContent="No live location yet";}}).catch(e=>console.error(e));}
-        document.getElementById('trackingModal').addEventListener('shown.bs.modal',function(){if(trackMap){trackMap.on('zoomstart dragstart',function(){trackMap._userZoomed=true;});}});
-        document.getElementById('trackingModal').addEventListener('hidden.bs.modal',stopTracking);
+        let trackMap = null, trackStoreMarker = null, trackRiderMarker = null, trackingInterval = null; const storeLatLng = [14.2730, 121.4550];
+        function initTrackingMap() { if (trackMap !== null) { trackMap.invalidateSize(); return; } trackMap = L.map('trackingMap', { center: storeLatLng, zoom: 15, zoomControl: false }); L.control.zoom({ position: 'topright' }).addTo(trackMap); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(trackMap); const sIcon = L.divIcon({ className: '', html: '<div class="store-marker"></div>', iconSize: [20, 20], iconAnchor: [10, 10] }); trackStoreMarker = L.marker(storeLatLng, { icon: sIcon }).addTo(trackMap); trackStoreMarker.bindPopup('<b style="color:#5D4037">☕ Le Maison Store</b>'); }
+        function openTrackingModal(id) { document.getElementById('trackOrderId').textContent = id; document.getElementById('trackRiderName').textContent = "Locating rider..."; document.getElementById('trackLastUpdate').textContent = "--"; const m = new bootstrap.Modal(document.getElementById('trackingModal')); m.show(); setTimeout(() => { initTrackingMap(); fetchRiderLocation(id); trackingInterval = setInterval(() => fetchRiderLocation(id), 5000); }, 300); }
+        function stopTracking() { if (trackingInterval) { clearInterval(trackingInterval); trackingInterval = null; } }
+        function fetchRiderLocation(id) { fetch(`/api/delivery/track/${id}`, { headers: { 'Bypass-Tunnel-Reminder': 'true' } }).then(r => r.json()).then(d => { if (d.success && d.rider_location) { const l = d.rider_location, rll = [l.lat, l.lng]; document.getElementById('trackRiderName').textContent = d.rider_name; document.getElementById('trackLastUpdate').textContent = new Date(l.timestamp).toLocaleTimeString(); if (trackRiderMarker) { trackRiderMarker.setLatLng(rll); } else { const ri = L.divIcon({ className: '', html: '<div class="rider-pulse-marker"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }); trackRiderMarker = L.marker(rll, { icon: ri }).addTo(trackMap); trackRiderMarker.bindPopup('<b>🏍️ ' + d.rider_name + '</b><br><small>Rider on the way</small>'); } if (!trackMap._userZoomed) { trackMap.fitBounds(L.latLngBounds([storeLatLng, rll]), { padding: [40, 40], maxZoom: 16 }); } } else { document.getElementById('trackRiderName').textContent = "No live location yet"; } }).catch(e => console.error(e)); }
+        document.getElementById('trackingModal').addEventListener('shown.bs.modal', function () { if (trackMap) { trackMap.on('zoomstart dragstart', function () { trackMap._userZoomed = true; }); } });
+        document.getElementById('trackingModal').addEventListener('hidden.bs.modal', stopTracking);
+
+        let currentChatOrderId = null;
+        let chatInterval = null;
+        const currentUserId = {{ current_user.id }};
+
+        function openOrderChatModal(orderId) {
+            currentChatOrderId = orderId;
+            document.getElementById('chatMessagesContainer').innerHTML = '<div class="text-center mt-4 w-100"><div class="spinner-border text-primary spinner-border-sm"></div></div>';
+            new bootstrap.Modal(document.getElementById('orderChatModal')).show();
+            loadOrderChats();
+            chatInterval = setInterval(loadOrderChats, 4000);
+        }
+
+        function closeChat() {
+            if (chatInterval) clearInterval(chatInterval);
+            currentChatOrderId = null;
+        }
+
+        document.getElementById('orderChatModal').addEventListener('hidden.bs.modal', closeChat);
+
+        function loadOrderChats() {
+            if (!currentChatOrderId) return;
+            fetch(`/api/order/${currentChatOrderId}/chat`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) renderChatMessages(d.messages);
+                });
+        }
+
+        function renderChatMessages(msgs) {
+            const c = document.getElementById('chatMessagesContainer');
+            if (msgs.length === 0) {
+                if (!c.innerHTML.includes('No messages')) c.innerHTML = '<div class="text-center text-muted mt-5 w-100"><i class="fas fa-comment-slash fa-2x mb-2 opacity-50"></i><p>No messages yet.<br>Send a message to your rider.</p></div>';
+                return;
+            }
+            let html = '';
+            msgs.forEach(m => {
+                const isMe = m.sender_id === currentUserId;
+                const d = new Date(m.created_at);
+                const t = d.getHours() > 12 ? `${d.getHours() - 12}:${d.getMinutes().toString().padStart(2, '0')} PM` : `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')} AM`;
+                html += `<div class="msg-bubble ${isMe ? 'msg-sent' : 'msg-received'}">${m.message}</div>`;
+                html += `<div class="msg-time ${isMe ? 'time-sent' : 'time-received'}">${t}</div>`;
+                html += `<div style="clear:both;"></div>`;
+            });
+            const isScrolledToBottom = c.scrollHeight - c.clientHeight <= c.scrollTop + 50;
+            c.innerHTML = html;
+            if (isScrolledToBottom) c.scrollTop = c.scrollHeight;
+        }
+
+        function sendOrderChatMessage() {
+            if (!currentChatOrderId) return;
+            const i = document.getElementById('chatMessageInput');
+            const msg = i.value.trim();
+            if (!msg) return;
+
+            i.value = '';
+
+            // optimistic ui
+            const c = document.getElementById('chatMessagesContainer');
+            if (c.innerHTML.includes('No messages')) c.innerHTML = '';
+            c.innerHTML += `<div class="msg-bubble msg-sent">${msg}</div><div class="msg-time time-sent">sending...</div><div style="clear:both;"></div>`;
+            c.scrollTop = c.scrollHeight;
+
+            fetch(`/api/order/${currentChatOrderId}/chat/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender_id: currentUserId, message: msg })
+            }).then(() => loadOrderChats());
+        }
     </script>
 </main>
 {% endblock %}

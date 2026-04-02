@@ -238,7 +238,6 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Widget _categoryCard(dynamic cat) {
-    final itemCount = cat['count'] ?? 0;
     return GestureDetector(
       onTap: () => setState(() => _selectedCategory = cat['category']),
       child: Container(
@@ -307,9 +306,24 @@ class _MenuScreenState extends State<MenuScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text(
-              '$itemCount items',
-              style: AppTextStyles.muted.copyWith(fontSize: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Browse Selection',
+                  style: AppTextStyles.muted.copyWith(
+                    fontSize: 10,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 8,
+                  color: AppColors.primary,
+                ),
+              ],
             ),
           ],
         ),

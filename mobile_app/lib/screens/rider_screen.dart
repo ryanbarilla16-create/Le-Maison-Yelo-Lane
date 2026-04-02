@@ -7,6 +7,8 @@ import '../services/auth_service.dart';
 import '../theme.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
+import 'chat_screen.dart';
+import 'order_chat_screen.dart';
 
 class RiderScreen extends StatefulWidget {
   const RiderScreen({super.key});
@@ -18,8 +20,10 @@ class RiderScreen extends StatefulWidget {
 class _RiderScreenState extends State<RiderScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-  Timer? _refreshTimer;
+  dynamic _summary;
+  Timer? _dashboardTimer;
   Timer? _locationTimer;
+  final ScrollController _scrollCtrl = ScrollController();
 
   List<Map<String, dynamic>> _available = [];
   List<Map<String, dynamic>> _active = [];
@@ -37,20 +41,20 @@ class _RiderScreenState extends State<RiderScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
-    _loadData();
     _initLocationTracking();
-    _loadUnreadCount();
-    // Auto-refresh every 8 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    _loadData();
+
+    // Auto-refresh orders and dashboard data every 10 seconds
+    _dashboardTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _loadData(silent: true);
-      _loadUnreadCount();
     });
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _dashboardTimer?.cancel();
     _locationTimer?.cancel();
+    _scrollCtrl.dispose();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -112,6 +116,18 @@ class _RiderScreenState extends State<RiderScreen>
     final summary = await ApiService.get('/api/rider/summary/$_riderId');
 
     if (mounted) {
+      if (res == null && !_loading) {
+        // Show error only if not silently auto-refreshing
+        // to avoid spamming the user when internet drops briefly
+      }
+
+      if (res == null && !silent) {
+        _showSnack(
+          'Could not sync data. Check internet connection or tunnel.',
+          Colors.red,
+        );
+      }
+
       setState(() {
         if (res != null && res['success'] == true) {
           final allAvailable = List<Map<String, dynamic>>.from(
@@ -134,6 +150,7 @@ class _RiderScreenState extends State<RiderScreen>
           _completed = List<Map<String, dynamic>>.from(res['completed'] ?? []);
         }
         if (summary != null && summary['success'] == true) {
+          _summary = summary;
           _totalToday = summary['total_deliveries_today'] ?? 0;
           _activeCount = summary['active_deliveries'] ?? 0;
         }
@@ -340,7 +357,9 @@ class _RiderScreenState extends State<RiderScreen>
 
   Future<void> _loadUnreadCount() async {
     if (_riderId == null) return;
-    final res = await ApiService.get('/api/user/$_riderId/notifications/unread-count');
+    final res = await ApiService.get(
+      '/api/user/$_riderId/notifications/unread-count',
+    );
     if (!mounted) return;
     if (res != null && res['success'] == true) {
       setState(() => _unreadNotifCount = res['count'] ?? 0);
@@ -380,10 +399,16 @@ class _RiderScreenState extends State<RiderScreen>
               _loadUnreadCount();
             },
             icon: Badge(
-              label: Text('$_unreadNotifCount', style: const TextStyle(fontSize: 10)),
+              label: Text(
+                '$_unreadNotifCount',
+                style: const TextStyle(fontSize: 10),
+              ),
               isLabelVisible: _unreadNotifCount > 0,
               backgroundColor: AppColors.danger,
-              child: Icon(Icons.notifications_rounded, color: AppColors.textMain),
+              child: Icon(
+                Icons.notifications_rounded,
+                color: AppColors.textMain,
+              ),
             ),
           ),
           IconButton(
@@ -428,6 +453,11 @@ class _RiderScreenState extends State<RiderScreen>
       ),
       body: Column(
         children: [
+          // Earnings Card
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: _buildEarningsCard(),
+          ),
           // Stats bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -471,6 +501,124 @@ class _RiderScreenState extends State<RiderScreen>
                       _buildOrderList(_completed, 'completed'),
                     ],
                   ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChatScreen()),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.support_agent_rounded, color: Colors.white),
+        tooltip: 'Admin Support',
+      ),
+    );
+  }
+
+  Widget _buildEarningsCard() {
+    final balance = _summary?['wallet_balance'] ?? 0;
+    final todayEarn = _summary?['today_earnings'] ?? 0;
+    final todayTrips = _summary?['today_deliveries'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, Color(0xFF6D4C41)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Wallet Balance',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Icon(
+                Icons.account_balance_wallet,
+                color: Colors.white.withOpacity(0.8),
+                size: 20,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '₱${(balance as num).toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Today\'s Earnings',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '₱${(todayEarn as num).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 30, color: Colors.white24),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Today\'s Trips',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$todayTrips',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -727,15 +875,95 @@ class _RiderScreenState extends State<RiderScreen>
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.phone, color: AppColors.textMuted, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        order['customer_phone'],
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
+                      GestureDetector(
+                        onTap: () async {
+                          final phone = order['customer_phone'];
+                          final uri = Uri.parse('tel:$phone');
+                          try {
+                            await launchUrl(uri);
+                          } catch (_) {
+                            if (mounted)
+                              _showSnack('Could not open dialer.', Colors.red);
+                          }
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.phone,
+                                color: Colors.green,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              order['customer_phone'],
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      if (type == 'active') ...[
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => OrderChatScreen(
+                                  orderId: order['id'],
+                                  otherPartyName:
+                                      order['customer_name'] ?? 'Customer',
+                                  otherPartyRole: 'Customer',
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  color: AppColors.primary,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Chat',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -804,6 +1032,28 @@ class _RiderScreenState extends State<RiderScreen>
                         ],
                       ],
                     ),
+                  ),
+                ],
+                // Order timestamp
+                if (order['created_at'] != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        color: AppColors.textMuted.withOpacity(0.6),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _formatOrderTime(order['created_at']),
+                        style: TextStyle(
+                          color: AppColors.textMuted.withOpacity(0.7),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 Divider(color: Colors.grey.withOpacity(0.2), height: 20),
@@ -1004,5 +1254,38 @@ class _RiderScreenState extends State<RiderScreen>
     }
 
     return const SizedBox.shrink();
+  }
+
+  String _formatOrderTime(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      return '${months[dt.month - 1]} ${dt.day}, $hour:${dt.minute.toString().padLeft(2, '0')} $ampm';
+    } catch (_) {
+      return '';
+    }
   }
 }

@@ -149,23 +149,65 @@
         this.style.borderColor = '';
     });
 
-    function validateProfile() {
-        const phone = phoneInput.value;
-        if (!/^09\d{9}$/.test(phone)) { showError("Must be exactly 11 digits starting with 09."); return false; }
-        const digitsOnly = phone.substring(2);
-        if (/^([0-9])\1{8}$/.test(digitsOnly)) { showError("Invalid sequence. Please input a valid mobile number."); return false; }
-        const names = [document.getElementById('first_name').value, document.getElementById('last_name').value];
-        for (let name of names) { if (!/^[A-Za-z\s\-]+$/.test(name)) { alert("Names can only contain letters, spaces, and dashes."); return false; } }
-        const email = document.getElementById('email').value;
-        if (!email.endsWith('@gmail.com')) { alert("Email must end with @gmail.com"); return false; }
-        return true;
+    function showFieldError(fieldId, msg) {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+        let errorDiv = document.getElementById(fieldId + '-error');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = fieldId + '-error';
+            errorDiv.className = 'fieldError';
+            input.parentElement.appendChild(errorDiv);
+        }
+        errorDiv.textContent = msg;
+        errorDiv.style.display = 'block';
+        input.style.borderColor = '#C62828';
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function showError(msg) {
-        phoneError.textContent = msg;
-        phoneError.style.display = 'block';
-        phoneInput.style.borderColor = '#C62828';
-        phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function clearErrors() {
+        document.querySelectorAll('.fieldError').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('input').forEach(el => el.style.borderColor = '');
+    }
+
+    function validateProfile() {
+        clearErrors();
+        let isValid = true;
+
+        const phone = phoneInput.value;
+        if (!/^09\d{9}$/.test(phone)) {
+            showFieldError('phone_number', "Must be exactly 11 digits starting with 09.");
+            isValid = false;
+        } else {
+            if (/^([0-9])\1{8}$/.test(phone.substring(2))) {
+                showFieldError('phone_number', "Invalid sequence. Please input a valid mobile number.");
+                isValid = false;
+            }
+        }
+
+        const nameRegex = /^[A-Za-z\s\-]+$/;
+        ['first_name', 'last_name'].forEach(id => {
+            const val = document.getElementById(id).value;
+            if (!nameRegex.test(val)) {
+                showFieldError(id, "Names can only contain letters, spaces, and dashes.");
+                isValid = false;
+            }
+        });
+
+        const email = document.getElementById('email').value;
+        const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+        if (!emailRegex.test(email)) {
+            showFieldError('email', "Please enter a valid email address.");
+            isValid = false;
+        }
+
+        const username = document.getElementById('username').value;
+        if (username.length < 5 || username.length > 20) {
+            showFieldError('username', "Username must be 5-20 characters.");
+            isValid = false;
+        }
+
+        return isValid;
     }
 </script>
 {% endblock %}

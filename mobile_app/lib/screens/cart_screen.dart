@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
@@ -67,6 +69,34 @@ class _CartScreenState extends State<CartScreen> {
   final _notesCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   bool _loading = false;
+  
+  final Map<String, List<String>> _locationData = {
+    'Santa Cruz': ['Alipit', 'Bagong Bayan', 'Bubukal', 'Calios', 'Duhat', 'Gatid', 'Giling-Giling', 'Labuin', 'Malinao', 'Matalatala', 'Oogong', 'Pagsawitan', 'Palanas', 'Poblacion I', 'Poblacion II', 'Poblacion III', 'Poblacion IV', 'Poblacion V', 'San Jose', 'San Juan', 'San Nicolas', 'San Pablo Norte', 'San Pablo Sur', 'Santisima Cruz', 'Santo Angel Central', 'Santo Angel Norte', 'Santo Angel Sur'],
+    'Pila': ['Aplaya', 'Bagong Pook', 'Bukal', 'Bulilan Sur', 'Concepcion', 'Labuin', 'Linga', 'Masico', 'Mojon', 'Pansol', 'Pinagbayanan', 'Poblacion', 'San Antonio', 'San Miguel', 'Santa Clara Norte', 'Santa Clara Sur', 'Tubuan'],
+    'Victoria': ['Banca-banca', 'Daniw', 'Masapang', 'Nanhaya', 'Pagalangan', 'San Francisco', 'San Roque', 'San Nicolas', 'Santa Cruz'],
+    'Lumban': ['Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya', 'Concepcion', 'Luwac', 'Maracta', 'Maytalang I', 'Maytalang II', 'Primeiro Distrito', 'Salac', 'Santo Niño', 'Segundo Distrito', 'Talahib', 'Talongue', 'Wawa'],
+    'Magdalena': ['Alipit', 'Baanan', 'Balanac', 'Bucal', 'Buenavista', 'Bungkol', 'Burol', 'Capayapaan', 'Cigaras', 'Halayhayin', 'Ibabang Atingay', 'Ibabang Butnong', 'Ilayang Atingay', 'Ilayang Butnong', 'Ilog', 'Malaking Ambling', 'Mali-mali', 'Mamatid', 'Poblacion', 'Sabang', 'Salaking', 'San Antonio', 'San Francisco', 'Tipunan']
+  };
+
+  final Map<String, LatLng> _townCoordinates = {
+    'Santa Cruz': const LatLng(14.2833, 121.4167),
+    'Pila': const LatLng(14.2333, 121.3667),
+    'Victoria': const LatLng(14.2250, 121.3283),
+    'Lumban': const LatLng(14.2981, 121.4608),
+    'Magdalena': const LatLng(14.2000, 121.4333)
+  };
+
+  LatLng? _pinnedLocation = const LatLng(14.2833, 121.4167); // Santa Cruz
+  final MapController _mapController = MapController();
+  
+  String? _selectedMunicipality;
+  String? _selectedBarangay;
+
+  Future<void> _checkLocation(LatLng pos) async {
+    setState(() {
+      _pinnedLocation = pos;
+    });
+  }
 
   Future<void> _checkout() async {
     if (CartScreen._cartItems.isEmpty) {
@@ -74,9 +104,11 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    if (_diningOption == 'DELIVERY' && _addressCtrl.text.trim().isEmpty) {
-      _showMsg('Delivery address is required.', false);
-      return;
+    if (_diningOption == 'DELIVERY') {
+      if (_selectedMunicipality == null || _selectedBarangay == null || _addressCtrl.text.trim().isEmpty) {
+        _showMsg('Please complete your delivery location details.', false);
+        return;
+      }
     }
 
     final userId = await AuthService.getUserId();
@@ -93,7 +125,7 @@ class _CartScreenState extends State<CartScreen> {
       'dining_option': _diningOption,
       'payment_method': _paymentMethod,
       if (_diningOption == 'DELIVERY')
-        'delivery_address': _addressCtrl.text.trim(),
+        'delivery_address': '${_addressCtrl.text.trim()}, Brgy. $_selectedBarangay, $_selectedMunicipality, Laguna. (Map Pin: ${_pinnedLocation!.latitude.toStringAsFixed(5)}, ${_pinnedLocation!.longitude.toStringAsFixed(5)})',
     });
 
     setState(() => _loading = false);
@@ -241,7 +273,7 @@ class _CartScreenState extends State<CartScreen> {
                                   (v) => setState(() => _diningOption = v),
                                 ),
                                 _optionChip(
-                                  'Take Out',
+                                  'Pick-up',
                                   'TAKE_OUT',
                                   _diningOption,
                                   (v) => setState(() => _diningOption = v),
@@ -250,19 +282,126 @@ class _CartScreenState extends State<CartScreen> {
                                   'Delivery',
                                   'DELIVERY',
                                   _diningOption,
-                                  (v) => setState(() => _diningOption = v),
+                                  (v) {
+                                    setState(() => _diningOption = v);
+                                    if (v == 'DELIVERY' && _pinnedLocation != null && _addressCtrl.text.isEmpty) {
+                                      _checkLocation(_pinnedLocation!);
+                                    }
+                                  },
                                 ),
                               ],
                             ),
                             if (_diningOption == 'DELIVERY') ...[
                               const SizedBox(height: 12),
+                              const Text('Select Delivery Area', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      decoration: InputDecoration(
+                                        labelText: 'Municipality',
+                                        labelStyle: const TextStyle(fontSize: 12),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      value: _selectedMunicipality,
+                                      items: _locationData.keys.map((String value) {
+                                        return DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Text(value, style: const TextStyle(fontSize: 13)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (String? newValue) {
+                                        setState(() {
+                                          _selectedMunicipality = newValue;
+                                          _selectedBarangay = null;
+                                          if (newValue != null) {
+                                            final latLng = _townCoordinates[newValue];
+                                            if (latLng != null) {
+                                              _pinnedLocation = latLng;
+                                              _mapController.move(latLng, 14.0);
+                                            }
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      decoration: InputDecoration(
+                                        labelText: 'Barangay',
+                                        labelStyle: const TextStyle(fontSize: 12),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      value: _selectedBarangay,
+                                      items: _selectedMunicipality == null
+                                          ? []
+                                          : _locationData[_selectedMunicipality!]!.map((String value) {
+                                              return DropdownMenuItem<String>(
+                                                value: value,
+                                                child: Text(value, style: const TextStyle(fontSize: 13)),
+                                              );
+                                            }).toList(),
+                                      onChanged: _selectedMunicipality == null ? null : (String? newValue) {
+                                        setState(() {
+                                          _selectedBarangay = newValue;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
                               TextField(
                                 controller: _addressCtrl,
+                                maxLines: 2,
                                 decoration: const InputDecoration(
-                                  hintText: 'Enter complete delivery address',
+                                  hintText: 'House No. / Street / Landmark',
                                   prefixIcon: Icon(Icons.location_on_outlined),
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              const Text('Pin Exact Location on Map (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 200,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: FlutterMap(
+                                    mapController: _mapController,
+                                    options: MapOptions(
+                                      initialCenter: _pinnedLocation ?? const LatLng(14.2833, 121.4167),
+                                      initialZoom: 13.0,
+                                      onTap: (tapPosition, point) => _checkLocation(point),
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.lemaisonyelolane.app',
+                                      ),
+                                      if (_pinnedLocation != null)
+                                        MarkerLayer(
+                                          markers: [
+                                            Marker(
+                                              point: _pinnedLocation!,
+                                              width: 40,
+                                              height: 40,
+                                              child: const Icon(Icons.location_on, color: Colors.blueAccent, size: 40),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
                             ],
                           ],
                         ),
@@ -310,41 +449,6 @@ class _CartScreenState extends State<CartScreen> {
                                   (v) => setState(() => _paymentMethod = v),
                                 ),
                               ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Notes
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order Notes',
-                              style: AppTextStyles.heading.copyWith(
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _notesCtrl,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                hintText: 'Special instructions (optional)',
-                              ),
                             ),
                           ],
                         ),
@@ -526,6 +630,7 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
   }
+
 
   Widget _optionChip(
     String label,

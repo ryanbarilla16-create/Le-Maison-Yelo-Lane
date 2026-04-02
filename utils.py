@@ -36,6 +36,14 @@ DEFAULT_SETTINGS = {
         "title": "Fresh Bites in Bloom",
         "description": "Enjoy light, vibrant artisan pastries inspired by the sweetness of spring — made to brighten every moment. 🌷",
         "image_url": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=800&auto=format&fit=crop"
+    },
+    "footer": {
+        "facebook_link": "https://facebook.com",
+        "instagram_link": "https://instagram.com",
+        "twitter_link": "https://twitter.com",
+        "youtube_link": "https://youtube.com",
+        "address_text": "Le maison yelo Lane",
+        "copyright_text": "© 2026 Le maison yelo Lane. All rights reserved."
     }
 }
 
@@ -85,3 +93,69 @@ def requires_roles(*allowed_roles):
             return f(*args, **kwargs)
         return wrapped
     return wrapper
+
+def validate_order(items_data, dining_option, payment_method, is_pos=False):
+    """
+    Business Logic Validation for Orders.
+    Returns (is_valid, message, order_status_override)
+    """
+    from models import MenuItem, MenuItemIngredient, Ingredient
+    from decimal import Decimal
+
+    total_amount = Decimal('0.0')
+    total_items = 0
+    order_status_override = 'PENDING'
+
+    # 1. GLOBAL RULES: Max Quantity per Item
+    for item in items_data:
+        menu_item_id = item.get('menu_item_id')
+        quantity = int(item.get('quantity', 0))
+        
+        if quantity > 20:
+            return False, f"Spam Detection: You can only order a maximum of 20 servings of '{MenuItem.query.get(menu_item_id).name}' per transaction.", None
+        
+        menu_item = MenuItem.query.get(menu_item_id)
+        if not menu_item:
+            continue
+            
+        # 1. GLOBAL RULES: Inventory Check
+        recipe = MenuItemIngredient.query.filter_by(menu_item_id=menu_item.id).all()
+        for r in recipe:
+            ingredient = Ingredient.query.get(r.ingredient_id)
+            if ingredient:
+                needed = float(r.quantity_needed) * quantity
+                if float(ingredient.stock_qty) < needed:
+                    return False, f"Insufficient Stock: '{menu_item.name}' is temporarily unavailable due to lack of ingredients ({ingredient.name}).", None
+
+        total_amount += Decimal(str(menu_item.price)) * quantity
+        total_items += quantity
+
+    # If it's a Walk-in (Cashier/POS), bypass the remaining limits
+    if is_pos:
+        return True, "Valid POS order.", 'PENDING'
+
+    # 2. DELIVERY & PICK-UP Rules
+    if dining_option in ['DELIVERY', 'TAKE_OUT']:
+        if total_amount > 3000 or total_items > 25:
+            if payment_method in ['COUNTER', 'COD', 'UNPAID']: # Assuming COUNTER is the offline option for web
+                return False, "Bulk Order Protection: Orders exceeding ₱3,000 or 25 items require Online Payment (GCash/Maya) to prevent bogus buyers.", None
+
+    # 3. DINE-IN Rules (QR/Self-Ordering)
+    if dining_option == 'DINE_IN':
+        if total_amount > 3000 or total_items > 25:
+            # Trigger alert to Admin/Cashier
+            from models import User
+            staff_users = User.query.filter(User.role.in_(['ADMIN', 'CASHIER', 'STAFF'])).all()
+            for staff in staff_users:
+                create_notification(
+                    staff.id, 
+                    '⚠️ Large Dine-in Order Detected', 
+                    f'Order total: ₱{total_amount:,.2f} ({total_items} items). Requires Staff Verification before kitchen processing.', 
+                    'SYSTEM'
+                )
+            
+            # Place on HOLD for staff verification
+            order_status_override = 'HOLD'
+            return True, "Large order detected. Please wait for staff verification at your table.", 'HOLD'
+
+    return True, "Valid order.", 'PENDING'

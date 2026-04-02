@@ -10,7 +10,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/admin.css') }}" rel="stylesheet">
-    
+
     <!-- Leaflet CSS & JS for Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -32,88 +32,143 @@
         </div>
 
         <!-- MAIN -->
-        <div class="sidebar-group-title">Main</div>
-        <ul class="sidebar-nav">
-            {% if current_user.role|upper == 'ADMIN' %}
-            <li><a href="{{ url_for('admin.overview') }}"
-                    class="{% if request.endpoint == 'admin.overview' %}active{% endif %}"><i
-                        class="fas fa-th-large"></i><span class="sidebar-label">Overview</span></a></li>
-            <li><a href="{{ url_for('admin.analytics') }}"
-                    class="{% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i
-                        class="fas fa-chart-line"></i><span class="sidebar-label">Analytics</span></a></li>
-            {% endif %}
+        <div class="sidebar-group-title collapsible-trigger active" onclick="toggleSidebarGroup(this, 'mainGroup')">
+            <span>Main</span>
+            <i class="fas fa-chevron-down ms-auto arrow-icon" style="opacity: 1.0;"></i>
+        </div>
+        <div id="mainGroup" class="collapsible-content">
+            <ul class="sidebar-nav">
+                {% if current_user.role|upper == 'ADMIN' %}
+                <li><a href="{{ url_for('admin.overview') }}"
+                        class="{% if request.endpoint == 'admin.overview' %}active{% endif %}"><i
+                            class="fas fa-th-large"></i><span class="sidebar-label">Overview</span></a></li>
+                <li><a href="{{ url_for('admin.analytics') }}"
+                        class="{% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i
+                            class="fas fa-chart-line"></i><span class="sidebar-label">Analytics</span></a></li>
+                <li><a href="{{ url_for('admin.staff_performance') }}"
+                        class="{% if request.endpoint == 'admin.staff_performance' %}active{% endif %}"><i
+                            class="fas fa-chart-simple"></i><span class="sidebar-label">Staff Performance</span></a>
+                </li>
+                {% endif %}
 
-            {% if current_user.role|upper in ['ADMIN', 'INVENTORY_STAFF', 'INVENTORY', 'CASHIER', 'STAFF'] %}
-            <li><a href="{{ url_for('admin.menu') }}"
-                    class="{% if request.endpoint == 'admin.menu' %}active{% endif %}"><i
-                        class="fas fa-utensils"></i><span class="sidebar-label">Menu</span></a></li>
-            {% endif %}
-        </ul>
+                {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF', 'INVENTORY_STAFF', 'INVENTORY'] %}
+                <li><a href="{{ url_for('admin.menu') }}"
+                        class="{% if request.endpoint == 'admin.menu' %}active{% endif %}"><i
+                            class="fas fa-utensils"></i><span class="sidebar-label">Menu</span></a></li>
+                {% endif %}
+            </ul>
+        </div>
 
         <!-- MANAGEMENT -->
-        <div class="sidebar-group-title">Management</div>
-        <ul class="sidebar-nav">
-            {% if current_user.role|upper == 'ADMIN' %}
-            <li><a href="{{ url_for('admin.approvals') }}"
-                    class="{% if request.endpoint == 'admin.approvals' %}active{% endif %}"><i
-                        class="fas fa-user-check"></i><span class="sidebar-label">Account Approvals</span></a></li>
-            <li><a href="{{ url_for('admin.users') }}"
-                    class="{% if request.endpoint == 'admin.users' %}active{% endif %}"><i
-                        class="fas fa-users-cog"></i><span class="sidebar-label">User Management</span></a></li>
-            <li><a href="{{ url_for('admin.reservations') }}"
-                    class="{% if request.endpoint == 'admin.reservations' %}active{% endif %}"><i
-                        class="fas fa-calendar-alt"></i><span class="sidebar-label">Reservations</span></a></li>
-            {% endif %}
+        <div class="sidebar-group-title collapsible-trigger active" onclick="toggleSidebarGroup(this, 'mgmtGroup')"
+            style="margin-top: 0.5rem;">
+            <span>Management</span>
+            <i class="fas fa-chevron-down ms-auto arrow-icon" style="opacity: 1.0;"></i>
+        </div>
+        <div id="mgmtGroup" class="collapsible-content">
+            <ul class="sidebar-nav">
+                {% if current_user.role|upper == 'ADMIN' %}
+                <li><a href="{{ url_for('admin.approvals') }}"
+                        class="{% if request.endpoint == 'admin.approvals' %}active{% endif %}"><i
+                            class="fas fa-user-check"></i><span class="sidebar-label">Account Approvals</span></a></li>
+                <li><a href="{{ url_for('admin.users') }}"
+                        class="{% if request.endpoint == 'admin.users' %}active{% endif %}"><i
+                            class="fas fa-users-cog"></i><span class="sidebar-label">User Management</span></a></li>
+                {% endif %}
 
-            {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF'] %}
-            <li><a href="{{ url_for('admin.orders') }}"
-                    class="{% if request.endpoint == 'admin.orders' %}active{% endif %}"><i
-                        class="fas fa-shopping-bag"></i><span class="sidebar-label">Orders</span></a></li>
-            <li><a href="{{ url_for('admin.walkin_order') }}"
-                    class="{% if request.endpoint == 'admin.walkin_order' %}active{% endif %}"><i
-                        class="fas fa-walking"></i><span class="sidebar-label">Walk-In Order</span></a></li>
-            {% endif %}
+                {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF'] %}
+                <li><a href="{{ url_for('admin.reservations') }}"
+                        class="{% if request.endpoint == 'admin.reservations' %}active{% endif %}"><i
+                            class="fas fa-calendar-alt"></i><span class="sidebar-label">Reservations</span></a></li>
+                {% endif %}
 
-            {% if current_user.role|upper == 'KITCHEN' %}
-            <li><a href="{{ url_for('admin.kitchen_view') }}"
-                    class="{% if request.endpoint == 'admin.kitchen_view' %}active{% endif %}"><i
-                        class="fas fa-fire-burner"></i><span class="sidebar-label">Kitchen View</span></a></li>
-            {% endif %}
+                {% if current_user.role|upper in ['CASHIER', 'STAFF'] %}
+                <li><a href="{{ url_for('admin.billing') }}"
+                        class="{% if request.endpoint == 'admin.billing' %}active{% endif %}"><i
+                            class="fas fa-file-invoice-dollar"></i><span class="sidebar-label">Billing</span></a></li>
+                {% endif %}
 
-            {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF', 'RIDER'] %}
-            <li><a href="{{ url_for('admin.deliveries') }}"
-                    class="{% if request.endpoint == 'admin.deliveries' %}active{% endif %}"><i
-                        class="fas fa-truck"></i><span class="sidebar-label">Deliveries</span></a></li>
-            {% endif %}
+                {% if current_user.role|upper in ['CASHIER', 'STAFF'] %}
+                <li><a href="{{ url_for('admin.orders') }}"
+                        class="{% if request.endpoint == 'admin.orders' %}active{% endif %}"><i
+                            class="fas fa-shopping-bag"></i><span class="sidebar-label">Orders</span></a></li>
+                <li><a href="{{ url_for('admin.walkin_order') }}"
+                        class="{% if request.endpoint == 'admin.walkin_order' %}active{% endif %}"><i
+                            class="fas fa-walking"></i><span class="sidebar-label">Walk-In Order</span></a></li>
+                <li><a href="{{ url_for('admin.chats') }}"
+                        class="{% if request.endpoint == 'admin.chats' %}active{% endif %}"><i
+                            class="fas fa-comments"></i><span class="sidebar-label">Customer Chat</span></a></li>
+                {% endif %}
 
-            {% if current_user.role|upper in ['ADMIN', 'INVENTORY_STAFF', 'INVENTORY', 'CASHIER', 'STAFF'] %}
-            <li><a href="{{ url_for('admin.inventory') }}"
-                    class="{% if request.endpoint == 'admin.inventory' %}active{% endif %}"><i
-                        class="fas fa-boxes-stacked"></i><span class="sidebar-label">Inventory</span></a></li>
-            {% endif %}
+                {% if current_user.role|upper == 'KITCHEN' %}
+                <li><a href="{{ url_for('admin.kitchen_view') }}"
+                        class="{% if request.endpoint == 'admin.kitchen_view' %}active{% endif %}"><i
+                            class="fas fa-fire-burner"></i><span class="sidebar-label">Kitchen View</span></a></li>
+                <li><a href="{{ url_for('admin.stock_requests') }}"
+                        class="{% if request.endpoint == 'admin.stock_requests' %}active{% endif %}"><i
+                            class="fas fa-paper-plane"></i><span class="sidebar-label">Stock Requests</span></a></li>
+                {% endif %}
 
-            {% if current_user.role|upper == 'ADMIN' %}
-            <li><a href="{{ url_for('admin.reviews') }}"
-                    class="{% if request.endpoint == 'admin.reviews' %}active{% endif %}"><i
-                        class="fas fa-star-half-alt"></i><span class="sidebar-label">Reviews</span></a></li>
-            {% endif %}
-        </ul>
+                {% if current_user.role|upper in ['CASHIER', 'STAFF', 'RIDER'] %}
+                <li><a href="{{ url_for('admin.deliveries') }}"
+                        class="{% if request.endpoint == 'admin.deliveries' %}active{% endif %}"><i
+                            class="fas fa-truck"></i><span class="sidebar-label">Deliveries</span></a></li>
+                {% endif %}
+
+                {% if current_user.role|upper in ['INVENTORY_STAFF', 'INVENTORY'] %}
+                <li><a href="{{ url_for('admin.inventory') }}"
+                        class="{% if request.endpoint == 'admin.inventory' %}active{% endif %}"><i
+                            class="fas fa-boxes-stacked"></i><span class="sidebar-label">Inventory Master</span></a>
+                </li>
+                <li><a href="{{ url_for('admin.ingredient_batches') }}"
+                        class="{% if request.endpoint == 'admin.ingredient_batches' %}active{% endif %}"><i
+                            class="fas fa-box-open"></i><span class="sidebar-label">FIFO Batches</span></a></li>
+                <li><a href="{{ url_for('admin.waste_records') }}"
+                        class="{% if request.endpoint == 'admin.waste_records' %}active{% endif %}"><i
+                            class="fas fa-trash-alt"></i><span class="sidebar-label">Waste Mgmt</span></a></li>
+                <li><a href="{{ url_for('admin.stock_requests') }}"
+                        class="{% if request.endpoint == 'admin.stock_requests' %}active{% endif %}"><i
+                            class="fas fa-clipboard-check"></i><span class="sidebar-label">Stock Requests</span></a>
+                </li>
+                <li><a href="{{ url_for('admin.inventory_audit') }}"
+                        class="{% if request.endpoint == 'admin.inventory_audit' %}active{% endif %}"><i
+                            class="fas fa-history"></i><span class="sidebar-label">Audit History</span></a></li>
+                {% endif %}
+
+                {% if current_user.role|upper == 'ADMIN' %}
+                <li><a href="{{ url_for('admin.reviews') }}"
+                        class="{% if request.endpoint == 'admin.reviews' %}active{% endif %}"><i
+                            class="fas fa-star-half-alt"></i><span class="sidebar-label">Reviews</span></a></li>
+                {% endif %}
+            </ul>
+        </div>
 
         <!-- SYSTEM -->
         <div class="sidebar-spacer"></div>
-        <div class="sidebar-group-title">System</div>
-        <ul class="sidebar-nav" style="margin-bottom: 1.5rem;">
-            {% if current_user.role|upper == 'ADMIN' %}
-            <li><a href="{{ url_for('admin.settings') }}"
-                    class="{% if request.endpoint == 'admin.settings' %}active{% endif %}"><i
-                        class="fas fa-gear"></i><span class="sidebar-label">Settings</span></a></li>
-            {% endif %}
-            <li><a href="{{ url_for('main.index') }}" target="_blank"><i class="fas fa-external-link-alt"></i><span
-                        class="sidebar-label">View Live Site</span></a></li>
-            <li><a href="{{ url_for('admin.admin_logout') }}"><i class="fas fa-sign-out-alt"></i><span
-                        class="sidebar-label">Logout</span></a></li>
-        </ul>
+        <div class="sidebar-group-title collapsible-trigger active" onclick="toggleSidebarGroup(this, 'systemGroup')"
+            style="margin-top: 0.5rem;">
+            <span>System</span>
+            <i class="fas fa-chevron-down ms-auto arrow-icon" style="opacity: 1.0;"></i>
+        </div>
+        <div id="systemGroup" class="collapsible-content">
+            <ul class="sidebar-nav" style="margin-bottom: 1.5rem;">
+                {% if current_user.role|upper == 'ADMIN' %}
+                <li><a href="{{ url_for('admin.vouchers') }}"
+                        class="{% if request.endpoint == 'admin.vouchers' %}active{% endif %}"><i
+                            class="fas fa-ticket-alt"></i><span class="sidebar-label">Vouchers</span></a></li>
+                <li><a href="{{ url_for('admin.audit_logs') }}"
+                        class="{% if request.endpoint == 'admin.audit_logs' %}active{% endif %}"><i
+                            class="fas fa-clipboard-list"></i><span class="sidebar-label">Audit Logs</span></a></li>
+                {% endif %}
+                <li><a href="{{ url_for('admin.settings') }}"
+                        class="{% if request.endpoint == 'admin.settings' %}active{% endif %}"><i
+                            class="fas fa-gear"></i><span class="sidebar-label">Settings / Profile</span></a></li>
+                <li><a href="{{ url_for('admin.admin_logout') }}"><i class="fas fa-sign-out-alt"></i><span
+                            class="sidebar-label">Logout</span></a></li>
+            </ul>
+        </div>
     </aside>
+
 
     <!-- TOP BAR -->
     <header class="admin-topbar">
@@ -124,21 +179,33 @@
 
             <!-- NOTIFICATION BELL -->
             <div class="notif-bell-wrapper" style="position: relative; margin-left: 16px;">
-                <button id="adminNotifBell" onclick="toggleNotifPanel()" style="background: none; border: none; cursor: pointer; position: relative; padding: 8px;">
-                    <i class="fas fa-bell" style="font-size: 1.25rem; color: var(--admin-text-muted); transition: color 0.2s;"></i>
-                    <span id="adminNotifBadge" style="display:none; position: absolute; top: 2px; right: 2px; background: #dc3545; color: #fff; font-size: 0.6rem; font-weight: 700; border-radius: 50%; min-width: 18px; height: 18px; line-height: 18px; text-align: center; padding: 0 4px; box-shadow: 0 2px 6px rgba(220,53,69,0.4); animation: notifPulse 2s infinite;">0</span>
+                <button id="adminNotifBell" onclick="toggleNotifPanel()"
+                    style="background: none; border: none; cursor: pointer; position: relative; padding: 8px;">
+                    <i class="fas fa-bell"
+                        style="font-size: 1.25rem; color: var(--admin-text-muted); transition: color 0.2s;"></i>
+                    <span id="adminNotifBadge"
+                        style="display:none; position: absolute; top: 2px; right: 2px; background: #dc3545; color: #fff; font-size: 0.6rem; font-weight: 700; border-radius: 50%; min-width: 18px; height: 18px; line-height: 18px; text-align: center; padding: 0 4px; box-shadow: 0 2px 6px rgba(220,53,69,0.4); animation: notifPulse 2s infinite;">0</span>
                 </button>
 
                 <!-- Notification Dropdown Panel -->
-                <div id="adminNotifPanel" style="display:none; position: absolute; right: 0; top: 48px; width: 370px; max-height: 480px; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
-                    <div style="padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #8B4513, #A0522D);">
-                        <span style="font-weight: 700; font-size: 0.95rem; color: #fff;"><i class="fas fa-bell me-2"></i>Notifications</span>
-                        <button onclick="markAllNotifRead()" style="background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 0.75rem; cursor: pointer; padding: 4px 12px; border-radius: 20px; font-weight: 600; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">Mark all read</button>
+                <div id="adminNotifPanel"
+                    style="display:none; position: absolute; right: 0; top: 48px; width: 370px; max-height: 480px; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
+                    <div
+                        style="padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #8B4513, #A0522D);">
+                        <span style="font-weight: 700; font-size: 0.95rem; color: #fff;"><i
+                                class="fas fa-bell me-2"></i>Notifications</span>
+                        <button onclick="markAllNotifRead()"
+                            style="background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 0.75rem; cursor: pointer; padding: 4px 12px; border-radius: 20px; font-weight: 600; transition: background 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.2)'">Mark all read</button>
                     </div>
                     <!-- Live counts summary -->
-                    <div id="adminLiveCountsBar" style="display:none; padding: 10px 20px; background: #faf6f2; border-bottom: 1px solid #f0e6d9; font-size: 0.75rem; color: #8B4513;"></div>
+                    <div id="adminLiveCountsBar"
+                        style="display:none; padding: 10px 20px; background: #faf6f2; border-bottom: 1px solid #f0e6d9; font-size: 0.75rem; color: #8B4513;">
+                    </div>
                     <div id="adminNotifList" style="max-height: 380px; overflow-y: auto; padding: 8px 0;"></div>
-                    <div id="adminNotifEmpty" style="display:none; text-align: center; padding: 40px 20px; color: #999;">
+                    <div id="adminNotifEmpty"
+                        style="display:none; text-align: center; padding: 40px 20px; color: #999;">
                         <i class="fas fa-bell-slash" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.3;"></i>
                         <p style="margin: 0; font-size: 0.85rem;">No notifications yet</p>
                     </div>
@@ -286,12 +353,84 @@
 
     <!-- Admin Notification Bell JS -->
     <style>
-        @keyframes notifPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-        #adminNotifBell:hover i { color: #8B4513 !important; }
-        #adminNotifPanel::-webkit-scrollbar { width: 4px; }
-        #adminNotifPanel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        @keyframes notifPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+        }
+
+        #adminNotifBell:hover i {
+            color: #8B4513 !important;
+        }
+
+        #adminNotifPanel::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #adminNotifPanel::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        /* Sidebar Collapsible Styles */
+        .collapsible-trigger {
+            cursor: pointer;
+            display: flex !important;
+            align-items: center;
+            transition: background 0.2s;
+            user-select: none;
+            color: #5D4037 !important;
+            /* Dark Brown for better visibility */
+            font-weight: 800 !important;
+            font-size: 0.75rem !important;
+            letter-spacing: 1.5px;
+            padding: 1rem 1.15rem 0.5rem !important;
+        }
+
+        .collapsible-trigger:hover {
+            background: rgba(139, 69, 19, 0.05);
+        }
+
+        .arrow-icon {
+            font-size: 0.7rem;
+            transition: transform 0.3s ease;
+            opacity: 0.6;
+        }
+
+        .collapsible-trigger.active .arrow-icon {
+            transform: rotate(0deg);
+        }
+
+        .collapsible-trigger:not(.active) .arrow-icon {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease;
+        }
+
+        .collapsible-trigger.active+.collapsible-content {
+            max-height: 1000px;
+            opacity: 1;
+        }
+
+        .collapsible-trigger:not(.active)+.collapsible-content {
+            max-height: 0;
+            opacity: 0;
+        }
     </style>
     <script>
+        function toggleSidebarGroup(trigger, groupId) {
+            trigger.classList.toggle('active');
+        }
+
         let _notifPanelOpen = false;
 
         function toggleNotifPanel() {
@@ -302,7 +441,7 @@
         }
 
         // Close panel when clicking outside
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             const wrapper = document.querySelector('.notif-bell-wrapper');
             if (wrapper && !wrapper.contains(e.target)) {
                 _notifPanelOpen = false;
@@ -380,7 +519,7 @@
                 } else {
                     bar.style.display = 'none';
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function markAllNotifRead() {
@@ -388,7 +527,7 @@
                 await fetch('/admin/api/notifications/mark-all-read', { method: 'POST' });
                 fetchAdminUnreadCount();
                 fetchAdminNotifs();
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Initial load + auto-poll every 15 seconds

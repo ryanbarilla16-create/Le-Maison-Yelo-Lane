@@ -1,15 +1,29 @@
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, render_template, url_for
 from flask_mail import Message
-from models import db, MenuItem, User, Reservation, Order, OrderItem, Review, Notification
+from models import db, MenuItem, User, Reservation, Order, OrderItem, Review, Notification, ChatMessage, Voucher
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, time as dtime
-from utils import get_ph_time
+from utils import get_ph_time, create_notification
 import re
 import random
 import traceback
 import os
 import base64
 import requests as http_requests
+import threading
+from flask import current_app
+
+def send_async_email(app, msg):
+    """Sends email in a background thread to avoid blocking the API response."""
+    with app.app_context():
+        try:
+            mail = app.extensions.get('mail')
+            if mail:
+                mail.send(msg)
+        except Exception as e:
+            print(f"Async Email Error: {e}")
+            import traceback
+            traceback.print_exc()
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -35,14 +49,8 @@ def validate_name(name, field_name):
     return None
 
 def validate_email(email):
-    if not email.endswith('@gmail.com'): return "Email must use @gmail.com domain."
-    local_part = email[:-10]
-    if not (6 <= len(local_part) <= 30): return "Email before @gmail.com must be 6-30 characters."
-    if not re.search(r'[A-Za-z]', local_part): return "Email must contain at least one letter."
-    if re.search(r'[\s_]', local_part): return "Email cannot contain spaces or underscores."
-    if local_part.startswith('.') or local_part.endswith('.'): return "Email cannot start or end with a period."
-    if '..' in local_part: return "Email cannot contain consecutive periods."
-    if not re.match(r'^[a-zA-Z0-9.]+$', local_part): return "Email can only contain letters, numbers, and periods."
+    pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(pattern, email): return "Please enter a valid email address."
     return None
 
 def validate_username(username, first, last):
@@ -59,9 +67,11 @@ def calculate_age(born):
 
 def validate_password(password, confirm):
     if len(password) < 6: return "Password must be at least 6 characters."
+    if password.startswith(' ') or password.endswith(' '): return "Password cannot start or end with spaces."
+    if '   ' in password: return "Password cannot contain too many consecutive spaces."
     if not re.search(r'[A-Z]', password): return "Password must contain an uppercase letter."
     if not re.search(r'[0-9]', password): return "Password must contain a number."
-    if not re.search(r'[^A-Za-z0-9]', password): return "Password must contain a special character."
+    if not re.search(r'[^A-Za-z0-9\s]', password): return "Password must contain a special character."
     if password != confirm: return "Passwords do not match."
     return None
 
@@ -75,6 +85,22 @@ def check_reservation_time(t):
 # ═══ MENU API ═══
 @api_bp.route('/menu', methods=['GET'])
 def get_menu():
+    """
+    Get all available menu items
+    ---
+    responses:
+      200:
+        description: A list of menu items
+        schema:
+          type: array
+          items:
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              price: {type: number}
+              category: {type: string}
+              image_url: {type: string}
+    """
     try:
         items = MenuItem.query.filter_by(is_available=True).all()
         menu_list = []
@@ -93,6 +119,13 @@ def get_menu():
 
 @api_bp.route('/menu/categories', methods=['GET'])
 def get_categories():
+    """
+    Get all menu categories
+    ---
+    responses:
+      200:
+        description: List of categories with item counts
+    """
     try:
         from sqlalchemy import func
         cats = db.session.query(
@@ -128,6 +161,29 @@ def get_featured():
 # ═══ AUTH API ═══
 @api_bp.route('/auth/signup', methods=['POST'])
 def api_signup():
+    """
+    Register a new customer account
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          properties:
+            first_name: {type: string}
+            last_name: {type: string}
+            username: {type: string}
+            email: {type: string}
+            phone_number: {type: string}
+            birthday: {type: string, example: "1990-01-01"}
+            password: {type: string}
+            confirm_password: {type: string}
+    responses:
+      201:
+        description: User created, OTP sent
+      400:
+        description: Validation error
+    """
     data = request.json
     if not data:
         return jsonify({'success': False, 'message': 'No data provided.'}), 400
@@ -164,8 +220,11 @@ def api_signup():
 
     try:
         birthday = datetime.strptime(birthday_str, '%Y-%m-%d').date()
-        if calculate_age(birthday) < 18:
+        age = calculate_age(birthday)
+        if age < 18:
             return jsonify({'success': False, 'message': 'You must be at least 18 years old to register.'}), 400
+        if age > 70:
+            return jsonify({'success': False, 'message': 'Maximum age is 70 years.'}), 400
     except ValueError:
         return jsonify({'success': False, 'message': 'Invalid birthday format.'}), 400
 
@@ -197,7 +256,6 @@ def api_signup():
 
     # Send OTP via Gmail
     try:
-        mail = current_app.extensions['mail']
         msg = Message(
             subject='Le Maison Yelo Lane - Your OTP Verification Code',
             sender=current_app.config['MAIL_USERNAME'],
@@ -217,9 +275,10 @@ def api_signup():
             <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 5 minutes.</p>
         </div>
         """
-        mail.send(msg)
+        app = current_app._get_current_object()
+        threading.Thread(target=send_async_email, args=(app, msg)).start()
     except Exception as e:
-        print(f"Email sending failed: {e}")
+        print(f"Email queuing failed: {e}")
         traceback.print_exc()
 
     return jsonify({'success': True, 'user_id': new_user.id, 'message': f'OTP sent to {email}.'}), 201
@@ -268,7 +327,6 @@ def api_resend_otp():
     print(f"--- RESEND OTP FOR {user.email} IS: {otp} ---")
     
     try:
-        mail = current_app.extensions['mail']
         msg = Message(
             subject='Le Maison Yelo Lane - Your New OTP Code',
             sender=current_app.config['MAIL_USERNAME'],
@@ -286,9 +344,10 @@ def api_resend_otp():
             </div>
         </div>
         """
-        mail.send(msg)
+        app = current_app._get_current_object()
+        threading.Thread(target=send_async_email, args=(app, msg)).start()
     except Exception as e:
-        print(f"Email sending failed: {e}")
+        print(f"Email queuing failed: {e}")
     
     return jsonify({'success': True, 'message': f'New OTP sent to {user.email}.'}), 200
 
@@ -388,7 +447,7 @@ def api_social_auth():
         last_name=last_name,
         username=username,
         email=email,
-        status='PENDING',
+        status=status_override or 'PENDING',
         is_verified=True,
         profile_picture_url=picture_url
     )
@@ -466,7 +525,7 @@ def api_social_complete():
         last_name=last_name,
         username=username,
         email=email,
-        status='PENDING',
+        status=status_override or 'PENDING',
         is_verified=True,
         profile_picture_url=picture_url
     )
@@ -571,6 +630,14 @@ def api_checkout():
     
     if not user_id or not cart_items:
         return jsonify({'success': False, 'message': 'Cart is empty.'}), 400
+
+    # --- ORDER VALIDATION LOGIC ---
+    from utils import validate_order
+    is_valid, msg, status_override = validate_order(cart_items, dining_option, payment_method, is_pos=False)
+
+    if not is_valid:
+        return jsonify({'success': False, 'message': msg}), 400
+    # ------------------------------
     
     total = 0
     order_items = []
@@ -592,7 +659,7 @@ def api_checkout():
     new_order = Order(
         user_id=user_id,
         total_amount=total,
-        status='PENDING',
+        status=status_override or 'PENDING',
         dining_option=dining_option,
         payment_method=payment_method,
         notes=notes
@@ -674,6 +741,15 @@ def api_checkout():
     # Send notification to user
     _create_notification(user_id, 'Order Placed', f'Your order #{new_order.id} has been placed successfully! Total: ₱{total:.2f}', 'ORDER')
     
+    # Real-time update for Admin/Kitchen
+    from extensions import socketio
+    socketio.emit('new_order', {
+        'id': new_order.id, 
+        'customer': f"{User.query.get(user_id).first_name} {User.query.get(user_id).last_name}",
+        'dining_option': dining_option,
+        'total_amount': float(total)
+    }, namespace='/')
+    
     return jsonify({
         'success': True, 
         'message': 'Order placed successfully!', 
@@ -753,21 +829,34 @@ def api_reserve():
     guest_count_str = data.get('guest_count')
     occasion = data.get('occasion', '')
     booking_type = data.get('booking_type', 'REGULAR')
+    duration_str = data.get('duration', '2')
     
     try:
         res_date = datetime.strptime(res_date_str, '%Y-%m-%d').date()
         hour, minute = map(int, res_time_str.split(':'))
         res_time = dtime(hour, minute)
         guest_count = int(guest_count_str)
+        duration = int(duration_str)
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid data format.'}), 400
     
     today = date.today()
     diff = (res_date - today).days
-    if diff < 1:
-        return jsonify({'success': False, 'message': 'Reservation must be at least 1 day in advance.'}), 400
-    if diff > 14:
-        return jsonify({'success': False, 'message': 'Reservation can be max 14 days in advance.'}), 400
+    
+    if booking_type == 'EXCLUSIVE':
+        if diff < 1:
+            return jsonify({'success': False, 'message': 'Exclusive reservations must be made at least 1 day in advance.'}), 400
+    else:
+        if diff < 0:
+            return jsonify({'success': False, 'message': 'Cannot book in the past.'}), 400
+        if diff == 0:
+            from datetime import datetime as dt
+            curr_t = dt.now().time()
+            if res_time <= curr_t:
+                return jsonify({'success': False, 'message': 'You cannot book a time slot that has already passed today.'}), 400
+    
+    if diff > 60:
+        return jsonify({'success': False, 'message': 'Reservation can be max 2 months (60 days) in advance.'}), 400
     
     if not check_reservation_time(res_time):
         return jsonify({'success': False, 'message': 'Time must be between 11:30 AM - 8:30 PM with 30-minute intervals.'}), 400
@@ -787,27 +876,43 @@ def api_reserve():
         Reservation.status.in_(['PENDING', 'CONFIRMED'])
     ).all()
     
-    close_time = dtime(20, 30)
+    from datetime import timedelta
+    current_res_start = datetime.combine(res_date, res_time)
+    current_res_end = current_res_start + timedelta(hours=duration)
     
-    if booking_type == 'EXCLUSIVE':
-        for r in active_res:
-            if r.time >= res_time and r.time <= close_time:
-                return jsonify({'success': False, 'message': 'Conflicting reservations in your requested time block.'}), 400
-            if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
-                return jsonify({'success': False, 'message': 'Conflicting exclusive booking.'}), 400
-    else:
-        for r in active_res:
-            if r.booking_type == 'EXCLUSIVE' and r.time <= res_time:
-                return jsonify({'success': False, 'message': 'Time slot blocked by an Exclusive Venue booking.'}), 400
+    conflict = False
+    conflict_msg = ""
+    for r in active_res:
+        r_start = datetime.combine(r.date, r.time)
+        r_dur = r.duration if r.duration is not None else 2
+        r_end = r_start + timedelta(hours=r_dur)
+        if current_res_start < r_end and r_start < current_res_end:
+            if booking_type == 'EXCLUSIVE' or r.booking_type == 'EXCLUSIVE':
+                conflict = True
+                conflict_msg = "Conflicting exclusive booking or overlapping reservation."
+                break
+                
+    if conflict:
+        return jsonify({'success': False, 'message': conflict_msg}), 400
         
-        total_guests_at_time = sum([r.guest_count for r in active_res if r.time == res_time])
-        if total_guests_at_time + guest_count > 50:
+    if booking_type != 'EXCLUSIVE':
+        overlapping_guests = 0
+        for r in active_res:
+            if r.booking_type != 'EXCLUSIVE':
+                r_start = datetime.combine(r.date, r.time)
+                r_dur = r.duration if r.duration is not None else 2
+                r_end = r_start + timedelta(hours=r_dur)
+                if current_res_start < r_end and r_start < current_res_end:
+                    overlapping_guests += r.guest_count
+        
+        if overlapping_guests + guest_count > 50:
             return jsonify({'success': False, 'message': 'Time slot is fully booked. Not enough seats.'}), 400
     
     new_res = Reservation(
         user_id=user_id,
         date=res_date,
         time=res_time,
+        duration=duration,
         guest_count=guest_count,
         occasion=occasion,
         booking_type=booking_type
@@ -1012,8 +1117,6 @@ def api_forgot_password_reset():
     
     return jsonify({'success': True, 'message': 'Password reset successfully! You can now log in with your new password.'}), 200
 
-from utils import get_ph_time, create_notification
-
 # ═══ NOTIFICATIONS API ═══
 def _create_notification(user_id, title, message, notif_type='SYSTEM'):
     """Helper to create a notification (uses centralized helper)"""
@@ -1061,6 +1164,81 @@ def api_mark_all_notifications_read(user_id):
     Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
     db.session.commit()
     return jsonify({'success': True, 'message': 'All notifications marked as read.'}), 200
+
+@api_bp.route('/notifications/mark-read', methods=['POST'])
+def api_mark_notifications_read():
+    try:
+        user_id = request.json.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'User ID required'}), 400
+            
+        Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
+        db.session.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# ═══ CHAT SUPPORT API ═══
+@api_bp.route('/chat/<int:user_id>', methods=['GET'])
+def api_get_chat_messages(user_id):
+    """
+    Get all chat messages for a specific user
+    """
+    try:
+        messages = ChatMessage.query.filter_by(user_id=user_id).order_by(ChatMessage.created_at.asc()).all()
+        return jsonify({
+            'success': True,
+            'messages': [{
+                'id': msg.id,
+                'sender': msg.sender,
+                'message': msg.message,
+                'is_read': msg.is_read,
+                'created_at': msg.created_at.strftime("%Y-%m-%d %H:%M:%S") if msg.created_at else None
+            } for msg in messages]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@api_bp.route('/chat/<int:user_id>/send', methods=['POST'])
+def api_send_chat_message(user_id):
+    """
+    Send a new chat message
+    """
+    try:
+        data = request.json
+        if not data or not data.get('message') or not data.get('sender'):
+            return jsonify({'success': False, 'message': 'Message and sender are required'}), 400
+            
+        message = data.get('message').strip()
+        sender = data.get('sender').upper()
+        
+        if sender not in ['USER', 'ADMIN']:
+            return jsonify({'success': False, 'message': 'Invalid sender type'}), 400
+            
+        new_msg = ChatMessage(
+            user_id=user_id,
+            sender=sender,
+            message=message,
+            is_read=False
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Message sent successfully',
+            'data': {
+                'id': new_msg.id,
+                'sender': new_msg.sender,
+                'message': new_msg.message,
+                'created_at': new_msg.created_at.strftime("%Y-%m-%d %H:%M:%S") if new_msg.created_at else None
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # ═══ PROFILE PICTURE UPLOAD API ═══
 @api_bp.route('/user/<int:user_id>/profile-picture', methods=['POST'])
@@ -1239,6 +1417,26 @@ def rider_update_delivery(order_id):
     
     order.delivery_status = new_status
     
+    # Handle Proof of Delivery (Photo)
+    proof_url = data.get('proof_of_delivery_url')
+    if proof_url:
+        order.proof_of_delivery_url = proof_url
+
+    # If DELIVERED, credit rider commission to wallet
+    if new_status == 'DELIVERED':
+        rider = User.query.get(rider_id)
+        if rider:
+            # Commission calculation: Flat 20 PHP + 50% of delivery fee
+            delivery_fee_val = float(order.delivery_fee or 0)
+            commission = 20.0 + (delivery_fee_val * 0.5)
+            
+            if not rider.wallet_balance:
+                rider.wallet_balance = 0.0
+            rider.wallet_balance = float(rider.wallet_balance) + commission
+            
+            # Log the commission earned.
+            order.notes = (order.notes or '') + f" [Rider Commission: ₱{commission:.2f}]"
+
     # If COD and delivered, handle amount tendered
     if new_status == 'DELIVERED' and order.payment_method == 'COUNTER':
         amount_tendered = data.get('amount_tendered')
@@ -1252,6 +1450,7 @@ def rider_update_delivery(order_id):
 
 @api_bp.route('/rider/summary/<int:rider_id>', methods=['GET'])
 def rider_summary(rider_id):
+    from datetime import date
     total_deliveries = Order.query.filter(
         Order.rider_id == rider_id,
         Order.delivery_status == 'DELIVERED'
@@ -1262,10 +1461,33 @@ def rider_summary(rider_id):
         Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY'])
     ).count()
     
+    # Today's deliveries
+    today = date.today()
+    today_deliveries = Order.query.filter(
+        Order.rider_id == rider_id,
+        Order.delivery_status == 'DELIVERED',
+        db.func.date(Order.created_at) == today
+    ).count()
+    
+    # Wallet balance
+    rider = User.query.get(rider_id)
+    wallet_balance = float(rider.wallet_balance or 0) if rider else 0.0
+    
+    # Today's earnings estimate (commission: ₱20 + 50% delivery fee per delivery)
+    today_orders = Order.query.filter(
+        Order.rider_id == rider_id,
+        Order.delivery_status == 'DELIVERED',
+        db.func.date(Order.created_at) == today
+    ).all()
+    today_earnings = sum(20.0 + (float(o.delivery_fee or 0) * 0.5) for o in today_orders)
+    
     return jsonify({
         'success': True,
         'total_deliveries_today': total_deliveries,
         'active_deliveries': active_deliveries,
+        'today_deliveries': today_deliveries,
+        'today_earnings': round(today_earnings, 2),
+        'wallet_balance': round(wallet_balance, 2),
     })
 
 # ═══ RIDER LOCATION TRACKING ═══
@@ -1358,6 +1580,84 @@ def track_delivery(order_id):
         'rider_location': rider_location,
     })
 
+# ═══ ORDER CHAT API ═══
+@api_bp.route('/order/<int:order_id>/chat', methods=['GET'])
+def get_order_chat(order_id):
+    """Fetch chat history for a specific order (between rider and customer)"""
+    from models import OrderChat, Order
+    
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'Order not found.'}), 404
+    
+    messages = OrderChat.query.filter_by(order_id=order_id).order_by(OrderChat.created_at.asc()).all()
+    
+    message_list = [{
+        'id': msg.id,
+        'sender_id': msg.sender_id,
+        'sender_role': msg.sender.role,
+        'message': msg.message,
+        'is_read': msg.is_read,
+        'created_at': msg.created_at.isoformat(),
+        'sender_name': f"{msg.sender.first_name} {msg.sender.last_name}"
+    } for msg in messages]
+    
+    return jsonify({
+        'success': True,
+        'messages': message_list
+    })
+
+@api_bp.route('/order/<int:order_id>/chat/send', methods=['POST'])
+def send_order_chat(order_id):
+    """Send a message in the order chat"""
+    from models import OrderChat, Order, Notification
+    
+    data = request.json
+    sender_id = data.get('sender_id')
+    message_text = data.get('message', '').strip()
+    
+    if not sender_id or not message_text:
+        return jsonify({'success': False, 'message': 'Missing data'}), 400
+        
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'Order not found.'}), 404
+        
+    chat = OrderChat(
+        order_id=order_id,
+        sender_id=sender_id,
+        message=message_text
+    )
+    db.session.add(chat)
+    
+    # Send a notification to the other party
+    if sender_id == order.user_id:
+        # Customer sent it -> notify rider
+        if order.rider_id:
+            notif = Notification(
+                user_id=order.rider_id,
+                title=f"New message from Customer (Order #{order.id})",
+                message=message_text,
+                type="DELIVERY"
+            )
+            db.session.add(notif)
+    elif sender_id == order.rider_id:
+        # Rider sent it -> notify customer
+        notif = Notification(
+            user_id=order.user_id,
+            title=f"New message from Rider (Order #{order.id})",
+            message=message_text,
+            type="DELIVERY"
+        )
+        db.session.add(notif)
+        
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Message sent successfully.'
+    })
+
 @api_bp.route('/user/<int:user_id>', methods=['DELETE'])
 def api_delete_user(user_id):
     """Delete a user account permanently"""
@@ -1375,3 +1675,52 @@ def api_delete_user(user_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error deleting account: {str(e)}'}), 500
 
+# ═══ VOUCHER VALIDATION API ═══
+@api_bp.route('/voucher/apply', methods=['POST'])
+def api_apply_voucher():
+    """Validate and apply a voucher code"""
+    try:
+        data = request.json
+        code = data.get('code', '').strip().upper()
+        order_total = data.get('order_total', 0)
+        
+        if not code:
+            return jsonify({'success': False, 'message': 'Please enter a voucher code'}), 400
+            
+        voucher = Voucher.query.filter_by(code=code).first()
+        if not voucher:
+            return jsonify({'success': False, 'message': 'Invalid voucher code'}), 404
+            
+        if not voucher.is_active:
+            return jsonify({'success': False, 'message': 'This voucher is no longer active'}), 400
+            
+        if voucher.times_used >= voucher.max_uses:
+            return jsonify({'success': False, 'message': 'This voucher has reached its usage limit'}), 400
+            
+        now = get_ph_time()
+        if voucher.valid_from and now < voucher.valid_from:
+            return jsonify({'success': False, 'message': 'This voucher is not yet valid'}), 400
+        if voucher.valid_until and now > voucher.valid_until:
+            return jsonify({'success': False, 'message': 'This voucher has expired'}), 400
+            
+        if float(order_total) < float(voucher.min_order_amount):
+            return jsonify({'success': False, 'message': f'Minimum order of ₱{voucher.min_order_amount} required'}), 400
+        
+        # Calculate discount
+        if voucher.discount_type == 'PERCENT':
+            discount = float(order_total) * float(voucher.discount_value) / 100
+        else:
+            discount = float(voucher.discount_value)
+            
+        discount = min(discount, float(order_total))  # Never exceed order total
+        
+        return jsonify({
+            'success': True,
+            'message': f'Voucher {code} applied!',
+            'discount': round(discount, 2),
+            'discount_type': voucher.discount_type,
+            'discount_value': float(voucher.discount_value),
+            'voucher_id': voucher.id
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

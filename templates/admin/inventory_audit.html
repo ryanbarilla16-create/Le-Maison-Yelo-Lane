@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% block title %}Inventory Audit History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Inventory Audit History</h1>
+    <p>Track every single deduction, addition, or manual adjustment made to inventory stocks.</p>
+</div>
+
+<div class="filter-card p-3 mb-4 rounded"
+    style="background: var(--admin-surface); border: 1px solid var(--admin-border); box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+    <form method="GET" action="{{ url_for('admin.inventory_audit') }}" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label"
+                style="font-size: 0.85rem; color: var(--admin-text-light); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Filter
+                by Ingredient</label>
+            <select name="ingredient_id" class="form-control admin-input">
+                <option value="">All Ingredients</option>
+                {% for ing in ingredients %}
+                <option value="{{ ing.id }}" {% if ing_filter==ing.id %}selected{% endif %}>{{ ing.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label"
+                style="font-size: 0.85rem; color: var(--admin-text-light); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Filter
+                by Action</label>
+            <select name="action" class="form-control admin-input">
+                <option value="">All Actions</option>
+                <option value="ADD" {% if action_filter=='ADD' %}selected{% endif %}>Stock Addition</option>
+                <option value="DEDUCT" {% if action_filter=='DEDUCT' %}selected{% endif %}>Stock Deduction (Uses,
+                    Requests)</option>
+                <option value="SPOILED" {% if action_filter=='SPOILED' %}selected{% endif %}>Spoiled/Wasted</option>
+                <option value="EXPIRED" {% if action_filter=='EXPIRED' %}selected{% endif %}>Expired</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-admin btn-admin-primary w-100" style="border-radius: 8px;">Filter</button>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('admin.inventory_audit') }}" class="btn-admin w-100 text-center"
+                style="border-radius: 8px; background: var(--admin-border); color: var(--admin-text);">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="admin-table-wrap">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Staff/User</th>
+                <th>Action</th>
+                <th>Ingredient</th>
+                <th>Change</th>
+                <th>New Stock Limit</th>
+                <th>Reason/Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td style="color: var(--admin-text-light); font-size: 0.9rem;">{{ log.created_at.strftime('%m/%d/%Y
+                    %I:%M %p') }}</td>
+                <td>
+                    {% if log.user %}
+                    <strong>{{ log.user.first_name }} {{ log.user.last_name }}</strong><br>
+                    <span style="font-size: 0.75rem; color: var(--admin-text-light);">{{ log.user.role }}</span>
+                    {% else %}
+                    <span style="color: var(--admin-text-light);">System Automated</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if log.action == 'ADD' %}
+                    <span class="badge bg-success"><i class="fas fa-plus me-1"></i> ADD</span>
+                    {% elif log.action == 'DEDUCT' %}
+                    <span class="badge" style="background: var(--admin-primary);"><i class="fas fa-minus me-1"></i>
+                        DEDUCT</span>
+                    {% elif log.action in ['SPOILED', 'EXPIRED'] %}
+                    <span class="badge bg-danger"><i class="fas fa-trash me-1"></i> {{ log.action }}</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ log.action }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-weight: 600;">{{ log.ingredient.name }}</td>
+                <td
+                    style="font-weight: bold; font-size: 1.1rem; {% if log.action == 'ADD' %}color: var(--admin-green);{% else %}color: #ef4444;{% endif %}">
+                    {% if log.action == 'ADD' %}+{% else %}-{% endif %}{{ log.quantity }} <span
+                        style="font-size: 0.8rem; font-weight: normal;">{{ log.ingredient.unit }}</span>
+                </td>
+                <td style="color: var(--admin-text-light);">{{ log.new_stock }} {{ log.ingredient.unit }}</td>
+                <td style="font-style: italic; color: var(--admin-text-light);">{{ log.reason or '--' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--admin-text-light);">No audit logs
+                    found for the given filters.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -27,14 +27,8 @@ def validate_name(name, field_name):
     return None
 
 def validate_email(email):
-    if not email.endswith('@gmail.com'): return "Email must use @gmail.com domain."
-    local_part = email[:-10]
-    if not (6 <= len(local_part) <= 30): return "Email before @gmail.com must be 6-30 characters."
-    if not re.search(r'[A-Za-z]', local_part): return "Email must contain at least one letter."
-    if re.search(r'[\s_]', local_part): return "Email cannot contain spaces or underscores."
-    if local_part.startswith('.') or local_part.endswith('.'): return "Email cannot start or end with a period."
-    if '..' in local_part: return "Email cannot contain consecutive periods."
-    if not re.match(r'^[a-zA-Z0-9.]+$', local_part): return "Email can only contain letters, numbers, and periods."
+    pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(pattern, email): return "Please enter a valid email address."
     return None
 
 def validate_username(username, first, last):
@@ -51,9 +45,11 @@ def calculate_age(born):
 
 def validate_password(password, confirm):
     if len(password) < 6: return "Password must be at least 6 characters."
+    if password.startswith(' ') or password.endswith(' '): return "Password cannot start or end with spaces."
+    if '   ' in password: return "Password cannot contain too many consecutive spaces."
     if not re.search(r'[A-Z]', password): return "Password must contain an uppercase letter."
     if not re.search(r'[0-9]', password): return "Password must contain a number."
-    if not re.search(r'[^A-Za-z0-9]', password): return "Password must contain a special character."
+    if not re.search(r'[^A-Za-z0-9\s]', password): return "Password must contain a special character."
     if password != confirm: return "Passwords do not match."
     return None
 
@@ -97,8 +93,8 @@ def signup():
             age = calculate_age(birthday)
             if age < 18:
                 flash("You must be at least 18 years old to register.", "danger"); return render_template('auth/signup.html')
-            if age > 80:
-                flash("Please enter a valid birthday. Maximum age is 80 years.", "danger"); return render_template('auth/signup.html')
+            if age > 70:
+                flash("Please enter a valid birthday. Maximum age is 70 years.", "danger"); return render_template('auth/signup.html')
         except ValueError:
             flash("Invalid birthday format.", "danger"); return render_template('auth/signup.html')
 
@@ -327,18 +323,26 @@ def login():
             if not user.is_verified:
                 flash("Please complete your OTP verification first.", "warning")
                 return redirect(url_for('main.verify_otp', user_id=user.id))
-            if user.status != 'ACTIVE' and user.role != 'ADMIN':
+            
+            role_upper = user.role.upper() if user.role else ''
+            staff_roles = ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']
+            
+            if user.status != 'ACTIVE' and role_upper not in staff_roles:
                 flash("Your account is pending admin approval.", "warning")
                 return redirect(url_for('main.login'))
             
             login_user(user)
             # Redirect admins/staff to their specific dashboards, regular users to homepage
-            if user.role == 'ADMIN':
+            if role_upper == 'ADMIN':
                 return redirect(url_for('admin.overview'))
-            elif user.role == 'CASHIER':
+            elif role_upper in ['CASHIER', 'STAFF']:
                 return redirect(url_for('admin.orders'))
-            elif user.role == 'INVENTORY_STAFF':
+            elif role_upper in ['INVENTORY_STAFF', 'INVENTORY']:
                 return redirect(url_for('admin.inventory'))
+            elif role_upper == 'KITCHEN':
+                return redirect(url_for('admin.kitchen_view'))
+            elif role_upper == 'RIDER':
+                return redirect(url_for('admin.deliveries'))
                 
             return redirect(url_for('main.index'))
         flash("Invalid email or password.", "danger")
@@ -346,11 +350,193 @@ def login():
 
 @main_bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
+    from flask import session
     if request.method == 'POST':
-        email = request.form.get('email')
-        flash(f"If an account exists for {email}, a password reset link has been sent.", "info")
-        return redirect(url_for('main.login'))
+        email = (request.form.get('email') or '').strip()
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            # Reveal as little as possible
+            flash(f"If an account exists for {email}, an OTP has been sent.", "info")
+            return redirect(url_for('main.login'))
+            
+        # Rate-limit OTP (wait 60 seconds between requests)
+        if user.otp_created_at:
+            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            if elapsed < 60:
+                flash(f"Please wait {int(60 - elapsed)}s before requesting a new code.", "warning")
+                return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+        
+        otp = f"{random.randint(100000, 999999)}"
+        user.otp_code = otp
+        user.otp_created_at = get_ph_time()
+        db.session.commit()
+        
+        print(f"--- WEB FORGOT PASSWORD OTP FOR {email} IS: {otp} ---")
+        
+        try:
+            mail = current_app.extensions['mail']
+            msg = Message(
+                subject='Le Maison Yelo Lane - Password Reset Code',
+                sender=current_app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+            msg.html = f"""
+            <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
+                    <p style="color: #999; font-size: 0.85rem; margin-top: 5px;">Password Reset</p>
+                </div>
+                <p style="color: #333;">Hello <strong>{user.first_name}</strong>,</p>
+                <p style="color: #555;">You requested a password reset. Use the following OTP code to reset your password:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <span style="display: inline-block; background: linear-gradient(135deg, #8B4513, #A0522D); color: #fff; font-size: 2rem; font-weight: bold; letter-spacing: 8px; padding: 15px 35px; border-radius: 10px;">{otp}</span>
+                </div>
+                <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
+            </div>
+            """
+            mail.send(msg)
+            flash(f"An OTP has been sent to {email}. Please check your inbox.", "success")
+        except Exception as e:
+            print(f"Email sending failed: {e}")
+            traceback.print_exc()
+            flash("An OTP has been generated. (Email sending failed, check console for OTP)", "warning")
+            
+        session['reset_user_id'] = user.id
+        return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+        
     return render_template('auth/forgot_password.html')
+
+@main_bp.route('/verify-reset-otp/<int:user_id>', methods=['GET', 'POST'])
+def verify_reset_otp(user_id):
+    from flask import session
+    if session.get('reset_user_id') != user_id:
+        flash("Invalid session. Please start the password reset process again.", "danger")
+        return redirect(url_for('main.forgot_password'))
+        
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        otp_input = request.form.get('otp', '').strip()
+        
+        # Check OTP expiry (5 minutes)
+        if user.otp_created_at:
+            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            if elapsed > 300:
+                flash("OTP has expired. Please request a new one.", "danger")
+                return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+                
+        if user.otp_code == otp_input:
+            session['reset_verified_user_id'] = user.id
+            flash("OTP verified! You can now set a new password.", "success")
+            return redirect(url_for('main.reset_password'))
+        else:
+            flash("Invalid OTP.", "danger")
+            
+    cooldown_remaining = 0
+    if user.otp_created_at:
+        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        cooldown_remaining = max(0, int(60 - elapsed))
+        
+    return render_template('auth/verify_reset_otp.html', user=user, cooldown_remaining=cooldown_remaining)
+
+@main_bp.route('/resend-reset-otp/<int:user_id>', methods=['POST'])
+def resend_reset_otp(user_id):
+    from flask import session
+    if session.get('reset_user_id') != user_id:
+        flash("Invalid session. Please start the password reset process again.", "danger")
+        return redirect(url_for('main.forgot_password'))
+        
+    user = User.query.get_or_404(user_id)
+    
+    if user.otp_created_at:
+        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        if elapsed < 60:
+            remaining = int(60 - elapsed)
+            flash(f"Please wait {remaining}s before requesting a new code.", "warning")
+            return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+            
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_created_at = get_ph_time()
+    db.session.commit()
+    
+    print(f"--- WEB RESEND FORGOT PASSWORD OTP FOR {user.email} IS: {otp} ---")
+    
+    try:
+        mail = current_app.extensions['mail']
+        msg = Message(
+            subject='Le Maison Yelo Lane - New Password Reset Code',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[user.email]
+        )
+        msg.html = f"""
+        <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
+                <p style="color: #999; font-size: 0.85rem; margin-top: 5px;">New Password Reset Code</p>
+            </div>
+            <p style="color: #333;">Hello <strong>{user.first_name}</strong>,</p>
+            <p style="color: #555;">Here is your new OTP code to reset your password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <span style="display: inline-block; background: linear-gradient(135deg, #8B4513, #A0522D); color: #fff; font-size: 2rem; font-weight: bold; letter-spacing: 8px; padding: 15px 35px; border-radius: 10px;">{otp}</span>
+            </div>
+            <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
+        </div>
+        """
+        mail.send(msg)
+        flash(f"A new OTP has been sent to {user.email}. Please check your inbox.", "success")
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+        traceback.print_exc()
+        flash("A new OTP has been generated. (Email sending failed, check console for OTP)", "warning")
+        
+    return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+
+@main_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    from flask import session
+    user_id = session.get('reset_verified_user_id')
+    if not user_id:
+        flash("You must verify your OTP before resetting your password.", "danger")
+        return redirect(url_for('main.forgot_password'))
+        
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        # Check OTP expiry (5 minutes) - extra safety
+        if user.otp_created_at:
+            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            if elapsed > 300:
+                flash("Your password reset session has expired (5 minutes). Please start over.", "danger")
+                session.pop('reset_user_id', None)
+                session.pop('reset_verified_user_id', None)
+                return redirect(url_for('main.forgot_password'))
+                
+        err = validate_password(new_password, confirm_password)
+        if err:
+            flash(err, "danger")
+            return render_template('auth/reset_password.html')
+            
+        user.set_password(new_password)
+        user.otp_code = None
+        user.otp_created_at = None
+        db.session.commit()
+        
+        # Send system notification on the new password change
+        from utils import create_notification
+        create_notification(user.id, 'Password Changed', 'Your password was successfully changed.', 'SYSTEM')
+        
+        session.pop('reset_user_id', None)
+        session.pop('reset_verified_user_id', None)
+        
+        flash("Password reset successfully! You can now log in with your new password.", "success")
+        return redirect(url_for('main.login'))
+        
+    return render_template('auth/reset_password.html')
 
 @main_bp.route('/logout')
 @login_required
@@ -471,7 +657,27 @@ def facebook_callback():
     access_token = token_res.get('access_token')
     
     if not access_token:
+        # If the code was already used, the session might already have the data
+        # This happens when mobile browsers retry the callback
+        from routes.api import mobile_sessions
+        if session_id and session_id in mobile_sessions and mobile_sessions[session_id].get('success'):
+            return '''
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2 style="color:#8B4513;">✅ Login Successful!</h2>
+            <p>You can now go back to the app.</p>
+            <p style="color:#666;font-size:14px;">This window will close automatically...</p>
+            </body></html>
+            '''
+        # Check if error is "code already used" - still show success-like page
         error_msg = str(token_res)
+        if 'has been used' in error_msg:
+            return '''
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2 style="color:#8B4513;">✅ Login Successful!</h2>
+            <p>You can now go back to the app.</p>
+            <p style="color:#666;font-size:14px;">This window will close automatically...</p>
+            </body></html>
+            '''
         return f'<h2>Authentication failed.</h2><p>Could not get access token.</p><p>{error_msg}</p>'
     
     # Get user info

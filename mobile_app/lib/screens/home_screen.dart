@@ -10,6 +10,7 @@ import 'reserve_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'notifications_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -288,7 +289,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     () => setState(() => _currentIndex = 2),
                   ),
                   const SizedBox(width: 10),
-                  _quickAction(Icons.star, 'Reviews', AppColors.gold, () {}),
+                  _quickAction(Icons.chat_rounded, 'Chat', AppColors.gold, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    );
+                  }),
                 ],
               ),
             ),

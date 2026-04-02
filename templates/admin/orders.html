@@ -3,222 +3,436 @@
 {% block title %}Order Management{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
         Order Management</h1>
-    <a href="{{ url_for('admin.walkin_order') }}" class="btn btn-sm rounded-pill fw-bold text-white shadow-sm px-4 py-2"
-        style="background: linear-gradient(135deg, #8B4513, #A0522D);">
-        <i class="fas fa-walking me-2"></i>New Walk-In Order
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-sm btn-outline-secondary fw-bold rounded-pill shadow-sm px-3 py-2"
+            onclick="document.getElementById('shiftReportModal').style.display='flex'">
+            <i class="fas fa-cash-register me-2"></i>Shift Report
+        </button>
+        <a href="{{ url_for('admin.reservations') }}"
+            class="btn btn-sm fw-bold rounded-pill shadow-sm px-3 py-2 text-white" style="background: #2a3d45;">
+            <i class="fas fa-calendar-alt me-2"></i>Check Reservation
+        </a>
+        <a href="{{ url_for('admin.walkin_order') }}"
+            class="btn btn-sm fw-bold text-white rounded-pill shadow-sm px-4 py-2"
+            style="background: linear-gradient(135deg, #8B4513, #A0522D);">
+            <i class="fas fa-plus me-2"></i>New Walk-In
+        </a>
+    </div>
 </div>
+
+<!-- QUICK STATS -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm"
+            style="border-radius: 12px; border-left: 4px solid var(--admin-green) !important;">
+            <div class="card-body p-3 d-flex align-items-center">
+                <div class="me-3" style="font-size: 2rem; color: var(--admin-green);"><i class="fas fa-sack-dollar"></i>
+                </div>
+                <div>
+                    <div
+                        style="font-size: 0.8rem; text-transform: uppercase; color: var(--admin-text-light); font-weight: 600;">
+                        Gross Sales (Today)</div>
+                    <h3 class="m-0 fw-bold">₱{{ "{:,.2f}".format(total_sales_today) }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; border-left: 4px solid #f59e0b !important;">
+            <div class="card-body p-3 d-flex align-items-center">
+                <div class="me-3" style="font-size: 2rem; color: #f59e0b;"><i class="fas fa-clock"></i></div>
+                <div>
+                    <div
+                        style="font-size: 0.8rem; text-transform: uppercase; color: var(--admin-text-light); font-weight: 600;">
+                        Pending Actions</div>
+                    <h3 class="m-0 fw-bold">{{ pending_count }} <span
+                            style="font-size: 1rem; color: var(--admin-text-light);">Orders</span></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; border-left: 4px solid #3b82f6 !important;">
+            <div class="card-body p-3 d-flex align-items-center">
+                <div class="me-3" style="font-size: 2rem; color: #3b82f6;"><i class="fas fa-bell-concierge"></i></div>
+                <div>
+                    <div
+                        style="font-size: 0.8rem; text-transform: uppercase; color: var(--admin-text-light); font-weight: 600;">
+                        Ready/Completed Today</div>
+                    <h3 class="m-0 fw-bold">{{ completed_count }} <span
+                            style="font-size: 1rem; color: var(--admin-text-light);">Orders</span></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes blink-ready {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+        }
+
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px 5px rgba(76, 175, 80, 0);
+        }
+
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+        }
+    }
+
+    .status-completed-blink {
+        animation: blink-ready 2s infinite;
+        display: inline-block;
+    }
+</style>
 
 <div class="card border-0 shadow-sm" style="border-radius: 12px;">
     <div class="card-header bg-white border-bottom p-3">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold" style="color: var(--text-main);">Recent Orders</h5>
 
-            <div class="btn-group" role="group">
-                <a href="{{ url_for('admin.orders', status='ALL') }}"
-                    class="btn btn-sm btn-outline-dark {% if status_filter == 'ALL' %}active{% endif %}">All</a>
-                <a href="{{ url_for('admin.orders', status='PENDING') }}"
-                    class="btn btn-sm btn-outline-warning {% if status_filter == 'PENDING' %}active{% endif %}">Pending</a>
-                <a href="{{ url_for('admin.orders', status='PREPARING') }}"
-                    class="btn btn-sm btn-outline-info {% if status_filter == 'PREPARING' %}active{% endif %}">Preparing</a>
-                <a href="{{ url_for('admin.orders', status='COMPLETED') }}"
-                    class="btn btn-sm btn-outline-success {% if status_filter == 'COMPLETED' %}active{% endif %}">Completed</a>
-                <a href="{{ url_for('admin.orders', status='CANCELLED') }}"
-                    class="btn btn-sm btn-outline-danger {% if status_filter == 'CANCELLED' %}active{% endif %}">Cancelled</a>
+            <div class="d-flex align-items-center gap-3">
+                <div class="input-group input-group-sm" style="width: 250px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="orderSearch" class="form-control border-start-0 ps-0"
+                        placeholder="Search Order ID or Customer..." onkeyup="filterOrders()">
+                </div>
+
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('admin.orders', status='ALL') }}"
+                        class="btn btn-sm btn-outline-dark {% if status_filter == 'ALL' %}active{% endif %}">All</a>
+                    <a href="{{ url_for('admin.orders', status='PENDING') }}"
+                        class="btn btn-sm btn-outline-warning {% if status_filter == 'PENDING' %}active{% endif %}">Pending</a>
+                    <a href="{{ url_for('admin.orders', status='PREPARING') }}"
+                        class="btn btn-sm btn-outline-info {% if status_filter == 'PREPARING' %}active{% endif %}">Preparing</a>
+                    <a href="{{ url_for('admin.orders', status='COMPLETED') }}"
+                        class="btn btn-sm btn-outline-success {% if status_filter == 'COMPLETED' %}active{% endif %}">Completed</a>
+                    <a href="{{ url_for('admin.orders', status='CANCELLED') }}"
+                        class="btn btn-sm btn-outline-danger {% if status_filter == 'CANCELLED' %}active{% endif %}">Cancelled</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead style="background-color: rgba(0,0,0,0.02);">
+                        <tr>
+                            <th class="ps-4">Order ID</th>
+                            <th>Customer</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                            <th class="pe-4 text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                        {% for order in orders %}
+                        <tr class="order-row filter-row" style="cursor: pointer;"
+                            onclick="toggleOrderItems('{{ order.id }}', event)">
+                            <td class="ps-4 fw-bold row-order-id">#{{ order.id }}</td>
+                            <td class="row-customer-name">
+                                {% if order.user %}
+                                <div class="fw-bold" style="color: var(--text-main);">{{ order.user.first_name }} {{
+                                    order.user.last_name }}</div>
+                                {% else %}
+                                <div class="fw-bold" style="color: var(--text-main);"><i
+                                        class="fas fa-walking me-1 text-muted"></i>{{ order.customer_name or 'Walk-in'
+                                    }}
+                                </div>
+                                <small class="text-muted">Walk-in Customer</small>
+                                {% endif %}
+                            </td>
+                            <td style="max-width: 280px; white-space: normal;">
+                                <button
+                                    class="btn btn-sm text-secondary fw-bold rounded-pill border shadow-sm px-3 py-1"
+                                    type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#collapseItems{{ order.id }}" aria-expanded="false"
+                                    aria-controls="collapseItems{{ order.id }}"
+                                    style="font-size: 0.8rem; background: #fff;">
+                                    <i class="fas fa-shopping-basket me-1" style="color: var(--admin-accent);"></i> {{
+                                    order.items|length }} Items
+                                </button>
+
+                                <div class="collapse mt-2" id="collapseItems{{ order.id }}">
+                                    <div class="p-2 border rounded shadow-sm"
+                                        style="background: #fafafa; border-color: #eee !important;">
+                                        <ul class="list-unstyled mb-0" style="font-size: 0.85rem; color: #444;">
+                                            {% for item in order.items %}
+                                            <li class="mb-1"><span class="fw-bold" style="color: var(--text-main);">{{
+                                                    item.quantity }}x</span> {{ item.menu_item.name }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% if order.notes %}
+                                        <hr class="my-1 border-secondary opacity-25">
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;"><i
+                                                class="fas fa-sticky-note me-1"></i> <em>{{ order.notes }}</em></small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="mt-2 d-flex flex-wrap gap-1">
+                                    {% if order.dining_option == 'DINE_IN' %}
+                                    <span
+                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                        style="font-size: 0.70rem;"><i class="fas fa-utensils me-1"></i>Dine In</span>
+                                    {% else %}
+                                    <span
+                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                        style="font-size: 0.70rem;"><i
+                                            class="fas fa-shopping-bag me-1"></i>Pick-up</span>
+                                    {% endif %}
+
+                                    {% if order.payment_method == 'COUNTER' %}
+                                    <span
+                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                        style="font-size: 0.70rem;"><i class="fas fa-cash-register me-1"></i>Pay at
+                                        Counter</span>
+                                    {% else %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle"
+                                        style="font-size: 0.70rem;"><i class="fas fa-mobile-alt me-1"></i>Online
+                                        Payment</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="fw-bold text-success">₱{{ "%.2f"|format(order.total_amount) }}</td>
+                            <td style="font-size: 0.9rem;" class="text-muted">
+                                {{ order.created_at.strftime('%b %d, %Y') }}<br>
+                                {{ order.created_at.strftime('%I:%M %p') }}
+                            </td>
+                            <td>
+                                {% if order.status == 'PENDING' %}
+                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+                                {% elif order.status == 'PREPARING' %}
+                                <span class="badge" style="background-color: #2196F3; color: white;"><i
+                                        class="fas fa-fire-burner me-1"></i>Preparing</span>
+                                {% elif order.status == 'COMPLETED' %}
+                                <span class="badge bg-success status-completed-blink"
+                                    style="box-shadow: 0 0 8px rgba(76,175,80,0.5);"><i
+                                        class="fas fa-check-circle me-1"></i>Completed / Ready</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>{{ order.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <div class="d-flex flex-column gap-2 align-items-end">
+                                    <a href="{{ url_for('admin.print_receipt', order_id=order.id) }}"
+                                        class="btn btn-sm btn-outline-secondary rounded-pill shadow-sm"
+                                        style="font-size: 0.75rem;" onclick="event.stopPropagation()"><i
+                                            class="fas fa-receipt me-1"></i>Receipt</a>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-primary rounded-pill shadow-sm split-btn"
+                                        style="font-size: 0.75rem;" data-order-id="{{ order.id }}" data-items='[
+                                            {% for item in order.items %}
+                                            {"id": {{ item.id }}, "name": "{{ item.menu_item.name|e }}", "qty": {{ item.quantity }}, "price": {{ item.price_at_time }}} {{ "," if not loop.last }}
+                                            {% endfor %}
+                                        ]' onclick="handleSplitClick(this); event.stopPropagation();">
+                                        <i class="fas fa-columns me-1"></i>Split
+                                    </button>
+                                    <form method="POST" action="{{ url_for('admin.update_order', order_id=order.id) }}"
+                                        class="d-inline" onclick="event.stopPropagation()">
+                                        <select name="status" onchange="this.form.submit()"
+                                            class="form-select form-select-sm d-inline-block w-auto rounded-pill border-0 shadow-sm"
+                                            style="font-size: 0.75rem; background-color: #f8f9fa;">
+                                            <option value="PENDING" {% if order.status=='PENDING' %}selected{% endif %}>
+                                                Pending</option>
+                                            <option value="PREPARING" {% if order.status=='PREPARING' %}selected{% endif
+                                                %}>
+                                                Preparing</option>
+                                            <option value="COMPLETED" {% if order.status=='COMPLETED' %}selected{% endif
+                                                %}>
+                                                Completed</option>
+                                            <option value="CANCELLED" {% if order.status=='CANCELLED' %}selected{% endif
+                                                %}>
+                                                Cancelled</option>
+                                        </select>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fas fa-shopping-bag fs-3 mb-2 opacity-50"></i><br>
+                                No orders found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead style="background-color: rgba(0,0,0,0.02);">
-                    <tr>
-                        <th class="ps-4">Order ID</th>
-                        <th>Customer</th>
-                        <th>Items</th>
-                        <th>Total</th>
-                        <th>Payment</th>
-                        <th>Date & Time</th>
-                        <th>Status</th>
-                        <th class="pe-4 text-end">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in orders %}
-                    <tr class="order-row" style="cursor: pointer;" onclick="toggleOrderItems('{{ order.id }}', event)">
-                        <td class="ps-4 fw-bold">#{{ order.id }}</td>
-                        <td>
-                            {% if order.user %}
-                            <div class="fw-bold" style="color: var(--text-main);">{{ order.user.first_name }} {{
-                                order.user.last_name }}</div>
-                            {% else %}
-                            <div class="fw-bold" style="color: var(--text-main);"><i
-                                    class="fas fa-walking me-1 text-muted"></i>{{ order.customer_name or 'Walk-in' }}
-                            </div>
-                            <small class="text-muted">Walk-in Customer</small>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm text-secondary fw-bold rounded-pill border shadow-sm px-3 py-1"
-                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseItems{{ order.id }}"
-                                aria-expanded="false" aria-controls="collapseItems{{ order.id }}"
-                                style="font-size: 0.8rem; background: #fff;">
-                                <i class="fas fa-shopping-basket me-1" style="color: var(--admin-accent);"></i> {{
-                                order.items|length }} Items
-                            </button>
 
-                            <div class="collapse mt-2" id="collapseItems{{ order.id }}">
-                                <div class="p-2 border rounded shadow-sm"
-                                    style="background: #fafafa; border-color: #eee !important;">
-                                    <ul class="list-unstyled mb-0" style="font-size: 0.85rem; color: #444;">
-                                        {% for item in order.items %}
-                                        <li class="mb-1"><span class="fw-bold" style="color: var(--text-main);">{{
-                                                item.quantity }}x</span> {{ item.menu_item.name }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% if order.notes %}
-                                    <hr class="my-1 border-secondary opacity-25">
-                                    <small class="text-muted d-block" style="font-size: 0.75rem;"><i
-                                            class="fas fa-sticky-note me-1"></i> <em>{{ order.notes }}</em></small>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <div class="mt-2 d-flex flex-wrap gap-1">
-                                {% if order.dining_option == 'DINE_IN' %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
-                                    style="font-size: 0.70rem;"><i class="fas fa-utensils me-1"></i>Dine In</span>
-                                {% else %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
-                                    style="font-size: 0.70rem;"><i class="fas fa-shopping-bag me-1"></i>Take Out</span>
-                                {% endif %}
-
-                                {% if order.payment_method == 'COUNTER' %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
-                                    style="font-size: 0.70rem;"><i class="fas fa-cash-register me-1"></i>Pay at
-                                    Counter</span>
-                                {% else %}
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle"
-                                    style="font-size: 0.70rem;"><i class="fas fa-mobile-alt me-1"></i>Online
-                                    Payment</span>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td class="fw-bold text-success">₱{{ "%.2f"|format(order.total_amount) }}</td>
-                        <td>
-                            <div class="dropdown">
-                                {% if order.payment_status == 'PAID' %}
-                                <span
-                                    class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 dropdown-toggle"
-                                    style="cursor: pointer; font-size: 0.8rem;" data-bs-toggle="dropdown"><i
-                                        class="fas fa-check-circle me-1"></i> Paid</span>
-                                {% else %}
-                                <span
-                                    class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 dropdown-toggle"
-                                    style="cursor: pointer; font-size: 0.8rem;" data-bs-toggle="dropdown"><i
-                                        class="fas fa-times-circle me-1"></i> Unpaid</span>
-                                {% endif %}
-                                <ul class="dropdown-menu border-0 shadow-sm"
-                                    style="border-radius: 12px; font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0;"
-                                    onclick="event.stopPropagation()">
-                                    <li>
-                                        <form action="{{ url_for('admin.update_payment_status', order_id=order.id) }}"
-                                            method="POST" style="margin: 0;">
-                                            <input type="hidden" name="payment_status" value="PAID">
-                                            <button type="submit" class="dropdown-item text-success fw-bold py-1"><i
-                                                    class="fas fa-check-circle me-2"></i> Mark Paid</button>
-                                        </form>
-                                    </li>
-                                    <li>
-                                        <form action="{{ url_for('admin.update_payment_status', order_id=order.id) }}"
-                                            method="POST" style="margin: 0;">
-                                            <input type="hidden" name="payment_status" value="UNPAID">
-                                            <button type="submit" class="dropdown-item text-danger fw-bold py-1"><i
-                                                    class="fas fa-times-circle me-2"></i> Mark Unpaid</button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </div>
-                        </td>
-                        <td style="font-size: 0.9rem;" class="text-muted">
-                            {{ order.created_at.strftime('%b %d, %Y') }}<br>
-                            {{ order.created_at.strftime('%I:%M %p') }}
-                        </td>
-                        <td>
-                            {% if order.status == 'PENDING' %}
-                            <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
-                            {% elif order.status == 'PREPARING' %}
-                            <span class="badge" style="background-color: #2196F3; color: white;"><i
-                                    class="fas fa-fire-burner me-1"></i>Preparing</span>
-                            {% elif order.status == 'COMPLETED' %}
-                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Completed</span>
-                            {% else %}
-                            <span class="badge bg-danger"><i class="fas fa-times me-1"></i>{{ order.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="pe-4 text-end">
-                            <a href="{{ url_for('admin.print_receipt', order_id=order.id) }}" target="_blank"
-                                class="btn btn-sm btn-outline-secondary rounded-pill" onclick="event.stopPropagation()">
-                                <i class="fas fa-print"></i> Print
-                            </a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
-                            <i class="fas fa-shopping-bag fs-3 mb-2 opacity-50"></i><br>
-                            No orders found.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Split Bill Modal -->
+    <div class="modal fade" id="splitModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="splitForm" method="POST" action="">
+                <div class="modal-content" style="border-radius: 15px;">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title fw-bold" style="color: var(--text-main);">Split Bill</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Select items to move to a NEW separate order.</p>
+                        <div id="splitItemsList" class="list-group list-group-flush">
+                            <!-- Items will be injected here -->
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4"
+                            style="background: #8B4513; border: none;">Confirm Split</button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-    function toggleOrderItems(orderId, event) {
-        // Don't toggle if clicking a button, link, or within a dropdown
-        if (event.target.closest('button') || event.target.closest('a') || event.target.closest('.dropdown-menu')) {
-            return;
+    <!-- SHIFT REPORT MODAL -->
+    <div id="shiftReportModal" class="admin-modal" style="display: none; align-items:center;">
+        <div class="admin-modal-content" style="max-width: 450px; border-radius: 12px; padding: 24px;">
+            <div class="admin-modal-header border-bottom pb-3 mb-3 d-flex justify-content-between">
+                <h3 class="m-0" style="color: var(--text-main); font-family: 'Georgia', serif;">
+                    <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>End of Shift Report
+                </h3>
+                <span class="admin-close fs-4" style="cursor: pointer;"
+                    onclick="document.getElementById('shiftReportModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body py-3">
+                <p class="text-muted mb-4 fs-6">Today's collection summary. Verify your cash drawer before logging out.
+                </p>
+
+                <div
+                    class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded shadow-sm border border-secondary-subtle">
+                    <span class="fw-bold text-secondary text-uppercase"
+                        style="letter-spacing: 0.5px; font-size: 0.85rem;"><i class="fas fa-cash-register me-2"></i>Cash
+                        Expected</span>
+                    <span class="fw-bold fs-4 text-success">₱{{ "{:,.2f}".format(cash_sales) }}</span>
+                </div>
+
+                <div
+                    class="d-flex justify-content-between align-items-center mb-4 p-3 bg-light rounded shadow-sm border border-secondary-subtle">
+                    <span class="fw-bold text-secondary text-uppercase"
+                        style="letter-spacing: 0.5px; font-size: 0.85rem;"><i class="fas fa-mobile-alt me-2"></i>Online
+                        Expected</span>
+                    <span class="fw-bold fs-4 text-primary">₱{{ "{:,.2f}".format(online_sales) }}</span>
+                </div>
+
+                <hr class="opacity-25">
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <span class="fw-bold fs-5 text-dark">Total Gross</span>
+                    <span class="fw-bold fs-3 text-dark">₱{{ "{:,.2f}".format(total_sales_today) }}</span>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-top text-end">
+                <button class="btn btn-outline-secondary rounded-pill px-4"
+                    onclick="document.getElementById('shiftReportModal').style.display='none'">Close</button>
+                <button class="btn btn-primary rounded-pill px-4" onclick="window.print()">Print Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterOrders() {
+            let input = document.getElementById('orderSearch').value.toLowerCase();
+            let rows = document.querySelectorAll('.filter-row');
+
+            rows.forEach(row => {
+                let orderId = row.querySelector('.row-order-id').innerText.toLowerCase();
+                let customerName = row.querySelector('.row-customer-name').innerText.toLowerCase();
+
+                if (orderId.includes(input) || customerName.includes(input)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+        function handleSplitClick(btn) {
+            const orderId = btn.getAttribute('data-order-id');
+            const items = JSON.parse(btn.getAttribute('data-items'));
+            openSplitModal(orderId, items);
         }
 
-        const collapseEl = document.getElementById('collapseItems' + orderId);
-        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
-        bsCollapse.toggle();
+        function openSplitModal(orderId, items) {
+            const modalEl = document.getElementById('splitModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const list = document.getElementById('splitItemsList');
+            const form = document.getElementById('splitForm');
 
-        // Optional: Toggle row highlight
-        const row = event.target.closest('tr');
-        row.style.backgroundColor = collapseEl.classList.contains('show') ? 'transparent' : 'rgba(139, 69, 19, 0.03)';
-    }
-</script>
+            form.action = `/admin/orders/split/${orderId}`;
+            list.innerHTML = '';
 
-<style>
-    .order-row:hover {
-        background-color: rgba(139, 69, 19, 0.05) !important;
-        transition: background-color 0.2s ease;
-    }
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'list-group-item d-flex justify-content-between align-items-center border-0 px-0';
+                div.innerHTML = `
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="split_item_ids" value="${item.id}" id="split_${item.id}">
+                <label class="form-check-label ms-2" for="split_${item.id}">
+                    ${item.qty}x ${item.name}
+                </label>
+            </div>
+            <span class="fw-bold">₱${(item.price * item.qty).toFixed(2)}</span>
+        `;
+                list.appendChild(div);
+            });
 
-    .order-row.active {
-        background-color: rgba(139, 69, 19, 0.08) !important;
-    }
+            modal.show();
+        }
+    </script>
+    <script>
+        function toggleOrderItems(orderId, event) {
+            // Don't toggle if clicking a button, link, or within a dropdown
+            if (event.target.closest('button') || event.target.closest('a') || event.target.closest('.dropdown-menu')) {
+                return;
+            }
 
-    .order-row td {
-        border-bottom: 1px solid #f8f9fa;
-    }
+            const collapseEl = document.getElementById('collapseItems' + orderId);
+            const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+            bsCollapse.toggle();
 
-    .collapse-items-container {
-        background: #fff;
-        border: 1px solid #eee;
-        border-radius: 12px;
-        margin-top: 8px;
-        padding: 12px;
-    }
-</style>
-{% endblock %}
+            // Optional: Toggle row highlight
+            const row = event.target.closest('tr');
+            row.style.backgroundColor = collapseEl.classList.contains('show') ? 'transparent' : 'rgba(139, 69, 19, 0.03)';
+        }
+    </script>
+
+    <style>
+        .order-row:hover {
+            background-color: rgba(139, 69, 19, 0.05) !important;
+            transition: background-color 0.2s ease;
+        }
+
+        .order-row.active {
+            background-color: rgba(139, 69, 19, 0.08) !important;
+        }
+
+        .order-row td {
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .collapse-items-container {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            margin-top: 8px;
+            padding: 12px;
+        }
+    </style>
+    {% endblock %}

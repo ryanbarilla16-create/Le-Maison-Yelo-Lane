@@ -14,8 +14,39 @@
                 <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked style="cursor: pointer;">
             </div>
         </div>
+        <div class="d-flex align-items-center gap-2 border-start ps-3">
+            <span class="text-muted" style="font-size: 0.8rem;">Sound</span>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="soundToggle" checked style="cursor: pointer;">
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Performance Banner -->
+<div class="alert alert-info border-0 shadow-sm d-flex justify-content-between align-items-center mb-4" style="border-radius: 12px; background: white; border-left: 5px solid var(--admin-blue) !important;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px; background: rgba(59,130,246,0.1); color: var(--admin-blue);">
+            <i class="fas fa-chart-line fs-5"></i>
+        </div>
+        <div>
+            <h6 class="mb-0 fw-bold" style="color: #333;">Today's Throughput</h6>
+            <small class="text-muted">Efficiency tracking for prep stations</small>
+        </div>
+    </div>
+    <div class="d-flex gap-4">
+        <div class="text-center">
+            <div class="fw-bold" style="font-size: 1.1rem; color: var(--admin-blue);">{{ avg_prep_time }}m</div>
+            <small class="text-muted" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Avg. Prep Time</small>
+        </div>
+        <div class="text-center border-start ps-4">
+            <div class="fw-bold" style="font-size: 1.1rem; color: var(--admin-green);">{{ completed_count }}</div>
+            <small class="text-muted" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Served Today</small>
+        </div>
+    </div>
+</div>
+
+<audio id="notificationSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
 <!-- Status Filter Tabs -->
 <div class="d-flex gap-2 mb-4 flex-wrap">
@@ -46,6 +77,41 @@
         <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ cancelled_count }}</span>
     </a>
 </div>
+
+<!-- Consolidated Prep List (Advanced KDS Feature) -->
+{% if status_filter == 'ACTIVE' and orders %}
+<div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; background: #fffcf5; border: 1px solid #ffecc7 !important;">
+    <div class="card-header bg-transparent border-0 pt-3 pb-0">
+        <h6 class="fw-bold mb-0" style="color: #856404;"><i class="fas fa-list-check me-2"></i>Consolidated Prep List (What to cook now)</h6>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            {% set item_counts = {} %}
+            {% for order in orders if order.status in ['PENDING', 'PREPARING'] %}
+                {% for item in order.items %}
+                    {% if item.menu_item.name in item_counts %}
+                        {% set _ = item_counts.update({item.menu_item.name: (item_counts[item.menu_item.name]|int) + (item.quantity|int)}) %}
+                    {% else %}
+                        {% set _ = item_counts.update({item.menu_item.name: item.quantity|int}) %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            
+            {% for name, count in item_counts.items() %}
+            <div class="prep-badge d-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm" 
+                 style="background: white; border: 1px solid #ffecc7; color: #5d4037; transition: all 0.2s ease;">
+                <span class="qty-circle d-flex align-items-center justify-content-center text-white" 
+                      style="width: 26px; height: 26px; background: #8d6e63; border-radius: 50%; font-size: 0.8rem; font-weight: 800; line-height: 1;">{{ count }}</span>
+                <span class="fw-bold" style="font-size: 0.9rem;">{{ name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+<style>
+.prep-badge:hover { transform: translateY(-2px); border-color: #8d6e63 !important; }
+</style>
+    </div>
+</div>
+{% endif %}
 
 <!-- Orders Grid -->
 <div class="row g-3" id="ordersGrid">
@@ -117,7 +183,7 @@
                     <span class="badge rounded-pill px-2 py-1"
                         style="font-size: 0.75rem; {% if order.dining_option == 'DINE_IN' %}background: rgba(76,175,80,0.15); color: #2e7d32;{% elif order.dining_option == 'DELIVERY' %}background: rgba(156,39,176,0.15); color: #7b1fa2;{% else %}background: rgba(255,152,0,0.15); color: #e65100;{% endif %}">
                         {% if order.dining_option == 'DINE_IN' %}🍽️ Dine In{% elif order.dining_option == 'DELIVERY'
-                        %}🚚 Delivery{% else %}🛍️ Take Out{% endif %}
+                        %}🚚 Delivery{% else %}🛍️ Pick-up{% endif %}
                     </span>
                 </div>
 
@@ -372,42 +438,47 @@
         });
     });
 
-    // Auto-refresh orders every 15 seconds (only on Active/Pending/Preparing tab)
-    let previousCount = {{ (pending_count + preparing_count) }};
-    let autoRefreshInterval;
+      // Replace 15s refresh with SocketIO real-time updates
+    const socket = io();
+    const sound = document.getElementById('notificationSound');
+    const soundToggle = document.getElementById('soundToggle');
+    const refreshToggle = document.getElementById('autoRefreshToggle');
 
-    function startAutoRefresh() {
-        const fetchFn = () => {
-            fetch('{{ url_for("admin.kitchen_api_orders") }}')
-                .then(r => r.json())
-                .then(data => {
-                    // If new orders came in, reload page to show them
-                    if (data.length > previousCount) {
-                        location.reload();
-                    }
-                    // Also reload if count changed (someone else updated)
-                    if (data.length !== previousCount) {
-                        location.reload();
-                    }
-                    previousCount = data.length;
-                })
-                .catch(err => console.log('Refresh error:', err));
-        };
-        if (window.registerInterval) autoRefreshInterval = window.registerInterval(fetchFn, 15000);
-        else autoRefreshInterval = setInterval(fetchFn, 15000);
-    }
-
-    // Toggle auto-refresh
-    const toggle = document.getElementById('autoRefreshToggle');
-    toggle.addEventListener('change', function () {
-        if (this.checked) {
-            startAutoRefresh();
-        } else {
-            clearInterval(autoRefreshInterval);
+    // Socket listeners for new orders
+    socket.on('new_order', function(data) {
+        console.log('New order received:', data);
+        if (refreshToggle.checked) {
+            if (soundToggle.checked) {
+                sound.play().catch(e => console.log('Audio play blocked:', e));
+            }
+            // Show a toast or notification before reloading
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed bottom-0 end-0 p-3';
+            toast.style.zIndex = '1100';
+            toast.innerHTML = `<div class="toast show bg-success text-white" role="alert"><div class="toast-body">New Order #${data.id} from ${data.customer}!</div></div>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => location.reload(), 1500); 
         }
     });
 
-    // Start auto-refresh by default
-    startAutoRefresh();
+    // Socket listener for status updates (someone else changed an order status)
+    socket.on('order_status_update', function(data) {
+        console.log('Order status updated:', data);
+        if (refreshToggle.checked) {
+            location.reload();
+        }
+    });
+
+    // Cleanup previous polling logic
+    // Toggle manual refresh instead of interval
+    refreshToggle.addEventListener('change', function () {
+        if (this.checked) {
+            console.log('Real-time updates enabled via SocketIO');
+        } else {
+            console.log('Real-time updates paused');
+        }
+    });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 {% endblock %}

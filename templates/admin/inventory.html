@@ -3,151 +3,878 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Inventory</h1>
-    <p>Track stock status and availability of menu items.</p>
+    <h1>Inventory Management</h1>
+    <p>Manage ingredients, suppliers, and track stock levels for all menu items.</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: var(--admin-blue);"><i
                 class="fas fa-box"></i></div>
-        <div class="stat-label">Total Items</div>
+        <div class="stat-label">Menu Items</div>
         <div class="stat-value">{{ total_items }}</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: var(--admin-green);"><i
-                class="fas fa-check-circle"></i></div>
-        <div class="stat-label">In Stock</div>
-        <div class="stat-value">{{ total_items - out_of_stock }}</div>
+        <div class="stat-icon" style="background: rgba(139,69,19,0.15); color: #8B4513;"><i class="fas fa-leaf"></i>
+        </div>
+        <div class="stat-label">Ingredients</div>
+        <div class="stat-value">{{ ingredients|length }}</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: var(--admin-red);"><i
+        <div class="stat-icon" style="background: rgba(255,152,0,0.15); color: #F57C00;"><i
                 class="fas fa-exclamation-triangle"></i></div>
-        <div class="stat-label">Out of Stock</div>
-        <div class="stat-value">{{ out_of_stock }}</div>
+        <div class="stat-label">Low Stock</div>
+        <div class="stat-value">{{ low_stock_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(220,38,38,0.15); color: #dc2626;"><i
+                class="fas fa-calendar-times"></i></div>
+        <div class="stat-label">Expiring Soon</div>
+        <div class="stat-value text-danger">{{ expiring_soon_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: var(--admin-green);"><i
+                class="fas fa-truck-loading"></i></div>
+        <div class="stat-label">Suppliers</div>
+        <div class="stat-value">{{ suppliers|length }}</div>
     </div>
 </div>
 
-<div class="admin-table-wrap">
-    <div class="admin-table-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <h3 class="m-0">All Inventory</h3>
-        <div class="d-flex gap-2 flex-wrap">
-            <div class="category-filter-wrapper">
-                <select id="categoryFilter" class="form-select shadow-sm"
-                    style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px; min-width: 180px; cursor: pointer;">
+<!-- TABS -->
+<div style="margin-bottom: 1.5rem;">
+    <div class="d-flex gap-2 flex-wrap" id="inventoryTabs">
+        <button class="btn-admin btn-admin-primary active" onclick="switchTab('menu-items', this)"
+            style="border-radius: 10px; padding: 0.5rem 1.25rem; font-size: 0.85rem;"><i
+                class="fas fa-utensils me-1"></i>Menu Items</button>
+        <button class="btn-admin" onclick="switchTab('ingredients', this)"
+            style="border-radius: 10px; padding: 0.5rem 1.25rem; font-size: 0.85rem; background: var(--admin-surface); border: 1px solid var(--admin-border);"><i
+                class="fas fa-leaf me-1"></i>Ingredients</button>
+        <button class="btn-admin" onclick="switchTab('suppliers', this)"
+            style="border-radius: 10px; padding: 0.5rem 1.25rem; font-size: 0.85rem; background: var(--admin-surface); border: 1px solid var(--admin-border);"><i
+                class="fas fa-truck me-1"></i>Suppliers</button>
+    </div>
+</div>
+
+<!-- ═══════════════ TAB 1: MENU ITEMS ═══════════════ -->
+<div id="tab-menu-items" class="inv-tab">
+    <div class="admin-table-wrap">
+        <div class="admin-table-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h3 class="m-0">All Menu Items</h3>
+            <div class="d-flex gap-2 align-items-center flex-column flex-sm-row mt-3 mt-md-0"
+                style="width: 100%; max-width: 500px; justify-content: flex-end;">
+                <select id="categoryFilter" class="form-select shadow-sm w-100 w-sm-auto"
+                    style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px; min-width: 200px; cursor: pointer;">
                     <option value="">All Categories</option>
-                    <!-- Dynamically populated -->
                 </select>
+                <div style="position: relative; width: 100%; min-width: 220px;">
+                    <i class="fas fa-search"
+                        style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--admin-text-muted); opacity: 0.6;"></i>
+                    <input type="text" id="inventorySearch" class="form-control shadow-sm w-100"
+                        placeholder="Search item..."
+                        style="padding-left: 35px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px;">
+                </div>
             </div>
-            <div class="search-box-wrapper" style="position: relative; min-width: 250px;">
-                <i class="fas fa-search"
-                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--admin-text-muted); opacity: 0.6;"></i>
-                <input type="text" id="inventorySearch" class="form-control shadow-sm" placeholder="Search item..."
-                    style="padding-left: 35px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px;">
+        </div>
+        <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Ingredients</th>
+                        <th>Status</th>
+                        {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ item.name }}</td>
+                        <td><span class="badge-status badge-completed">{{ item.category }}</span></td>
+                        <td style="font-weight: 700; color: var(--admin-accent);">&#8369;{{ "%.2f"|format(item.price) }}
+                        </td>
+                        <td>
+                            {% if item.ingredients|length > 0 %}
+                            <span class="badge-status badge-active" style="cursor:pointer; font-size: 0.72rem;"
+                                onclick="viewRecipe({{ item.id }}, '{{ item.name|e }}')">{{ item.ingredients|length }}
+                                ingredient{{ 's' if item.ingredients|length > 1 }}</span>
+                            {% else %}
+                            <span style="color: var(--admin-text-muted); font-size: 0.78rem;">No recipe</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.is_available %}
+                            <span class="badge-status badge-active">In Stock</span>
+                            {% else %}
+                            <span class="badge-status badge-rejected">Out of Stock</span>
+                            {% endif %}
+                        </td>
+                        {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <form method="POST" action="{{ url_for('admin.toggle_stock', item_id=item.id) }}"
+                                    class="d-inline">
+                                    {% if item.is_available %}
+                                    <button class="btn-admin btn-admin-danger"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"><i class="fas fa-ban"></i>
+                                        Unavailable</button>
+                                    {% else %}
+                                    <button class="btn-admin btn-admin-success"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"><i class="fas fa-check"></i>
+                                        Restock</button>
+                                    {% endif %}
+                                </form>
+                                <button class="btn-admin"
+                                    style="font-size: 0.72rem; padding: 4px 8px; background: rgba(139,69,19,0.08); border: 1px solid rgba(139,69,19,0.2); color: #8B4513;"
+                                    onclick="openRecipeModal({{ item.id }}, '{{ item.name|e }}')"><i
+                                        class="fas fa-list"></i> Recipe</button>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ TAB 2: INGREDIENTS ═══════════════ -->
+<div id="tab-ingredients" class="inv-tab" style="display:none;">
+    <div class="admin-table-wrap">
+        <div class="admin-table-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h3 class="m-0">Ingredient Stock</h3>
+            <div class="d-flex gap-2 align-items-center">
+                {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                <a href="{{ url_for('admin.generate_purchase_order') }}" class="btn-admin btn-admin-success text-nowrap"
+                    style="border-radius: 10px; font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    <i class="fas fa-file-pdf me-1"></i> Generate PO (PDF)
+                </a>
+                {% endif %}
+                <div style="position: relative; width: 100%; min-width: 220px;">
+                    <i class="fas fa-search"
+                        style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--admin-text-muted); opacity: 0.6;"></i>
+                    <input type="text" id="ingredientSearch" class="form-control shadow-sm w-100"
+                        placeholder="Search ingredient..."
+                        style="padding-left: 35px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px;">
+                </div>
+                {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                <button type="button" class="btn-admin btn-admin-danger" id="btnDeleteIngredients"
+                    style="border-radius: 10px; display: none;"
+                    onclick="if(confirm('Delete all selected ingredients?')) document.getElementById('bulkDeleteIngredientsForm').submit();"><i
+                        class="fas fa-trash me-1"></i>Selected</button>
+                <a href="{{ url_for('admin.inventory_audit_logs') }}" class="btn-admin"
+                    style="border-radius: 10px; text-decoration: none; padding: 0.5rem 1rem; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--admin-blue);"><i
+                        class="fas fa-history me-1"></i>Audit Logs</a>
+                <button class="btn-admin btn-admin-primary text-nowrap" style="border-radius: 10px;"
+                    onclick="document.getElementById('addIngredientForm').style.display = document.getElementById('addIngredientForm').style.display === 'none' ? 'block' : 'none'"><i
+                        class="fas fa-plus me-1"></i>Add Ingredient</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Add Ingredient Form (hidden by default) -->
+        <div id="addIngredientForm"
+            style="display:none; padding: 1.25rem; background: rgba(139,69,19,0.03); border-radius: 12px; margin-bottom: 1rem; border: 1px solid rgba(139,69,19,0.08);">
+            <form method="POST" action="{{ url_for('admin.add_ingredient') }}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Name *</label>
+                        <input type="text" name="name" class="form-control form-control-sm" required
+                            placeholder="e.g. Mozzarella Cheese" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Unit *</label>
+                        <select name="unit" class="form-select form-select-sm" required style="border-radius: 8px;">
+                            <option value="grams">grams</option>
+                            <option value="kg">kg</option>
+                            <option value="pieces">pieces</option>
+                            <option value="liters">liters</option>
+                            <option value="ml">ml</option>
+                            <option value="cups">cups</option>
+                            <option value="tbsp">tbsp</option>
+                            <option value="tsp">tsp</option>
+                            <option value="packs">packs</option>
+                            <option value="bottles">bottles</option>
+                            <option value="cans">cans</option>
+                            <option value="slices">slices</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Current Stock</label>
+                        <input type="number" name="stock_qty" class="form-control form-control-sm" value="0" step="0.01"
+                            style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Reorder Level</label>
+                        <input type="number" name="reorder_level" class="form-control form-control-sm" value="10"
+                            step="0.01" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Cost/Unit (₱)</label>
+                        <input type="number" name="cost_per_unit" class="form-control form-control-sm" value="0"
+                            step="0.01" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Supplier</label>
+                        <select name="supplier_id" class="form-select form-select-sm" style="border-radius: 8px;">
+                            <option value="">— None —</option>
+                            {% for s in suppliers %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Expiration Date</label>
+                        <input type="date" name="expiration_date" class="form-control form-control-sm"
+                            style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn-admin btn-admin-success w-100" style="font-size: 0.78rem;"><i
+                                class="fas fa-check"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <form id="bulkDeleteIngredientsForm" method="POST" action="{{ url_for('admin.bulk_delete_ingredients') }}">
+            <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                <table class="admin-table" id="ingredientsTable">
+                    <thead>
+                        <tr>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input"
+                                    onclick="toggleAllCheckboxes(this, 'ingredient-cb')"></th>
+                            {% endif %}
+                            <th>Ingredient</th>
+                            <th>Unit</th>
+                            <th>Stock</th>
+                            <th>Reorder Level</th>
+                            <th>Cost/Unit</th>
+                            <th>Supplier</th>
+                            <th>Expiration</th>
+                            <th>Status</th>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <th>Actions</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ing in ingredients %}
+                        <tr>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <td><input type="checkbox" name="item_ids[]" value="{{ ing.id }}"
+                                    class="form-check-input ingredient-cb"
+                                    onchange="updateBulkBtnState('ingredient-cb', 'btnDeleteIngredients')"></td>
+                            {% endif %}
+                            <td style="font-weight: 600;">{{ ing.name }}</td>
+                            <td>{{ ing.unit }}</td>
+                            <td style="font-weight: 700;">{{ "%.1f"|format(ing.stock_qty|float) }}</td>
+                            <td>{{ "%.1f"|format(ing.reorder_level|float) }}</td>
+                            <td style="color: var(--admin-accent);">₱{{ "%.2f"|format(ing.cost_per_unit|float) }}</td>
+                            <td>
+                                {% if ing.supplier %}
+                                <span style="color: #1565C0; font-weight: 500;">{{ ing.supplier.name }}</span>
+                                {% else %}
+                                <span style="color: var(--admin-text-muted); font-size: 0.78rem;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if ing.expiration_date %}
+                                <span
+                                    style="font-size: 0.8rem; {% if ing.expiration_date < today %}color: var(--admin-rejected); font-weight: 700;{% endif %}">
+                                    {{ ing.expiration_date.strftime('%b %d, %Y') }}
+                                </span>
+                                {% else %}
+                                <span style="color: var(--admin-text-muted); font-size: 0.78rem;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if ing.stock_qty|float <= 0 %} <span class="badge-status badge-rejected">Out of
+                                    Stock</span>
+                                    {% elif ing.stock_qty|float <= ing.reorder_level|float %} <span
+                                        class="badge-status badge-pending">Low Stock</span>
+                                        {% else %}
+                                        <span class="badge-status badge-active">In Stock</span>
+                                        {% endif %}
+                            </td>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" class="btn-admin btn-admin-success" title="Restock"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="openRestockModal({{ ing.id }}, '{{ ing.name|e }}', '{{ ing.unit }}')"><i
+                                            class="fas fa-plus"></i></button>
+                                    <button type="button" class="btn-admin btn-admin-warning" title="Record Waste"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="openWasteModal({{ ing.id }}, '{{ ing.name|e }}', '{{ ing.unit }}', {{ ing.stock_qty }})"><i
+                                            class="fas fa-trash-restore"></i></button>
+                                    <button type="button" class="btn-admin btn-admin-primary" title="Edit"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="openEditIngredientModal({{ ing.id }}, `{{ ing.name|replace('`', '\\`') }}`, '{{ ing.unit }}', {{ ing.stock_qty }}, {{ ing.reorder_level }}, {{ ing.cost_per_unit }}, {{ ing.supplier_id or 'null' }}, '{{ ing.expiration_date.strftime('%Y-%m-%d') if ing.expiration_date else '' }}')"><i
+                                            class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn-admin btn-admin-danger" title="Delete"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="if(confirm('Delete ingredient {{ ing.name|e }}?')) { const f = document.createElement('form'); f.method='POST'; f.action='{{ url_for('admin.delete_ingredient', ing_id=ing.id) }}'; document.body.appendChild(f); f.submit(); }"><i
+                                            class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% if ingredients|length == 0 %}
+                        <tr>
+                            <td colspan="8" class="text-center" style="padding: 2rem; color: var(--admin-text-muted);">
+                                No ingredients added yet. Click "Add Ingredient" to get started.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════ TAB 3: SUPPLIERS ═══════════════ -->
+<div id="tab-suppliers" class="inv-tab" style="display:none;">
+    <div class="admin-table-wrap">
+        <div class="admin-table-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h3 class="m-0">Suppliers</h3>
+            <div class="d-flex gap-2 align-items-center">
+                <div style="position: relative; width: 100%; min-width: 220px;">
+                    <i class="fas fa-search"
+                        style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--admin-text-muted); opacity: 0.6;"></i>
+                    <input type="text" id="supplierSearch" class="form-control shadow-sm w-100"
+                        placeholder="Search supplier..."
+                        style="padding-left: 35px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.85rem; height: 38px;">
+                </div>
+                {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                <button type="button" class="btn-admin btn-admin-danger" id="btnDeleteSuppliers"
+                    style="border-radius: 10px; display: none;"
+                    onclick="if(confirm('Delete all selected suppliers?')) document.getElementById('bulkDeleteSuppliersForm').submit();"><i
+                        class="fas fa-trash me-1"></i>Selected</button>
+                <button class="btn-admin btn-admin-primary text-nowrap" style="border-radius: 10px;"
+                    onclick="document.getElementById('addSupplierForm').style.display = document.getElementById('addSupplierForm').style.display === 'none' ? 'block' : 'none'"><i
+                        class="fas fa-plus me-1"></i>Add Supplier</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="addSupplierForm"
+            style="display:none; padding: 1.25rem; background: rgba(139,69,19,0.03); border-radius: 12px; margin-bottom: 1rem; border: 1px solid rgba(139,69,19,0.08);">
+            <form method="POST" action="{{ url_for('admin.add_supplier') }}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Company Name *</label>
+                        <input type="text" name="name" class="form-control form-control-sm" required
+                            placeholder="e.g. Fresh Foods Inc." style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Contact Person</label>
+                        <input type="text" name="contact_person" class="form-control form-control-sm"
+                            placeholder="Juan Dela Cruz" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Phone</label>
+                        <input type="text" name="phone" class="form-control form-control-sm"
+                            placeholder="+63 912 345 6789" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Email</label>
+                        <input type="email" name="email" class="form-control form-control-sm"
+                            placeholder="info@supplier.com" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Address</label>
+                        <input type="text" name="address" class="form-control form-control-sm"
+                            placeholder="City, Province" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" style="font-size: 0.78rem; font-weight: 600;" data-bs-toggle="tooltip"
+                            title="Separate items with commas (e.g. Pork, Chicken)">Ingredients Supplied</label>
+                        <input type="text" name="new_ingredients" class="form-control form-control-sm"
+                            placeholder="e.g. Pork, Beef, Chicken" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn-admin btn-admin-success w-100" style="font-size: 0.78rem;"><i
+                                class="fas fa-check"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <form id="bulkDeleteSuppliersForm" method="POST" action="{{ url_for('admin.bulk_delete_suppliers') }}">
+            <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                <table class="admin-table" id="suppliersTable">
+                    <thead>
+                        <tr>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input"
+                                    onclick="toggleAllCheckboxes(this, 'supplier-cb')"></th>
+                            {% endif %}
+                            <th>Company Name</th>
+                            <th>Contact Person</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th>Ingredients Supplied</th>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <th>Actions</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sup in suppliers %}
+                        <tr>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <td><input type="checkbox" name="item_ids[]" value="{{ sup.id }}"
+                                    class="form-check-input supplier-cb"
+                                    onchange="updateBulkBtnState('supplier-cb', 'btnDeleteSuppliers')"></td>
+                            {% endif %}
+                            <td style="font-weight: 600;">{{ sup.name }}</td>
+                            <td>{{ sup.contact_person or '—' }}</td>
+                            <td>{{ sup.phone or '—' }}</td>
+                            <td>{{ sup.email or '—' }}</td>
+                            <td>{{ sup.address or '—' }}</td>
+                            <td>
+                                {% if sup.catalog_items %}
+                                <span style="font-size: 0.8rem; color: #555;">{{ sup.catalog_items }}</span>
+                                {% else %}
+                                <span style="color: var(--admin-text-muted); font-size: 0.78rem;">—</span>
+                                {% endif %}
+                            </td>
+                            {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" class="btn-admin btn-admin-primary"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="openEditSupplierModal({{ sup.id }}, `{{ sup.name|replace('`', '\\`') }}`, `{{ sup.contact_person or '' }}`, `{{ sup.phone or '' }}`, `{{ sup.email or '' }}`, `{{ sup.address or '' }}`, `{{ sup.catalog_items or '' }}`)"><i
+                                            class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn-admin btn-admin-danger"
+                                        style="font-size: 0.72rem; padding: 4px 8px;"
+                                        onclick="if(confirm('Delete supplier {{ sup.name|e }}?')) { const f = document.createElement('form'); f.method='POST'; f.action='{{ url_for('admin.delete_supplier', sup_id=sup.id) }}'; document.body.appendChild(f); f.submit(); }"><i
+                                            class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% if suppliers|length == 0 %}
+                        <tr>
+                            <td colspan="7" class="text-center" style="padding: 2rem; color: var(--admin-text-muted);">
+                                No suppliers added yet. Click "Add Supplier" to get started.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════ MODALS ═══════════════ -->
+<!-- Restock Modal -->
+<div class="modal fade" id="restockModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #2E7D32, #43A047); border-radius: 16px 16px 0 0; border: none; padding: 1.25rem;">
+                <h5 class="modal-title text-white" style="font-size: 0.95rem;"><i
+                        class="fas fa-boxes-stacked me-2"></i>Restock Ingredient</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="restockForm" method="POST">
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <p style="font-size: 0.85rem; color: var(--admin-text-muted);">Adding stock for: <strong
+                            id="restockName"></strong></p>
+                    <label class="form-label" style="font-weight: 600; font-size: 0.82rem;">Quantity to Add <span
+                            id="restockUnit"></span></label>
+                    <input type="number" name="add_qty" class="form-control" min="0.01" step="0.01" required
+                        style="border-radius: 10px; font-size: 1.1rem; text-align: center; font-weight: 700;">
+                </div>
+                <div class="modal-footer" style="border: none; padding: 0 1.5rem 1.5rem;">
+                    <button type="submit" class="btn-admin btn-admin-success w-100"><i
+                            class="fas fa-check me-2"></i>Confirm Restock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Ingredient Modal -->
+<div class="modal fade" id="editIngredientModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #FF9800, #F57C00); border-radius: 16px 16px 0 0; padding: 1.25rem; border: none;">
+                <h5 class="modal-title text-white" style="font-size: 0.95rem;"><i class="fas fa-edit me-2"></i>Edit
+                    Ingredient</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editIngredientForm" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Name *</label>
+                            <input type="text" name="name" id="editIngName" class="form-control"
+                                style="border-radius: 8px;" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Unit *</label>
+                            <select name="unit" id="editIngUnit" class="form-select" style="border-radius: 8px;"
+                                required>
+                                <option value="grams">grams</option>
+                                <option value="kg">kg</option>
+                                <option value="pieces">pieces</option>
+                                <option value="liters">liters</option>
+                                <option value="ml">ml</option>
+                                <option value="cups">cups</option>
+                                <option value="tbsp">tbsp</option>
+                                <option value="tsp">tsp</option>
+                                <option value="packs">packs</option>
+                                <option value="bottles">bottles</option>
+                                <option value="cans">cans</option>
+                                <option value="slices">slices</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Current
+                                Stock</label>
+                            <input type="number" name="stock_qty" id="editIngStock" class="form-control" step="0.01"
+                                style="border-radius: 8px;" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Reorder
+                                Level</label>
+                            <input type="number" name="reorder_level" id="editIngReorder" class="form-control"
+                                step="0.01" style="border-radius: 8px;" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Cost/Unit
+                                (₱)</label>
+                            <input type="number" name="cost_per_unit" id="editIngCost" class="form-control" step="0.01"
+                                style="border-radius: 8px;" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Supplier</label>
+                            <select name="supplier_id" id="editIngSupplier" class="form-select"
+                                style="border-radius: 8px;">
+                                <option value="">— None —</option>
+                                {% for s in suppliers %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Expiration
+                                Date</label>
+                            <input type="date" name="expiration_date" id="editIngExp" class="form-control"
+                                style="border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn-admin" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-admin btn-admin-primary">Save Changes</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-    <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
-                    <th>Actions</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td style="font-weight: 600;">{{ item.name }}</td>
-                    <td><span class="badge-status badge-completed">{{ item.category }}</span></td>
-                    <td style="font-weight: 700; color: var(--admin-accent);">&#8369;{{ "%.2f"|format(item.price) }}
-                    </td>
-                    <td>
-                        {% if item.is_available %}
-                        <span class="badge-status badge-active">In Stock</span>
-                        {% else %}
-                        <span class="badge-status badge-rejected">Out of Stock</span>
-                        {% endif %}
-                    </td>
-                    {% if current_user.role|upper not in ['CASHIER', 'STAFF'] %}
-                    <td>
-                        <form method="POST" action="{{ url_for('admin.toggle_stock', item_id=item.id) }}">
-                            {% if item.is_available %}
-                            <button class="btn-admin btn-admin-danger" style="font-size: 0.78rem;"><i
-                                    class="fas fa-ban"></i> Mark Unavailable</button>
-                            {% else %}
-                            <button class="btn-admin btn-admin-success" style="font-size: 0.78rem;"><i
-                                    class="fas fa-check"></i> Restock</button>
-                            {% endif %}
-                        </form>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+</div>
+
+<!-- Edit Supplier Modal -->
+<div class="modal fade" id="editSupplierModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #FF9800, #F57C00); border-radius: 16px 16px 0 0; padding: 1.25rem; border: none;">
+                <h5 class="modal-title text-white" style="font-size: 0.95rem;"><i class="fas fa-edit me-2"></i>Edit
+                    Supplier</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editSupplierForm" method="POST">
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Company Name
+                                *</label>
+                            <input type="text" name="name" id="editSupName" class="form-control"
+                                style="border-radius: 8px;" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Contact
+                                Person</label>
+                            <input type="text" name="contact_person" id="editSupContact" class="form-control"
+                                style="border-radius: 8px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Phone</label>
+                            <input type="text" name="phone" id="editSupPhone" class="form-control"
+                                style="border-radius: 8px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Email</label>
+                            <input type="email" name="email" id="editSupEmail" class="form-control"
+                                style="border-radius: 8px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;">Address</label>
+                            <input type="text" name="address" id="editSupAddress" class="form-control"
+                                style="border-radius: 8px;">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label" style="font-size: 0.78rem; font-weight: 600;"
+                                data-bs-toggle="tooltip"
+                                title="Separate items with commas (e.g. Pork, Chicken)">Ingredients Supplied</label>
+                            <input type="text" name="new_ingredients" id="editSupCatalog" class="form-control"
+                                placeholder="e.g. Pork, Beef, Chicken" style="border-radius: 8px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 1.5rem; border: none;">
+                    <button type="submit" class="btn-admin btn-admin-primary w-100"><i class="fas fa-save me-2"></i>Save
+                        Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Recipe Modal -->
+<div class="modal fade" id="recipeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #5D4037, #795548); border-radius: 16px 16px 0 0; border: none; padding: 1.25rem;">
+                <h5 class="modal-title text-white" style="font-size: 0.95rem;"><i
+                        class="fas fa-receipt me-2"></i>Recipe: <span id="recipeItemName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div id="recipeList" style="margin-bottom: 1rem;"></div>
+                <hr>
+                <h6 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.75rem;"><i class="fas fa-plus me-1"
+                        style="color: #8B4513;"></i>Add Ingredient to Recipe</h6>
+                <form id="addRecipeForm" method="POST">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6">
+                            <select name="ingredient_id" class="form-select form-select-sm" required
+                                style="border-radius: 8px;">
+                                <option value="">Select Ingredient...</option>
+                                {% for ing in ingredients %}
+                                <option value="{{ ing.id }}">{{ ing.name }} ({{ ing.unit }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <input type="number" name="quantity_needed" class="form-control form-control-sm"
+                                placeholder="Qty" min="0.01" step="0.01" required style="border-radius: 8px;">
+                        </div>
+                        <div class="col-3">
+                            <button type="submit" class="btn-admin btn-admin-primary w-100"
+                                style="font-size: 0.78rem;">Add</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
 {% block scripts %}
 <script>
-    const searchInput = document.getElementById('inventorySearch');
-    const categoryFilter = document.getElementById('categoryFilter');
-    const rows = document.querySelectorAll('.admin-table tbody tr');
+    (function () {
+        // ── Tab Switching ──
+        window.switchTab = function (tabName, btn) {
+            document.querySelectorAll('.inv-tab').forEach(t => t.style.display = 'none');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            document.querySelectorAll('#inventoryTabs button').forEach(b => {
+                b.classList.remove('active', 'btn-admin-primary');
+                b.style.background = 'var(--admin-surface)';
+                b.style.border = '1px solid var(--admin-border)';
+            });
+            btn.classList.add('active', 'btn-admin-primary');
+            btn.style.background = '';
+            btn.style.border = '';
+        };
 
-    // 1. Populate Category Dropdown Dynamically
-    function populateCategories() {
-        const categories = new Set();
-        rows.forEach(row => {
-            const cat = row.cells[1].textContent.trim();
-            if (cat) categories.add(cat);
-        });
-
-        // Sort categories alphabetically
-        const sortedCats = Array.from(categories).sort();
-        sortedCats.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.toLowerCase();
-            option.textContent = cat;
-            categoryFilter.appendChild(option);
-        });
-    }
-
-    // 2. Multi-Filter Logic (Search + Category)
-    function applyFilters() {
-        const searchQuery = searchInput.value.toLowerCase().trim();
-        const selectedCategory = categoryFilter.value.toLowerCase();
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-            const name = row.cells[0].textContent.toLowerCase();
-            const category = row.cells[1].textContent.toLowerCase();
-
-            const matchesSearch = name.includes(searchQuery);
-            const matchesCategory = selectedCategory === "" || category === selectedCategory;
-
-            if (matchesSearch && matchesCategory) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
+        // Auto-switch based on URL search query
+        document.addEventListener("DOMContentLoaded", function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeTab = urlParams.get('tab');
+            if (activeTab) {
+                const tabBtn = document.querySelector(`#inventoryTabs button[onclick*="${activeTab}"]`);
+                if (tabBtn) tabBtn.click();
             }
+
+            // Initialize all tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            })
         });
 
-        console.log(`Filtering complete: ${visibleCount} items visible`);
-    }
+        // ── Category Filter & Search (Menu Items Tab) ──
+        const searchInput = document.getElementById('inventorySearch');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const rows = document.querySelectorAll('#tab-menu-items .admin-table tbody tr');
 
-    // Event Listeners
-    searchInput.addEventListener('input', applyFilters);
-    categoryFilter.addEventListener('change', applyFilters);
+        function populateCategories() {
+            const categories = new Set();
+            rows.forEach(row => { if (row.cells[1]) { const cat = row.cells[1].textContent.trim(); if (cat) categories.add(cat); } });
+            Array.from(categories).sort().forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.toLowerCase();
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+        }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', populateCategories);
+        function applyFilters() {
+            const q = searchInput.value.toLowerCase().trim();
+            const cat = categoryFilter.value.toLowerCase();
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const category = row.cells[1].textContent.toLowerCase().trim();
+                row.style.display = (name.includes(q) && (cat === "" || category === cat)) ? '' : 'none';
+            });
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (categoryFilter) { categoryFilter.addEventListener('change', applyFilters); populateCategories(); }
+
+        // ── Restock Modal ──
+        window.openRestockModal = function (ingId, name, unit) {
+            document.getElementById('restockName').textContent = name;
+            document.getElementById('restockUnit').textContent = '(' + unit + ')';
+            document.getElementById('restockForm').action = '/admin/ingredients/restock/' + ingId;
+            new bootstrap.Modal(document.getElementById('restockModal')).show();
+        };
+
+        // ── Waste Modal ──
+        window.openWasteModal = function (ingId, name, unit, currentStock) {
+            document.getElementById('wasteName').textContent = name;
+            document.getElementById('wasteUnit').textContent = '(' + unit + ')';
+            document.getElementById('wasteCurrent').textContent = currentStock;
+            document.getElementById('wasteForm').action = '/admin/ingredients/waste/' + ingId;
+            new bootstrap.Modal(document.getElementById('wasteModal')).show();
+        };
+
+        window.toggleAllCheckboxes = function (masterCb, cbClass) {
+            document.querySelectorAll('.' + cbClass).forEach(cb => {
+                cb.checked = masterCb.checked;
+            });
+            const btnId = cbClass === 'ingredient-cb' ? 'btnDeleteIngredients' : 'btnDeleteSuppliers';
+            updateBulkBtnState(cbClass, btnId);
+        };
+
+        window.updateBulkBtnState = function (cbClass, btnId) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const anyChecked = document.querySelector('.' + cbClass + ':checked') !== null;
+            btn.style.display = anyChecked ? 'inline-block' : 'none';
+
+            // Update master checkbox if needed
+            const allCbs = document.querySelectorAll('.' + cbClass);
+            const checkedCbs = document.querySelectorAll('.' + cbClass + ':checked');
+            const masterCb = btnId === 'btnDeleteIngredients' ? document.querySelector('#ingredientsTable thead input[type="checkbox"]') : document.querySelector('#suppliersTable thead input[type="checkbox"]');
+            if (masterCb) {
+                masterCb.checked = checkedCbs.length === allCbs.length && allCbs.length > 0;
+                masterCb.indeterminate = checkedCbs.length > 0 && checkedCbs.length < allCbs.length;
+            }
+        };
+
+        window.openEditIngredientModal = function (id, name, unit, stock, reorder, cost, supplierId, expDate) {
+            document.getElementById('editIngredientForm').action = '/admin/ingredients/update/' + id;
+            document.getElementById('editIngName').value = name;
+            document.getElementById('editIngUnit').value = unit;
+            document.getElementById('editIngStock').value = stock;
+            document.getElementById('editIngReorder').value = reorder;
+            document.getElementById('editIngCost').value = cost;
+            document.getElementById('editIngSupplier').value = supplierId || "";
+            document.getElementById('editIngExp').value = expDate || "";
+            new bootstrap.Modal(document.getElementById('editIngredientModal')).show();
+        };
+
+        window.openEditSupplierModal = function (id, name, contact, phone, email, address, catalog) {
+            document.getElementById('editSupplierForm').action = '/admin/suppliers/update/' + id;
+            document.getElementById('editSupName').value = name;
+            document.getElementById('editSupContact').value = contact;
+            document.getElementById('editSupPhone').value = phone;
+            document.getElementById('editSupEmail').value = email;
+            document.getElementById('editSupAddress').value = address;
+            document.getElementById('editSupCatalog').value = catalog;
+            new bootstrap.Modal(document.getElementById('editSupplierModal')).show();
+        };
+
+        // Filters for Ingredients
+        const ingSearch = document.getElementById('ingredientSearch');
+        if (ingSearch) {
+            ingSearch.addEventListener('input', function () {
+                const q = this.value.toLowerCase().trim();
+                document.querySelectorAll('#ingredientsTable tbody tr').forEach(row => {
+                    if (row.cells.length > 2) {
+                        const name = row.cells[1].textContent.toLowerCase();
+                        row.style.display = name.includes(q) ? '' : 'none';
+                    }
+                });
+            });
+        }
+
+        // Filters for Suppliers
+        const supSearch = document.getElementById('supplierSearch');
+        if (supSearch) {
+            supSearch.addEventListener('input', function () {
+                const q = this.value.toLowerCase().trim();
+                document.querySelectorAll('#suppliersTable tbody tr').forEach(row => {
+                    if (row.cells.length > 2) {
+                        const name = row.cells[1].textContent.toLowerCase();
+                        row.style.display = name.includes(q) ? '' : 'none';
+                    }
+                });
+            });
+        }
+
+        // ── Recipe Modal ──
+        window.openRecipeModal = function (itemId, itemName) {
+            document.getElementById('recipeItemName').textContent = itemName;
+            document.getElementById('addRecipeForm').action = '/admin/recipe/' + itemId + '/add';
+            loadRecipe(itemId);
+            new bootstrap.Modal(document.getElementById('recipeModal')).show();
+        };
+
+        window.viewRecipe = function (itemId, itemName) {
+            openRecipeModal(itemId, itemName);
+        };
+
+        function loadRecipe(itemId) {
+            const list = document.getElementById('recipeList');
+            list.innerHTML = '<p class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Loading...</p>';
+            fetch('/admin/recipe/' + itemId)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.length === 0) {
+                        list.innerHTML = '<p class="text-center text-muted" style="font-size: 0.85rem;">No ingredients linked to this item yet.</p>';
+                        return;
+                    }
+                    let html = '<table class="table table-sm table-borderless mb-0"><thead><tr><th style="font-size:0.75rem;">Ingredient</th><th style="font-size:0.75rem;">Qty Needed</th><th style="font-size:0.75rem;">Unit</th><th></th></tr></thead><tbody>';
+                    data.forEach(r => {
+                        html += `<tr>
+                        <td style="font-weight:600; font-size:0.85rem;">${r.name}</td>
+                        <td style="font-size:0.85rem;">${r.quantity_needed}</td>
+                        <td style="font-size:0.85rem; color:#888;">${r.unit}</td>
+                        <td><form method="POST" action="/admin/recipe/remove/${r.id}" class="d-inline"><button class="btn-admin btn-admin-danger" style="font-size:0.65rem; padding:2px 6px;"><i class="fas fa-times"></i></button></form></td>
+                    </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    list.innerHTML = html;
+                })
+                .catch(() => { list.innerHTML = '<p class="text-muted">Failed to load recipe.</p>'; });
+        }
+    })();
 </script>
 {% endblock %}
 {% endblock %}

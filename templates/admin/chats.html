@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Customer Chats{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
+        Customer Support Chat</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+            <div class="card-header bg-white border-bottom p-3">
+                <h5 class="mb-0 fw-bold" style="color: var(--text-main);">Active Conversations</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead style="background-color: rgba(0,0,0,0.02);">
+                            <tr>
+                                <th class="ps-4">Customer</th>
+                                <th>Email</th>
+                                <th>Last Message</th>
+                                <th class="pe-4 text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user, last_at in chat_users %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: var(--admin-accent); font-weight: bold;">
+                                            {{ user.first_name[0] }}
+                                        </div>
+                                        <div class="fw-bold" style="color: var(--text-main);">{{ user.first_name }} {{ user.last_name }}</div>
+                                    </div>
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td class="text-muted small">
+                                    {{ last_at.strftime('%Y-%m-%d %I:%M %p') }}
+                                </td>
+                                <td class="pe-4 text-end">
+                                    <a href="{{ url_for('admin.chat_with_user', user_id=user.id) }}" class="btn btn-sm rounded-pill fw-bold text-white px-4" style="background-color: var(--admin-accent);">
+                                        Open Chat
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="fas fa-comment-slash fs-1 mb-3 opacity-25"></i>
+                                    <p>No chat conversations found.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

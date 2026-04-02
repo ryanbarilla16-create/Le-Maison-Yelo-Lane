@@ -143,14 +143,14 @@
 
 {% block scripts %}
 <div id="chartServerData" style="display: none;" 
-    data-revenue-trend-labels="{{ revenue_trend_labels }}"
-    data-revenue-trend-data="{{ revenue_trend_data }}" 
-    data-order-status-labels="{{ order_status_labels }}"
-    data-order-status-data="{{ order_status_data }}" 
-    data-daily-orders-labels="{{ daily_orders_labels }}"
-    data-daily-orders-data="{{ daily_orders_data }}" 
-    data-busy-times-labels="{{ busy_times_labels }}"
-    data-busy-times-data="{{ busy_times_data }}"></div>
+    data-revenue-trend-labels="{{ revenue_trend_labels | forceescape }}"
+    data-revenue-trend-data="{{ revenue_trend_data | forceescape }}" 
+    data-order-status-labels="{{ order_status_labels | forceescape }}"
+    data-order-status-data="{{ order_status_data | forceescape }}" 
+    data-daily-orders-labels="{{ daily_orders_labels | forceescape }}"
+    data-daily-orders-data="{{ daily_orders_data | forceescape }}" 
+    data-busy-times-labels="{{ busy_times_labels | forceescape }}"
+    data-busy-times-data="{{ busy_times_data | forceescape }}"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";

@@ -1,0 +1,141 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Vouchers{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
+        <i class="fas fa-ticket-alt me-2"></i>Voucher & Promo Codes</h1>
+    <button class="btn text-white fw-bold rounded-pill px-4 shadow-sm" style="background: var(--admin-accent);" data-bs-toggle="modal" data-bs-target="#addVoucherModal">
+        <i class="fas fa-plus me-1"></i> New Voucher
+    </button>
+</div>
+
+<div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead style="background-color: rgba(0,0,0,0.02);">
+                    <tr>
+                        <th class="ps-4">Code</th>
+                        <th>Discount</th>
+                        <th>Min Order</th>
+                        <th>Usage</th>
+                        <th>Validity</th>
+                        <th>Status</th>
+                        <th class="pe-4 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vouchers %}
+                    <tr>
+                        <td class="ps-4 fw-bold" style="letter-spacing: 1px;">{{ v.code }}</td>
+                        <td>
+                            {% if v.discount_type == 'PERCENT' %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary rounded-pill">{{ v.discount_value }}% OFF</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill">₱{{ v.discount_value }} OFF</span>
+                            {% endif %}
+                        </td>
+                        <td>₱{{ v.min_order_amount }}</td>
+                        <td>{{ v.times_used }} / {{ v.max_uses }}</td>
+                        <td class="small text-muted">
+                            {% if v.valid_from and v.valid_until %}
+                            {{ v.valid_from.strftime('%b %d') }} - {{ v.valid_until.strftime('%b %d, %Y') }}
+                            {% elif v.valid_until %}
+                            Until {{ v.valid_until.strftime('%b %d, %Y') }}
+                            {% else %}
+                            No expiry
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if v.is_active %}
+                            <span class="badge bg-success rounded-pill">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary rounded-pill">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end">
+                            <form action="{{ url_for('admin.voucher_toggle', voucher_id=v.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                                    <i class="fas fa-{{ 'pause' if v.is_active else 'play' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('admin.voucher_delete', voucher_id=v.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this voucher?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fas fa-ticket-alt fs-1 mb-3 opacity-25"></i>
+                            <p>No vouchers created yet. Click "New Voucher" to get started!</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Voucher Modal -->
+<div class="modal fade" id="addVoucherModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ url_for('admin.voucher_add') }}" method="POST">
+            <div class="modal-content" style="border-radius: 16px; border: none;">
+                <div class="modal-header border-0" style="background: linear-gradient(135deg, #8B4513, #A0522D); border-radius: 16px 16px 0 0;">
+                    <h5 class="modal-title text-white fw-bold"><i class="fas fa-ticket-alt me-2"></i> Create New Voucher</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Voucher Code</label>
+                        <input type="text" name="code" class="form-control rounded-pill" placeholder="e.g. WELCOME20" required style="text-transform: uppercase;">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Discount Type</label>
+                            <select name="discount_type" class="form-select rounded-pill">
+                                <option value="PERCENT">Percentage (%)</option>
+                                <option value="FIXED">Fixed Amount (₱)</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Discount Value</label>
+                            <input type="number" name="discount_value" class="form-control rounded-pill" step="0.01" min="1" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Min Order Amount</label>
+                            <input type="number" name="min_order_amount" class="form-control rounded-pill" value="0" step="0.01" min="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Max Uses</label>
+                            <input type="number" name="max_uses" class="form-control rounded-pill" value="100" min="1">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Valid From</label>
+                            <input type="date" name="valid_from" class="form-control rounded-pill">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Valid Until</label>
+                            <input type="date" name="valid_until" class="form-control rounded-pill">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn text-white rounded-pill px-4 fw-bold" style="background: #8B4513;">Create Voucher</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

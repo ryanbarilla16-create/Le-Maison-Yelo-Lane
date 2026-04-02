@@ -4,71 +4,271 @@
 
 {% block content %}
 <style>
-    .resPage { max-width: 720px; margin: 6rem auto 3rem; padding: 0 1.5rem; }
-    .resCard { background: #fff; border-radius: 24px; border: 1px solid var(--border-color); box-shadow: 0 8px 32px rgba(0,0,0,0.05); overflow: hidden; }
-    .resHeader { background: linear-gradient(135deg, rgba(93,64,55,0.04), rgba(212,168,98,0.06)); padding: 2.5rem 2.5rem 1.5rem; text-align: center; }
-    .resHeader h2 { font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 2rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #5D4037, #D4A862); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-    .resHeader p { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
+    .resPage {
+        max-width: 720px;
+        margin: 6rem auto 3rem;
+        padding: 0 1.5rem;
+    }
 
-    .resPolicies { margin: 0 2rem; padding: 1.5rem; background: rgba(93,64,55,0.03); border-radius: 16px; border: 1px solid rgba(93,64,55,0.06); }
-    .resPolicies h6 { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-color); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
-    .resPolicies .polGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .resPolicies .polItem { font-size: 0.82rem; color: var(--text-muted); }
-    .resPolicies .polItem strong { color: var(--text-main); display: flex; align-items: center; gap: 6px; margin-bottom: 0.3rem; font-size: 0.85rem; }
-    .resPolicies .polItem strong i { color: #D4A862; font-size: 0.8rem; }
-    .resPolicies .polItem ul { padding-left: 1.25rem; margin: 0.3rem 0 0; }
-    .resPolicies .polItem ul li { margin-bottom: 0.2rem; }
-    .resPolicies .polFull { grid-column: 1 / -1; border-top: 1px solid rgba(93,64,55,0.08); padding-top: 0.75rem; margin-top: 0.25rem; }
+    .resCard {
+        background: #fff;
+        border-radius: 24px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
 
-    .resForm { padding: 2rem 2.5rem 2.5rem; }
-    .resRow { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
-    .resField { display: flex; flex-direction: column; }
-    .resField label { font-weight: 700; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-    .resField input, .resField select, .resField textarea { border: 1.5px solid rgba(93,64,55,0.12); border-radius: 12px; padding: 0.7rem 1rem; font-size: 0.9rem; transition: all 0.3s; background: #fff; color: var(--text-main); font-family: 'Inter', sans-serif; appearance: none; -webkit-appearance: none; }
-    .resField input:focus, .resField select:focus, .resField textarea:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(93,64,55,0.08); outline: none; }
-    .resField select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235D4037' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 12px; padding-right: 2.5rem; }
+    .resHeader {
+        background: linear-gradient(135deg, rgba(93, 64, 55, 0.04), rgba(212, 168, 98, 0.06));
+        padding: 2.5rem 2.5rem 1.5rem;
+        text-align: center;
+    }
 
-    .resSubmit { background: linear-gradient(135deg, #5D4037, #795548); color: #fff; font-weight: 700; border: none; border-radius: 50px; padding: 0.85rem 2rem; width: 100%; font-size: 1rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 6px 20px rgba(93,64,55,0.2); letter-spacing: 0.5px; margin-top: 0.5rem; }
-    .resSubmit:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(93,64,55,0.3); }
+    .resHeader h2 {
+        font-family: 'Playfair Display', 'Georgia', serif;
+        font-weight: 700;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, #5D4037, #D4A862);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .resHeader p {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        margin: 0;
+    }
+
+    .resPolicies {
+        margin: 0 2rem;
+        padding: 1.5rem;
+        background: rgba(93, 64, 55, 0.03);
+        border-radius: 16px;
+        border: 1px solid rgba(93, 64, 55, 0.06);
+    }
+
+    .resPolicies h6 {
+        font-family: 'Playfair Display', serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .resPolicies .polGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .resPolicies .polItem {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+
+    .resPolicies .polItem strong {
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .resPolicies .polItem strong i {
+        color: #D4A862;
+        font-size: 0.8rem;
+    }
+
+    .resPolicies .polItem ul {
+        padding-left: 1.25rem;
+        margin: 0.3rem 0 0;
+    }
+
+    .resPolicies .polItem ul li {
+        margin-bottom: 0.2rem;
+    }
+
+    .resPolicies .polFull {
+        grid-column: 1 / -1;
+        border-top: 1px solid rgba(93, 64, 55, 0.08);
+        padding-top: 0.75rem;
+        margin-top: 0.25rem;
+    }
+
+    .resForm {
+        padding: 2rem 2.5rem 2.5rem;
+    }
+
+    .resRow {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .resField {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .resField label {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .resField input,
+    .resField select,
+    .resField textarea {
+        border: 1.5px solid rgba(93, 64, 55, 0.12);
+        border-radius: 12px;
+        padding: 0.7rem 1rem;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+        background: #fff;
+        color: var(--text-main);
+        font-family: 'Inter', sans-serif;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .resField input:focus,
+    .resField select:focus,
+    .resField textarea:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(93, 64, 55, 0.08);
+        outline: none;
+    }
+
+    .resField select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235D4037' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 12px;
+        padding-right: 2.5rem;
+    }
+
+    .resSubmit {
+        background: linear-gradient(135deg, #5D4037, #795548);
+        color: #fff;
+        font-weight: 700;
+        border: none;
+        border-radius: 50px;
+        padding: 0.85rem 2rem;
+        width: 100%;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 6px 20px rgba(93, 64, 55, 0.2);
+        letter-spacing: 0.5px;
+        margin-top: 0.5rem;
+    }
+
+    .resSubmit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(93, 64, 55, 0.3);
+    }
 
     @media(max-width: 600px) {
-        .resRow { grid-template-columns: 1fr; }
-        .resPolicies .polGrid { grid-template-columns: 1fr; }
-        .resForm { padding: 1.5rem; }
-        .resHeader { padding: 2rem 1.5rem 1.25rem; }
-        .resPolicies { margin: 0 1rem; }
+        .resRow {
+            grid-template-columns: 1fr;
+        }
+
+        .resPolicies .polGrid {
+            grid-template-columns: 1fr;
+        }
+
+        .resForm {
+            padding: 1.5rem;
+        }
+
+        .resHeader {
+            padding: 2rem 1.5rem 1.25rem;
+        }
+
+        .resPolicies {
+            margin: 0 1rem;
+        }
     }
 </style>
 
 <div class="resPage">
     <div class="resCard">
         <div class="resHeader">
-            <h2><i class="fas fa-calendar-plus" style="font-size: 1.6rem; -webkit-text-fill-color: var(--primary-color);"></i> Book a Table</h2>
+            <h2><i class="fas fa-calendar-plus"
+                    style="font-size: 1.6rem; -webkit-text-fill-color: var(--primary-color);"></i> Book a Table</h2>
             <p>Experience fine dining. Reserve your spot today.</p>
         </div>
 
-        <div class="resPolicies">
-            <h6><i class="fas fa-clipboard-list"></i> Reservation Policies</h6>
-            <div class="polGrid">
-                <div class="polItem">
-                    <strong><i class="fas fa-calendar-alt"></i> Date & Time</strong>
-                    <ul>
-                        <li>Strictly <strong>1 to 14 days</strong> advance booking</li>
-                        <li>Hours: <strong>11:30 AM - 8:30 PM</strong> (30-min intervals)</li>
-                    </ul>
+        <!-- Enhanced Reservation Policies Section -->
+        <div class="resPolicies"
+            style="background: #fff; border: 1.5px solid rgba(139, 69, 19, 0.08); padding: 1.8rem; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); margin: 0 2rem 1.5rem;">
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <div
+                    style="background: #8B4513; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-info-circle text-white" style="font-size: 0.9rem;"></i>
                 </div>
-                <div class="polItem">
-                    <strong><i class="fas fa-users"></i> Guest Capacity</strong>
-                    <ul>
-                        <li>Maximum of <strong>20 guests</strong> per reservation</li>
-                    </ul>
+                <h5 class="mb-0 fw-bold"
+                    style="font-family: 'Playfair Display', serif; color: #3E2723; font-size: 1.15rem;">Reservation
+                    Guide</h5>
+            </div>
+
+            <div class="row g-4">
+                <!-- Lead Time & Hours -->
+                <div class="col-md-6">
+                    <div class="d-flex gap-3">
+                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i
+                                class="fas fa-calendar-check"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size: 0.88rem; color: #5D4037;">Booking Schedule</h6>
+                            <p class="mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.4;">
+                                <span id="advance-text" class="fw-bold" style="color: #8B4513;">Same day to 2
+                                    months</span> in advance.<br>
+                                Slots available from <span class="fw-bold" style="color: #8B4513;">11:30 AM to 8:30
+                                    PM</span>.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="polItem polFull">
-                    <strong><i class="fas fa-info-circle"></i> Important Notes</strong>
-                    <ul>
-                        <li>Real-time <strong>capacity check</strong> — bookings decline if slots run out</li>
-                        <li>Reservations tagged as <strong>Pending</strong> until approved by Admin</li>
-                    </ul>
+
+                <!-- Capacity -->
+                <div class="col-md-6">
+                    <div class="d-flex gap-3">
+                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i class="fas fa-users"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size: 0.88rem; color: #5D4037;">Guest Capacity</h6>
+                            <p class="mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.4;">
+                                Accommodates up to <span id="max-guest-text" class="fw-bold"
+                                    style="color: #8B4513;">20</span> guests per booking.<br>
+                                <span style="font-size: 0.72rem;">*Subject to real-time seat availability checks.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Approval Status -->
+                <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed rgba(139, 69, 19, 0.15);">
+                    <div class="d-flex gap-3 align-items-center">
+                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i
+                                class="fas fa-shield-alt"></i></div>
+                        <div
+                            style="background: rgba(212,168,98,0.06); padding: 10px 15px; border-radius: 12px; border: 1px solid rgba(212,168,98,0.1); width: 100%;">
+                            <p class="mb-0" style="font-size: 0.8rem; line-height: 1.4; color: #5D4037;">
+                                <i class="fas fa-clock-rotate-left me-2" style="font-size: 0.75rem;"></i>
+                                All bookings are initially tagged as <strong
+                                    style="color: #A0522D; text-transform: uppercase; font-size: 0.75rem; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #A0522D;">Pending</strong>.
+                                Our team will review and approve your request shortly.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -76,8 +276,30 @@
         <form method="POST" action="{{ url_for('main.reserve') }}" class="resForm">
             <div class="resRow">
                 <div class="resField">
+                    <label for="booking_type">Booking Type</label>
+                    <select id="booking_type" name="booking_type" onchange="updateBookingRules()" required>
+                        <option value="REGULAR" selected>Standard Booking</option>
+                        <option value="EXCLUSIVE">Exclusive (Rent Whole Restaurant)</option>
+                    </select>
+                </div>
+                <div class="resField">
+                    <label for="guest_count">Total Guests & Seating Preference</label>
+                    <input type="number" id="guest_count" name="guest_count" min="1" max="50" step="1" required
+                        placeholder="Total number of guests">
+                    <div id="guestHint"
+                        style="background: rgba(139, 69, 19, 0.05); border: 1px solid rgba(139, 69, 19, 0.1); border-radius: 8px; padding: 10px; margin-top: 0.5rem; font-size: 0.78rem; color: #5D4037; line-height: 1.5;">
+                        <i class="fas fa-chair me-2" style="color: #D4A862;"></i><strong>Seating Guide:</strong><br>
+                        • 1-4 Persons: 1 Standard Table<br>
+                        • 5-8 Persons: 2 Combined Tables<br>
+                        • 9+ Persons: Group Banquet Seating
+                    </div>
+                </div>
+            </div>
+
+            <div class="resRow">
+                <div class="resField">
                     <label for="date">Date</label>
-                    <input type="date" id="date" name="date" required>
+                    <input type="date" id="date" name="date" required onchange="filterTimeSlots()">
                 </div>
                 <div class="resField">
                     <label for="time">Time</label>
@@ -108,30 +330,119 @@
 
             <div class="resRow">
                 <div class="resField">
-                    <label for="guest_count">Guest Count</label>
-                    <input type="number" id="guest_count" name="guest_count" min="1" max="20" step="1" required placeholder="Number of guests">
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.3rem;">Maximum of 20 guests per reservation.</small>
+                    <label for="duration">Duration</label>
+                    <select id="duration" name="duration" required>
+                        <option value="1">1 Hour</option>
+                        <option value="2" selected>2 Hours (Standard)</option>
+                        <option value="3">3 Hours</option>
+                        <option value="4">4 Hours</option>
+                        <option value="5">5 Hours</option>
+                        <option value="8">8 Hours (Full Day)</option>
+                    </select>
                 </div>
                 <div class="resField">
-                    <label for="occasion">Occasion <span style="font-weight: 400; color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></label>
-                    <input type="text" id="occasion" name="occasion" maxlength="50" placeholder="e.g. Birthday, Anniversary">
+                    <label for="occasion">Occasion <span
+                            style="font-weight: 400; color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></label>
+                    <input type="text" id="occasion" name="occasion" maxlength="50"
+                        placeholder="e.g. Birthday, Anniversary">
                 </div>
             </div>
 
-            <input type="hidden" name="booking_type" value="REGULAR">
-            <button type="submit" class="resSubmit"><i class="fas fa-calendar-check me-2"></i>Submit Reservation</button>
+            <button type="submit" class="resSubmit"><i class="fas fa-calendar-check me-2"></i>Submit
+                Reservation</button>
         </form>
     </div>
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
+    function updateBookingRules() {
+        var type = document.getElementById('booking_type').value;
+        var guestInput = document.getElementById('guest_count');
+        var guestHint = document.getElementById('guestHint');
+        var advanceText = document.getElementById('advance-text');
+        var maxGuestText = document.getElementById('max-guest-text');
         var dateField = document.getElementById('date');
+
         var today = new Date();
-        var tmrw = new Date(today); tmrw.setDate(tmrw.getDate() + 1);
-        var maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 14);
-        dateField.min = tmrw.toISOString().split("T")[0];
+        var minExclusive = new Date(today); minExclusive.setDate(minExclusive.getDate() + 3);
+        var maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 60);
+
+        if (type === 'EXCLUSIVE') {
+            guestInput.max = 50;
+            guestHint.innerText = 'Maximum of 50 guests for exclusive bookings.';
+            maxGuestText.innerText = '50';
+            advanceText.innerText = '3 days to 2 months';
+
+            // Require 3 days advance
+            var minStr = minExclusive.toISOString().split("T")[0];
+            dateField.min = minStr;
+
+            // If currently selected date is before 3 days from now, clear it
+            if (dateField.value && dateField.value < minStr) {
+                dateField.value = '';
+            }
+        } else {
+            guestInput.max = 20;
+            if (guestInput.value > 20) guestInput.value = 20;
+            guestHint.innerText = 'Maximum of 20 guests per reservation.';
+            maxGuestText.innerText = '20';
+            advanceText.innerText = 'Same day to 2 months';
+
+            // Allow same day
+            dateField.min = today.toISOString().split("T")[0];
+        }
+
         dateField.max = maxDate.toISOString().split("T")[0];
+        filterTimeSlots();
+    }
+
+    function filterTimeSlots() {
+        var dateField = document.getElementById('date');
+        var timeSelect = document.getElementById('time');
+        var options = timeSelect.options;
+
+        var selectedDate = dateField.value;
+        var today = new Date();
+        var todayStr = today.toISOString().split("T")[0];
+
+        // Format current time as HH:MM
+        var currHour = today.getHours();
+        var currMin = today.getMinutes();
+        var currTimeStr = (currHour < 10 ? '0' + currHour : currHour) + ':' + (currMin < 10 ? '0' + currMin : currMin);
+
+        for (var i = 1; i < options.length; i++) {
+            var opt = options[i];
+            if (selectedDate === todayStr) {
+                // If today, disable timeslots that have passed
+                if (opt.value <= currTimeStr) {
+                    opt.disabled = true;
+                    opt.text = opt.value + " (Unavailable)";
+                } else {
+                    opt.disabled = false;
+                    // Reset text
+                    var ampm = parseInt(opt.value.split(':')[0]) >= 12 ? ' PM' : ' AM';
+                    var h = parseInt(opt.value.split(':')[0]) % 12 || 12;
+                    var m = opt.value.split(':')[1];
+                    opt.text = h + ":" + m + ampm;
+                }
+            } else {
+                // Enable everything for future dates
+                opt.disabled = false;
+                var ampm = parseInt(opt.value.split(':')[0]) >= 12 ? ' PM' : ' AM';
+                var h = parseInt(opt.value.split(':')[0]) % 12 || 12;
+                var m = opt.value.split(':')[1];
+                opt.text = h + ":" + m + ampm;
+            }
+        }
+
+        // If current selected time is now disabled, reset
+        if (timeSelect.selectedIndex > 0 && options[timeSelect.selectedIndex].disabled) {
+            timeSelect.value = '';
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        updateBookingRules();
     });
 </script>
 {% endblock %}

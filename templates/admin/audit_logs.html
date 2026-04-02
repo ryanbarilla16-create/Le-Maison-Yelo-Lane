@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
+        <i class="fas fa-clipboard-list me-2"></i>Audit Logs</h1>
+    <span class="badge bg-light text-dark px-3 py-2 rounded-pill shadow-sm" style="font-size: 0.85rem;">
+        <i class="fas fa-shield-alt me-1 text-success"></i> Security Trail
+    </span>
+</div>
+
+<div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead style="background-color: rgba(0,0,0,0.02);">
+                    <tr>
+                        <th class="ps-4" style="width: 160px;">Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Description</th>
+                        <th class="pe-4">IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td class="ps-4 text-muted small">{{ log.created_at.strftime('%Y-%m-%d %I:%M %p') if log.created_at else 'N/A' }}</td>
+                        <td>
+                            {% if log.user %}
+                            <span class="fw-bold">{{ log.user.first_name }} {{ log.user.last_name }}</span>
+                            <br><small class="text-muted">{{ log.user.role }}</small>
+                            {% else %}
+                            <span class="text-muted">System</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.action == 'CREATE' %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill">{{ log.action }}</span>
+                            {% elif log.action == 'UPDATE' %}
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill">{{ log.action }}</span>
+                            {% elif log.action == 'DELETE' %}
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill">{{ log.action }}</span>
+                            {% else %}
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info rounded-pill">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="text-muted">{{ log.target_type }}</span> <small class="text-muted">#{{ log.target_id or '' }}</small></td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ log.description }}</td>
+                        <td class="pe-4 text-muted small"><code>{{ log.ip_address or 'N/A' }}</code></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fas fa-clipboard-list fs-1 mb-3 opacity-25"></i>
+                            <p>No audit logs recorded yet.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if logs.pages > 1 %}
+    <div class="card-footer bg-white border-top text-center py-3">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% if logs.has_prev %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('admin.audit_logs', page=logs.prev_num) }}">Previous</a></li>
+                {% endif %}
+                {% for p in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                    <li class="page-item {% if p == logs.page %}active{% endif %}"><a class="page-link" href="{{ url_for('admin.audit_logs', page=p) }}">{{ p }}</a></li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if logs.has_next %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('admin.audit_logs', page=logs.next_num) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

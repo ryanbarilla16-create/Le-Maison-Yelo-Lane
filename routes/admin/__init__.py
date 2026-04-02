@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user, login_user, logout_user
 from flask_mail import Message
-from models import db, User, Reservation, MenuItem, Order, OrderItem, Review, Notification
+from models import db, User, Reservation, MenuItem, Order, OrderItem, Review, Notification, Supplier, Ingredient, MenuItemIngredient, ChatMessage, AuditLog, Voucher, InventoryLog, WasteRecord, IngredientBatch, StockRequest
 from datetime import datetime, date, timedelta
 from utils import get_ph_time, create_notification
 from sqlalchemy import func
@@ -11,6 +11,26 @@ import traceback
 def _create_web_notification(user_id, title, message, notif_type='SYSTEM'):
     """Backwards compatible helper for admin routes"""
     return create_notification(user_id, title, message, notif_type)
+
+def log_inventory_change(ingredient_id, action, quantity, previous_stock, reason=None):
+    from models import InventoryLog
+    new_stock = previous_stock
+    if action == 'ADD':
+        new_stock = previous_stock + quantity
+    elif action in ['DEDUCT', 'EXPIRED', 'SPOILED']:
+        new_stock = previous_stock - quantity
+    
+    log = InventoryLog(
+        ingredient_id=ingredient_id,
+        user_id=current_user.id if current_user.is_authenticated else None,
+        action=action,
+        quantity=quantity,
+        previous_stock=previous_stock,
+        new_stock=new_stock,
+        reason=reason
+    )
+    db.session.add(log)
+    return log
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -145,6 +165,144 @@ def overview():
         order_status_data=_json.dumps(order_status_data)
     )
 
+# ─── STAFF PERFORMANCE ────────────────────────────────
+@admin_bp.route('/staff-performance')
+@login_required
+@admin_required
+def staff_performance():
+    from models import InventoryLog
+    import json as _json
+
+    # ── CASHIER STATS ──
+    cashiers = User.query.filter(db.func.upper(User.role).in_(['CASHIER', 'STAFF'])).all()
+    cashier_stats = []
+    for c in cashiers:
+        orders_count = Order.query.filter(Order.processed_by_id == c.id).count()
+        total_sales = db.session.query(db.func.sum(Order.total_amount)).filter(Order.processed_by_id == c.id).scalar() or 0
+        avg_order_value = float(total_sales) / orders_count if orders_count > 0 else 0
+        # Today's activity
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_orders = Order.query.filter(Order.processed_by_id == c.id, Order.created_at >= today_start).count()
+        cashier_stats.append({
+            'name': f"{c.first_name} {c.last_name}",
+            'count': orders_count,
+            'sales': float(total_sales),
+            'avg_order': round(avg_order_value, 2),
+            'today_orders': today_orders
+        })
+
+    # ── RIDER STATS ──
+    riders = User.query.filter(db.func.upper(User.role) == 'RIDER').all()
+    rider_stats = []
+    for r in riders:
+        delivered_count = Order.query.filter(Order.rider_id == r.id, Order.delivery_status == 'DELIVERED').count()
+        total_assigned = Order.query.filter(Order.rider_id == r.id).count()
+        # Calculate total delivery fees earned
+        delivery_earnings = db.session.query(db.func.sum(Order.delivery_fee)).filter(
+            Order.rider_id == r.id, Order.delivery_status == 'DELIVERED'
+        ).scalar() or 0
+        pending_deliveries = Order.query.filter(
+            Order.rider_id == r.id, 
+            Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
+        ).count()
+        rider_stats.append({
+            'name': f"{r.first_name} {r.last_name}",
+            'count': delivered_count,
+            'total_assigned': total_assigned,
+            'earnings': float(delivery_earnings),
+            'pending': pending_deliveries,
+            'success_rate': round((delivered_count / total_assigned * 100), 1) if total_assigned > 0 else 0
+        })
+
+    # ── INVENTORY STAFF STATS ──
+    inv_staff = User.query.filter(db.func.upper(User.role).in_(['INVENTORY_STAFF', 'INVENTORY'])).all()
+    inventory_stats = []
+    for s in inv_staff:
+        total_actions = InventoryLog.query.filter(InventoryLog.user_id == s.id).count()
+        adds = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action == 'ADD').count()
+        deducts = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action == 'DEDUCT').count()
+        spoiled = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action.in_(['EXPIRED', 'SPOILED'])).count()
+        # Items they manage (unique ingredients)
+        items_managed = db.session.query(db.func.count(db.func.distinct(InventoryLog.ingredient_id))).filter(
+            InventoryLog.user_id == s.id
+        ).scalar() or 0
+        inventory_stats.append({
+            'name': f"{s.first_name} {s.last_name}",
+            'total_actions': total_actions,
+            'adds': adds,
+            'deducts': deducts,
+            'spoiled': spoiled,
+            'items_managed': items_managed
+        })
+
+    # ── KITCHEN STAFF STATS ──
+    kitchen_staff = User.query.filter(db.func.upper(User.role) == 'KITCHEN').all()
+    kitchen_stats = []
+    # General kitchen metrics
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    kitchen_completed_today = Order.query.filter(Order.status == 'COMPLETED', Order.prep_end_at >= today_start).count()
+    kitchen_preparing_now = Order.query.filter(Order.status == 'PREPARING').count()
+
+    completed_with_prep = Order.query.filter(
+        Order.status == 'COMPLETED', Order.prep_start_at.isnot(None), Order.prep_end_at.isnot(None)
+    ).all()
+    avg_prep_minutes = 0
+    if completed_with_prep:
+        total_secs = sum((o.prep_end_at - o.prep_start_at).total_seconds() for o in completed_with_prep)
+        avg_prep_minutes = round(total_secs / len(completed_with_prep) / 60, 1)
+
+    for k in kitchen_staff:
+        kitchen_stats.append({
+            'name': f"{k.first_name} {k.last_name}",
+        })
+
+    # ── SUMMARY STATS ──
+    total_staff = len(cashiers) + len(riders) + len(inv_staff) + len(kitchen_staff)
+    total_orders_processed = sum(c['count'] for c in cashier_stats)
+    total_deliveries_completed = sum(r['count'] for r in rider_stats)
+    total_revenue_generated = sum(c['sales'] for c in cashier_stats)
+    total_inv_actions = sum(s['total_actions'] for s in inventory_stats)
+
+    # ── CHART DATA: Orders by Cashier ──
+    cashier_chart_labels = [c['name'] for c in cashier_stats] if cashier_stats else ['No Cashiers']
+    cashier_chart_data = [c['count'] for c in cashier_stats] if cashier_stats else [0]
+    cashier_sales_data = [c['sales'] for c in cashier_stats] if cashier_stats else [0]
+
+    # ── CHART DATA: Deliveries by Rider ──
+    rider_chart_labels = [r['name'] for r in rider_stats] if rider_stats else ['No Riders']
+    rider_chart_data = [r['count'] for r in rider_stats] if rider_stats else [0]
+
+    # ── CHART DATA: Staff Role Distribution ──
+    role_dist_labels = []
+    role_dist_data = []
+    if cashiers: role_dist_labels.append('Cashier'); role_dist_data.append(len(cashiers))
+    if riders: role_dist_labels.append('Rider'); role_dist_data.append(len(riders))
+    if inv_staff: role_dist_labels.append('Inventory'); role_dist_data.append(len(inv_staff))
+    if kitchen_staff: role_dist_labels.append('Kitchen'); role_dist_data.append(len(kitchen_staff))
+    if not role_dist_labels: role_dist_labels = ['No Staff']; role_dist_data = [0]
+
+    return render_template('admin/staff_performance.html',
+        cashier_stats=cashier_stats,
+        rider_stats=rider_stats,
+        inventory_stats=inventory_stats,
+        kitchen_stats=kitchen_stats,
+        total_staff=total_staff,
+        total_orders_processed=total_orders_processed,
+        total_deliveries_completed=total_deliveries_completed,
+        total_revenue_generated=total_revenue_generated,
+        total_inv_actions=total_inv_actions,
+        kitchen_completed_today=kitchen_completed_today,
+        kitchen_preparing_now=kitchen_preparing_now,
+        avg_prep_minutes=avg_prep_minutes,
+        cashier_chart_labels=_json.dumps(cashier_chart_labels),
+        cashier_chart_data=_json.dumps(cashier_chart_data),
+        cashier_sales_data=_json.dumps(cashier_sales_data),
+        rider_chart_labels=_json.dumps(rider_chart_labels),
+        rider_chart_data=_json.dumps(rider_chart_data),
+        role_dist_labels=_json.dumps(role_dist_labels),
+        role_dist_data=_json.dumps(role_dist_data),
+    )
+
 # ─── MAIN: ANALYTICS ────────────────────────────────
 @admin_bp.route('/analytics')
 @login_required
@@ -244,13 +402,50 @@ def analytics():
         loyalty_data = [1]
 
     # Compute total revenue
-    total_revenue = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).scalar()
+    total_revenue_val = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).scalar()
+    
+    # 8) Advanced Analytics: Profit & Loss (P&L)
+    # COGS = Sum (Ingredient.cost_per_unit * recipe.quantity_needed * qty_sold)
+    # Using select_from to anchor the query at OrderItem and avoid cross-join
+    cogs_query = db.session.query(
+        func.sum(OrderItem.quantity * MenuItemIngredient.quantity_needed * Ingredient.cost_per_unit)
+    ).select_from(OrderItem)\
+     .join(Order, Order.id == OrderItem.order_id)\
+     .join(MenuItem, MenuItem.id == OrderItem.menu_item_id)\
+     .join(MenuItemIngredient, MenuItemIngredient.menu_item_id == MenuItem.id)\
+     .join(Ingredient, Ingredient.id == MenuItemIngredient.ingredient_id)\
+     .filter(Order.status == 'COMPLETED')
+
+    total_cogs = float(cogs_query.scalar() or 0.0)
+    net_profit = float(total_revenue_val) - total_cogs
+    
+    # 9) Sales Forecast (Next 7 Days)
+    # Simple moving average of the last 14 days
+    last_14_days_rev = []
+    for i in range(13, -1, -1):
+        d = today - timedelta(days=i)
+        rev = db.session.query(func.coalesce(func.sum(Order.total_amount), 0))\
+            .filter(func.date(Order.created_at) == d).scalar()
+        last_14_days_rev.append(float(rev))
+    
+    avg_daily_rev = sum(last_14_days_rev) / 14 if last_14_days_rev else 0
+    forecast_labels = []
+    forecast_data = []
+    for i in range(1, 8):
+        future_date = today + timedelta(days=i)
+        forecast_labels.append(future_date.strftime('%b %d'))
+        # Adding a small randomness/trend factor? No, keep it simple for now
+        forecast_data.append(round(avg_daily_rev, 2))
 
     return render_template('admin/analytics.html',
         total_customers=total_customers,
         total_menu_items=total_menu_items,
         menu_by_category=menu_by_category,
-        total_revenue=float(total_revenue),
+        total_revenue=float(total_revenue_val),
+        total_cogs=total_cogs,
+        net_profit=net_profit,
+        forecast_labels=_json.dumps(forecast_labels),
+        forecast_data=_json.dumps(forecast_data),
         revenue_trend_labels=_json.dumps(revenue_trend_labels),
         revenue_trend_data=_json.dumps(revenue_trend_data),
         order_status_labels=_json.dumps(order_status_labels),
@@ -332,6 +527,7 @@ def menu_add():
         )
         db.session.add(item)
         db.session.commit()
+        log_audit('CREATE', 'MenuItem', item.id, f'Added new menu item: {item.name}')
         flash("Menu item added successfully.", "success")
         return redirect(url_for('admin.menu', category=item.category))
     except Exception as e:
@@ -373,6 +569,7 @@ def menu_edit(item_id):
         item.image_url = image_url
         item.is_available = request.form.get('is_available') == 'on'
         db.session.commit()
+        log_audit('UPDATE', 'MenuItem', item.id, f'Updated menu item: {item.name}')
         flash("Menu item updated.", "success")
         return redirect(url_for('admin.menu', category=item.category))
     except Exception as e:
@@ -392,6 +589,7 @@ def menu_delete(item_id):
     category = item.category
     db.session.delete(item)
     db.session.commit()
+    log_audit('DELETE', 'MenuItem', item_id, f'Deleted menu item: {item.name}')
     flash("Menu item deleted.", "success")
     return redirect(url_for('admin.menu', category=category))
 
@@ -582,16 +780,23 @@ def reservations():
 def update_reservation(res_id):
     res = Reservation.query.get_or_404(res_id)
     new_status = request.form.get('status')
+    table_number = request.form.get('table_number')
+    
     res.status = new_status
+    if table_number:
+        res.table_number = table_number
+
     db.session.commit()
+    
     # Notify user about reservation status change
     status_msgs = {
-        'CONFIRMED': f'Your reservation for {res.date.strftime("%b %d, %Y")} at {res.time.strftime("%I:%M %p")} has been confirmed!',
+        'CONFIRMED': f'Your reservation for {res.date.strftime("%b %d, %Y")} at {res.time.strftime("%I:%M %p")} has been confirmed! Assigned Table: {res.table_number or "To be assigned"}',
         'REJECTED': f'Your reservation for {res.date.strftime("%b %d, %Y")} has been declined. Please try a different date/time.',
         'COMPLETED': f'Your reservation for {res.date.strftime("%b %d, %Y")} has been marked as completed. Thank you for dining with us!',
     }
     if new_status in status_msgs:
         _create_web_notification(res.user_id, f'Reservation {new_status.capitalize()}', status_msgs[new_status], 'RESERVATION')
+    
     flash(f"Reservation #{res.id} updated to {new_status}.", "success")
     return redirect(url_for('admin.reservations'))
 
@@ -603,15 +808,105 @@ def inventory():
     items = MenuItem.query.order_by(MenuItem.category).all()
     total_items = len(items)
     out_of_stock = sum(1 for i in items if not i.is_available)
-    return render_template('admin/inventory.html', items=items, total_items=total_items, out_of_stock=out_of_stock)
+    all_ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    all_suppliers = Supplier.query.order_by(Supplier.name).all()
+    low_stock_count = sum(1 for ing in all_ingredients if float(ing.stock_qty) <= float(ing.reorder_level))
+    
+    # Expiration Tracking (within 7 days)
+    today = date.today()
+    from datetime import timedelta
+    seven_days_later = today + timedelta(days=7)
+    expiring_soon_count = sum(1 for ing in all_ingredients if ing.expiration_date and today <= ing.expiration_date <= seven_days_later)
+    
+    return render_template('admin/inventory.html', 
+        items=items, 
+        total_items=total_items, 
+        out_of_stock=out_of_stock, 
+        ingredients=all_ingredients, 
+        suppliers=all_suppliers, 
+        low_stock_count=low_stock_count,
+        expiring_soon_count=expiring_soon_count,
+        today=today)
+
+@admin_bp.route('/inventory/generate-po')
+@login_required
+@admin_required
+def generate_purchase_order():
+    all_ingredients = Ingredient.query.all()
+    low_stock = [ing for ing in all_ingredients if float(ing.stock_qty) <= float(ing.reorder_level)]
+    
+    if not low_stock:
+        flash("No ingredients are currently low on stock.", "info")
+        return redirect(url_for('admin.inventory'))
+        
+    from fpdf import FPDF
+    import io
+    from datetime import datetime
+    
+    class PDF(FPDF):
+        def header(self):
+            self.set_font('Arial', 'B', 15)
+            self.cell(0, 10, 'Le Maison Yelo Lane - Purchase Order', 0, 1, 'C')
+            self.set_font('Arial', '', 10)
+            self.cell(0, 10, f'Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1, 'C')
+            self.ln(10)
+            
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 8)
+            self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 12)
+    
+    # Group by supplier
+    suppliers = {}
+    for ing in low_stock:
+        s_name = ing.supplier.name if ing.supplier else "No Supplier Assigned"
+        if s_name not in suppliers:
+            suppliers[s_name] = []
+        suppliers[s_name].append(ing)
+        
+    for s_name, items in suppliers.items():
+        pdf.set_text_color(139, 69, 19) # Brown
+        pdf.cell(0, 10, f'Supplier: {s_name}', 0, 1)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(80, 8, 'Ingredient', 1)
+        pdf.cell(40, 8, 'Current Stock', 1)
+        pdf.cell(40, 8, 'Reorder Level', 1)
+        pdf.cell(30, 8, 'UnitCost', 1)
+        pdf.ln()
+        
+        pdf.set_font('Arial', '', 10)
+        for ing in items:
+            pdf.cell(80, 8, ing.name, 1)
+            pdf.cell(40, 8, f"{ing.stock_qty} {ing.unit}", 1)
+            pdf.cell(40, 8, f"{ing.reorder_level} {ing.unit}", 1)
+            pdf.cell(30, 8, f"P{ing.cost_per_unit}", 1)
+            pdf.ln()
+        pdf.ln(5)
+        
+    output = io.BytesIO()
+    pdf_out = pdf.output(dest='S')
+    output.write(pdf_out)
+    output.seek(0)
+    
+    from flask import send_file
+    return send_file(
+        output,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'Purchase_Order_{datetime.now().strftime("%Y%m%d")}.pdf'
+    )
 
 @admin_bp.route('/inventory/toggle/<int:item_id>', methods=['POST'])
 @login_required
 @admin_required
 def toggle_stock(item_id):
-    if current_user.role.upper() in ['CASHIER', 'STAFF']:
-        flash("Access denied. View only.", "danger")
-        return redirect(url_for('admin.inventory'))
+    # Restricted to staff roles (Allow Admin full control now)
+    # Removing: if current_user.role.upper() in ['CASHIER', 'STAFF']: access denied
 
     item = MenuItem.query.get_or_404(item_id)
     item.is_available = not item.is_available
@@ -642,13 +937,33 @@ def kitchen_view():
     completed_count = Order.query.filter_by(status='COMPLETED').count()
     cancelled_count = Order.query.filter_by(status='CANCELLED').count()
     
+    # Calculate throughput metrics (Average Prep Time today)
+    from sqlalchemy import func
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    completed_today = Order.query.filter(
+        Order.status == 'COMPLETED',
+        Order.prep_end_at >= today_start
+    ).all()
+    
+    avg_prep_time = 0
+    if completed_today:
+        total_prep_seconds = 0
+        valid_count = 0
+        for o in completed_today:
+            if o.prep_start_at and o.prep_end_at:
+                total_prep_seconds += (o.prep_end_at - o.prep_start_at).total_seconds()
+                valid_count += 1
+        if valid_count > 0:
+            avg_prep_time = round((total_prep_seconds / valid_count) / 60, 1)
+
     return render_template('admin/kitchen.html', 
         orders=active_orders, 
         status_filter=status_filter,
         pending_count=pending_count,
         preparing_count=preparing_count,
         completed_count=completed_count,
-        cancelled_count=cancelled_count
+        cancelled_count=cancelled_count,
+        avg_prep_time=avg_prep_time
     )
 
 @admin_bp.route('/kitchen/api/orders')
@@ -695,15 +1010,39 @@ def kitchen_api_orders():
 @login_required
 @admin_required
 def kitchen_update_order(order_id):
-    if current_user.role.upper() == 'ADMIN':
-        flash("Admin has View Only access for Kitchen.", "danger")
-        return redirect(url_for('admin.kitchen_view'))
+    # Allow Admin full control for Kitchen now
 
     order = Order.query.get_or_404(order_id)
     new_status = request.form.get('status')
     if new_status in ['PENDING', 'PREPARING', 'COMPLETED', 'CANCELLED']:
+        # Auto-deduct ingredients when order moves to PREPARING
+        if new_status == 'PREPARING' and order.status != 'PREPARING':
+            order.prep_start_at = datetime.utcnow()
+            for oi in order.items:
+                recipe = MenuItemIngredient.query.filter_by(menu_item_id=oi.menu_item_id).all()
+                for r in recipe:
+                    ingredient = Ingredient.query.get(r.ingredient_id)
+                    if ingredient:
+                        prev = float(ingredient.stock_qty)
+                        deduction = float(r.quantity_needed) * oi.quantity
+                        log_inventory_change(ingredient.id, 'DEDUCT', deduction, prev, f"Used for Order #{order.id}")
+                        ingredient.stock_qty = max(0, prev - deduction)
+                        if float(ingredient.stock_qty) <= 0:
+                            for mi_link in ingredient.menu_items:
+                                mi = MenuItem.query.get(mi_link.menu_item_id)
+                                if mi: mi.is_available = False
+        
+        if new_status == 'COMPLETED':
+            order.prep_end_at = datetime.utcnow()
+            
         order.status = new_status
         db.session.commit()
+        
+        # Real-time update
+        from extensions import socketio
+        socketio.emit('order_status_update', {'id': order.id, 'status': new_status}, namespace='/')
+        
+        log_audit('UPDATE', 'Order', order.id, f'Order #{order.id} status changed to {new_status}')
     return redirect(url_for('admin.kitchen_view'))
 
 # ─── WALK-IN ORDERS ──────────────────────────────────
@@ -719,9 +1058,7 @@ def walkin_order():
 @login_required
 @admin_required
 def walkin_order_submit():
-    if current_user.role.upper() == 'ADMIN':
-        flash("Admin has View Only access for POS.", "danger")
-        return redirect(url_for('admin.walkin_order'))
+    # Allow Admin full control for POS now
 
     customer_name = (request.form.get('customer_name') or 'Walk-in Customer').strip()
     dining_option = request.form.get('dining_option', 'DINE_IN')
@@ -735,6 +1072,15 @@ def walkin_order_submit():
     if not item_ids:
         flash("Please add at least one item to the order.", "danger")
         return redirect(url_for('admin.walkin_order'))
+
+    # --- ORDER VALIDATION LOGIC ---
+    items_data = [{'menu_item_id': int(id), 'quantity': int(qty)} for id, qty in zip(item_ids, quantities)]
+    is_valid, msg, status_override = validate_order(items_data, dining_option, payment_method, is_pos=True)
+    
+    if not is_valid:
+        flash(msg, "danger")
+        return redirect(url_for('admin.walkin_order'))
+    # ------------------------------
 
     order_items = []
     total = 0
@@ -771,7 +1117,7 @@ def walkin_order_submit():
         user_id=None,
         customer_name=customer_name,
         total_amount=total,
-        status='PENDING',
+        status=status_override or 'PENDING',
         payment_status='PAID' if payment_method == 'COUNTER' else 'UNPAID',
         payment_method=payment_method,
         amount_tendered=amount_tendered,
@@ -782,6 +1128,15 @@ def walkin_order_submit():
     )
     db.session.add(order)
     db.session.commit()
+    
+    # Real-time update for Kitchen
+    from extensions import socketio
+    socketio.emit('new_order', {
+        'id': order.id,
+        'customer': customer_name,
+        'dining_option': dining_option,
+        'total_amount': float(total)
+    }, namespace='/')
     
     if payment_method == 'ONLINE':
         # Generate Xendit Invoice for Walk-in
@@ -856,7 +1211,57 @@ def orders():
         all_orders = Order.query.order_by(Order.created_at.desc()).all()
     else:
         all_orders = Order.query.filter_by(status=status_filter).order_by(Order.created_at.desc()).all()
-    return render_template('admin/orders.html', orders=all_orders, status_filter=status_filter)
+        
+    # Stats Calculation
+    today = date.today()
+    today_orders = Order.query.filter(func.date(Order.created_at) == today).all()
+    
+    total_sales_today = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID')
+    pending_count = len([o for o in today_orders if o.status == 'PENDING'])
+    completed_count = len([o for o in today_orders if o.status == 'COMPLETED'])
+    
+    # Shift Report
+    cash_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'COUNTER')
+    online_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'ONLINE')
+
+    return render_template('admin/orders.html', 
+                           orders=all_orders, 
+                           status_filter=status_filter,
+                           total_sales_today=total_sales_today,
+                           pending_count=pending_count,
+                           completed_count=completed_count,
+                           cash_sales=cash_sales,
+                           online_sales=online_sales)
+
+@admin_bp.route('/billing')
+@login_required
+@admin_required
+def billing():
+    status_filter = request.args.get('status', 'UNPAID')
+    
+    if status_filter == 'ALL':
+        billing_orders = Order.query.order_by(Order.created_at.desc()).all()
+    else:
+        billing_orders = Order.query.filter_by(payment_status=status_filter).order_by(Order.created_at.desc()).all()
+        
+    # Stats Calculation
+    today = date.today()
+    today_orders = Order.query.filter(func.date(Order.created_at) == today).all()
+    
+    total_sales_today = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID')
+    unpaid_count = len([o for o in today_orders if o.payment_status == 'UNPAID'])
+    
+    # Shift Report
+    cash_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'COUNTER')
+    online_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'ONLINE')
+
+    return render_template('admin/billing.html', 
+                           orders=billing_orders, 
+                           status_filter=status_filter,
+                           total_sales_today=total_sales_today,
+                           unpaid_count=unpaid_count,
+                           cash_sales=cash_sales,
+                           online_sales=online_sales)
 
 @admin_bp.route('/orders/<int:order_id>/receipt')
 @login_required
@@ -871,6 +1276,23 @@ def print_receipt(order_id):
 def update_order(order_id):
     order = Order.query.get_or_404(order_id)
     new_status = request.form.get('status')
+    
+    # Auto-deduct ingredients when order moves to PREPARING
+    if new_status == 'PREPARING' and order.status != 'PREPARING':
+        for oi in order.items:
+            recipe = MenuItemIngredient.query.filter_by(menu_item_id=oi.menu_item_id).all()
+            for r in recipe:
+                ingredient = Ingredient.query.get(r.ingredient_id)
+                if ingredient:
+                    deduction = float(r.quantity_needed) * oi.quantity
+                    ingredient.stock_qty = max(0, float(ingredient.stock_qty) - deduction)
+                    # Auto-mark menu items out of stock if any ingredient is depleted
+                    if float(ingredient.stock_qty) <= 0:
+                        for mi_link in ingredient.menu_items:
+                            mi = MenuItem.query.get(mi_link.menu_item_id)
+                            if mi:
+                                mi.is_available = False
+    
     order.status = new_status
     db.session.commit()
     
@@ -974,6 +1396,74 @@ def update_payment_status(order_id):
         flash(f"Order #{order.id} payment status marked as {new_payment_status}.", "success")
     return redirect(url_for('admin.orders'))
 
+@admin_bp.route('/orders/split/<int:order_id>', methods=['POST'])
+@login_required
+@admin_required
+def split_order(order_id):
+    original_order = Order.query.get_or_404(order_id)
+    split_item_ids = request.form.getlist('split_item_ids')
+    
+    if not split_item_ids:
+        flash("No items selected to split.", "warning")
+        return redirect(url_for('admin.orders'))
+
+    # Check if we are trying to split ALL items (which doesn't make sense as a split)
+    all_item_ids = [str(item.id) for item in original_order.items]
+    if set(split_item_ids) == set(all_item_ids):
+        flash("You cannot split all items. Use the whole order instead.", "warning")
+        return redirect(url_for('admin.orders'))
+
+    try:
+        # Create new order as a shell copy
+        new_order = Order(
+            user_id=original_order.user_id,
+            customer_name=original_order.customer_name,
+            total_amount=0,
+            status=original_order.status,
+            payment_status='UNPAID', # New split is usually unpaid initially
+            dining_option=original_order.dining_option,
+            payment_method=original_order.payment_method,
+            notes=f"Split from Order #{original_order.id}",
+            delivery_address=original_order.delivery_address,
+            delivery_fee=0, # Typically 0 for splits unless delivery is split too
+            processed_by_id=current_user.id
+        )
+        db.session.add(new_order)
+        db.session.flush() # Get the new_order.id
+
+        # Move selected items
+        new_total = 0
+        for item_id in split_item_ids:
+            item = OrderItem.query.get(int(item_id))
+            if item and item.order_id == original_order.id:
+                item.order_id = new_order.id
+                new_total += float(item.price_at_time) * item.quantity
+        
+        new_order.total_amount = new_total
+        
+        # Recalculate original order total
+        original_total = 0
+        for item in original_order.items:
+            # Note: order.items relationship might still contain moved items until commit/refresh
+            # But SQLAlchemy usually handles this if we use the session correctly.
+            # To be safe, we recalculate manually from what remains.
+            pass
+        
+        # Re-query remaining items to be absolutely sure
+        remaining_items = OrderItem.query.filter_by(order_id=original_order.id).all()
+        original_order.total_amount = sum(float(i.price_at_time) * i.quantity for i in remaining_items)
+
+        db.session.commit()
+        flash(f"Split successful! New Order #{new_order.id} created.", "success")
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error splitting order: {str(e)}", "danger")
+        print("Split Error:", e)
+        traceback.print_exc()
+
+    return redirect(url_for('admin.orders'))
+
 # ─── REVIEWS ─────────────────────────────────────────
 @admin_bp.route('/reviews')
 @login_required
@@ -984,6 +1474,50 @@ def reviews():
         all_reviews = Review.query.order_by(Review.created_at.desc()).all()
     else:
         all_reviews = Review.query.filter_by(status=status_filter).order_by(Review.created_at.desc()).all()
+        
+    # AI Sentiment Analysis (Dynamic Calculation to avoid DB Migrations)
+    positive_words = ['good', 'great', 'excellent', 'amazing', 'best', 'delicious', 'love', 'perfect', 'nice', 'awesome', 'sarap', 'mabilis', 'ayos', 'sulit', 'outstanding', 'fantastic', 'superb', 'yummy', 'tasty']
+    negative_words = ['bad', 'terrible', 'awful', 'worst', 'horrible', 'poor', 'slow', 'cold', 'disappointing', 'hate', 'pangit', 'panget', 'mabagal', 'matagal', 'bland', 'salty', 'late', 'matabang', 'maalat']
+
+    for review in all_reviews:
+        text = str(review.comment or '').lower()
+        if not text:
+            review.ai_sentiment = "NEUTRAL"
+            review.ai_sentiment_icon = "😐"
+            review.ai_sentiment_color = "secondary"
+            continue
+            
+        pos_count = sum(text.count(word) for word in positive_words)
+        neg_count = sum(text.count(word) for word in negative_words)
+        
+        # Adjust weight based on star rating
+        if review.rating >= 4:
+            pos_count += 2
+        elif review.rating <= 2:
+            neg_count += 2
+            
+        if pos_count > neg_count:
+            review.ai_sentiment = "POSITIVE"
+            review.ai_sentiment_icon = "😊"
+            review.ai_sentiment_color = "success"
+        elif neg_count > pos_count:
+            review.ai_sentiment = "NEGATIVE"
+            review.ai_sentiment_icon = "😠"
+            review.ai_sentiment_color = "danger"
+        else:
+            if review.rating >= 4:
+                review.ai_sentiment = "POSITIVE"
+                review.ai_sentiment_icon = "😊"
+                review.ai_sentiment_color = "success"
+            elif review.rating <= 2:
+                review.ai_sentiment = "NEGATIVE"
+                review.ai_sentiment_icon = "😠"
+                review.ai_sentiment_color = "danger"
+            else:
+                review.ai_sentiment = "NEUTRAL"
+                review.ai_sentiment_icon = "😐"
+                review.ai_sentiment_color = "secondary"
+
     return render_template('admin/reviews.html', reviews=all_reviews, status_filter=status_filter)
 
 @admin_bp.route('/reviews/update/<int:review_id>', methods=['POST'])
@@ -1001,10 +1535,9 @@ def update_review(review_id):
 from utils import load_site_settings, save_site_settings
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def settings():
     site_settings = load_site_settings()
-    if request.method == 'POST':
+    if request.method == 'POST' and current_user.role.upper() == 'ADMIN':
         # Handle form submission for homepage content
         # Update Hero 2
         site_settings['hero2']['title1'] = request.form.get('hero2_title1', site_settings['hero2']['title1'])
@@ -1022,6 +1555,14 @@ def settings():
         site_settings['card2']['description'] = request.form.get('c2_desc', site_settings['card2']['description'])
         site_settings['card2']['image_url'] = request.form.get('c2_img', site_settings['card2']['image_url'])
 
+        # Update Footer
+        site_settings['footer']['facebook_link'] = request.form.get('footer_fb', site_settings['footer']['facebook_link'])
+        site_settings['footer']['instagram_link'] = request.form.get('footer_ig', site_settings['footer']['instagram_link'])
+        site_settings['footer']['twitter_link'] = request.form.get('footer_tw', site_settings['footer']['twitter_link'])
+        site_settings['footer']['youtube_link'] = request.form.get('footer_yt', site_settings['footer']['youtube_link'])
+        site_settings['footer']['address_text'] = request.form.get('footer_address', site_settings['footer']['address_text'])
+        site_settings['footer']['copyright_text'] = request.form.get('footer_copyright', site_settings['footer']['copyright_text'])
+
         if save_site_settings(site_settings):
             flash("Homepage content updated successfully.", "success")
         else:
@@ -1029,6 +1570,27 @@ def settings():
         return redirect(url_for('admin.settings'))
 
     return render_template('admin/settings.html', site=site_settings)
+
+@admin_bp.route('/settings/profile', methods=['POST'])
+@login_required
+def update_profile():
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    email = request.form.get('email')
+    password = request.form.get('password')
+
+    if first_name and last_name and email:
+        current_user.first_name = first_name
+        current_user.last_name = last_name
+        current_user.email = email
+        if password:
+            current_user.set_password(password)
+        db.session.commit()
+        flash('Profile updated successfully!', 'success')
+    else:
+        flash('Missing required fields.', 'danger')
+        
+    return redirect(url_for('admin.settings'))
 
 # ─── ADMIN NOTIFICATIONS API ─────────────────────────
 @admin_bp.route('/api/notifications')
@@ -1152,3 +1714,649 @@ def web_user_mark_all_read():
     db.session.commit()
     return jsonify({'success': True})
 
+
+# ─── INGREDIENT MANAGEMENT ──────────────────────────
+@admin_bp.route('/ingredients/add', methods=['POST'])
+@login_required
+@admin_required
+def add_ingredient():
+    name = request.form.get('name', '').strip()
+    unit = request.form.get('unit', '').strip()
+    stock_qty = request.form.get('stock_qty', 0, type=float)
+    reorder_level = request.form.get('reorder_level', 10, type=float)
+    cost_per_unit = request.form.get('cost_per_unit', 0, type=float)
+    supplier_id = request.form.get('supplier_id', type=int)
+    exp_date_str = request.form.get('expiration_date')
+    expiration_date = None
+    if exp_date_str:
+        try:
+            expiration_date = datetime.strptime(exp_date_str, '%Y-%m-%d').date()
+        except: pass
+
+    if not name or not unit:
+        flash('Ingredient name and unit are required.', 'danger')
+        return redirect(url_for('admin.inventory', tab='ingredients'))
+    
+    ing = Ingredient(
+        name=name, unit=unit, stock_qty=stock_qty, 
+        reorder_level=reorder_level, cost_per_unit=cost_per_unit, 
+        supplier_id=supplier_id if supplier_id else None,
+        expiration_date=expiration_date
+    )
+    db.session.add(ing)
+    db.session.flush() # Get ID before logging
+    
+    if stock_qty > 0:
+        log_inventory_change(ing.id, 'ADD', stock_qty, 0, "Initial stock on creation")
+    
+    db.session.commit()
+    flash(f'Ingredient "{name}" added successfully!', 'success')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/ingredients/update/<int:ing_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_ingredient(ing_id):
+    ing = Ingredient.query.get_or_404(ing_id)
+    ing.name = request.form.get('name', ing.name).strip()
+    ing.unit = request.form.get('unit', ing.unit).strip()
+    ing.stock_qty = request.form.get('stock_qty', float(ing.stock_qty), type=float)
+    ing.reorder_level = request.form.get('reorder_level', float(ing.reorder_level), type=float)
+    ing.cost_per_unit = request.form.get('cost_per_unit', float(ing.cost_per_unit), type=float)
+    supplier_id = request.form.get('supplier_id', type=int)
+    ing.supplier_id = supplier_id if supplier_id else None
+    db.session.commit()
+    flash(f'Ingredient "{ing.name}" updated!', 'success')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/ingredients/delete/<int:ing_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_ingredient(ing_id):
+    ing = Ingredient.query.get_or_404(ing_id)
+    MenuItemIngredient.query.filter_by(ingredient_id=ing_id).delete()
+    db.session.delete(ing)
+    db.session.commit()
+    flash(f'Ingredient "{ing.name}" deleted.', 'success')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/ingredients/bulk-delete', methods=['POST'])
+@login_required
+@admin_required
+def bulk_delete_ingredients():
+    item_ids = request.form.getlist('item_ids[]')
+    if item_ids:
+        Ingredient.query.filter(Ingredient.id.in_(item_ids)).delete(synchronize_session=False)
+        MenuItemIngredient.query.filter(MenuItemIngredient.ingredient_id.in_(item_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f'Deleted {len(item_ids)} ingredients.', 'success')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/ingredients/restock/<int:ing_id>', methods=['POST'])
+@login_required
+@admin_required
+def restock_ingredient(ing_id):
+    ing = Ingredient.query.get_or_404(ing_id)
+    add_qty = request.form.get('add_qty', 0, type=float)
+    reason = request.form.get('reason', 'Manual restock')
+    if add_qty > 0:
+        prev = float(ing.stock_qty)
+        log_inventory_change(ing.id, 'ADD', add_qty, prev, reason)
+        ing.stock_qty = prev + add_qty
+        db.session.commit()
+        # Re-enable menu items whose ingredients are now in stock
+        for mi_link in ing.menu_items:
+            mi = MenuItem.query.get(mi_link.menu_item_id)
+            if mi and not mi.is_available:
+                all_in_stock = True
+                for recipe in mi.ingredients:
+                    ri = Ingredient.query.get(recipe.ingredient_id)
+                    if ri and float(ri.stock_qty) <= 0:
+                        all_in_stock = False
+                        break
+                if all_in_stock:
+                    mi.is_available = True
+        db.session.commit()
+        flash(f'Restocked {add_qty} {ing.unit} of "{ing.name}".', 'success')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/ingredients/waste/<int:ing_id>', methods=['POST'])
+@login_required
+@admin_required
+def waste_ingredient(ing_id):
+    ing = Ingredient.query.get_or_404(ing_id)
+    qty = request.form.get('qty', 0, type=float)
+    action = request.form.get('action', 'SPOILED') # SPOILED or EXPIRED
+    reason = request.form.get('reason', 'Inventory adjustment')
+    
+    if qty > 0 and qty <= float(ing.stock_qty):
+        prev = float(ing.stock_qty)
+        log_inventory_change(ing.id, action, qty, prev, reason)
+        ing.stock_qty = prev - qty
+        
+        # If stock empty, disable menu items
+        if ing.stock_qty <= 0:
+            for mi_link in ing.menu_items:
+                mi = MenuItem.query.get(mi_link.menu_item_id)
+                if mi: mi.is_available = False
+        
+        db.session.commit()
+        flash(f'Recorded {qty} {ing.unit} as {action}.', 'warning')
+    else:
+        flash('Invalid quantity.', 'danger')
+    return redirect(url_for('admin.inventory', tab='ingredients'))
+
+@admin_bp.route('/inventory/audit-logs')
+@login_required
+@admin_required
+def inventory_audit_logs():
+    from models import InventoryLog
+    logs = InventoryLog.query.order_by(InventoryLog.created_at.desc()).limit(100).all()
+    return render_template('admin/inventory_logs.html', logs=logs)
+
+# ─── RECIPE (MENU ITEM INGREDIENTS) ──────────────────
+@admin_bp.route('/recipe/<int:item_id>', methods=['GET'])
+@login_required
+@admin_required
+def get_recipe(item_id):
+    links = MenuItemIngredient.query.filter_by(menu_item_id=item_id).all()
+    result = []
+    for l in links:
+        ing = Ingredient.query.get(l.ingredient_id)
+        if ing:
+            result.append({'id': l.id, 'ingredient_id': ing.id, 'name': ing.name, 'unit': ing.unit, 'quantity_needed': float(l.quantity_needed)})
+    return jsonify(result)
+
+@admin_bp.route('/recipe/<int:item_id>/add', methods=['POST'])
+@login_required
+@admin_required
+def add_recipe_ingredient(item_id):
+    ingredient_id = request.form.get('ingredient_id', type=int)
+    quantity_needed = request.form.get('quantity_needed', type=float)
+    if not ingredient_id or not quantity_needed:
+        flash('Please select an ingredient and specify the quantity.', 'danger')
+        return redirect(url_for('admin.inventory'))
+    existing = MenuItemIngredient.query.filter_by(menu_item_id=item_id, ingredient_id=ingredient_id).first()
+    if existing:
+        existing.quantity_needed = quantity_needed
+    else:
+        link = MenuItemIngredient(menu_item_id=item_id, ingredient_id=ingredient_id, quantity_needed=quantity_needed)
+        db.session.add(link)
+    db.session.commit()
+    flash('Recipe updated!', 'success')
+    return redirect(url_for('admin.inventory'))
+
+@admin_bp.route('/recipe/remove/<int:link_id>', methods=['POST'])
+@login_required
+@admin_required
+def remove_recipe_ingredient(link_id):
+    link = MenuItemIngredient.query.get_or_404(link_id)
+    db.session.delete(link)
+    db.session.commit()
+    flash('Ingredient removed from recipe.', 'success')
+    return redirect(url_for('admin.inventory'))
+
+# ─── SUPPLIER MANAGEMENT ────────────────────────────
+@admin_bp.route('/suppliers/add', methods=['POST'])
+@login_required
+@admin_required
+def add_supplier():
+    name = request.form.get('name', '').strip()
+    contact_person = request.form.get('contact_person', '').strip()
+    phone = request.form.get('phone', '').strip()
+    email = request.form.get('email', '').strip()
+    address = request.form.get('address', '').strip()
+    if not name:
+        flash('Supplier name is required.', 'danger')
+        return redirect(url_for('admin.inventory', tab='suppliers'))
+    sup = Supplier(name=name, contact_person=contact_person, phone=phone, email=email, address=address)
+    db.session.add(sup)
+    db.session.commit()
+    
+    # Auto-create ingredients from comma-separated input
+    new_ingredients_str = request.form.get('new_ingredients', '').strip()
+    if new_ingredients_str:
+        sup.catalog_items = new_ingredients_str
+        db.session.commit()
+        
+    flash(f'Supplier "{name}" added successfully!', 'success')
+    return redirect(url_for('admin.inventory', tab='suppliers'))
+
+@admin_bp.route('/suppliers/update/<int:sup_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_supplier(sup_id):
+    sup = Supplier.query.get_or_404(sup_id)
+    sup.name = request.form.get('name', sup.name).strip()
+    sup.contact_person = request.form.get('contact_person', '').strip()
+    sup.phone = request.form.get('phone', '').strip()
+    sup.email = request.form.get('email', '').strip()
+    sup.address = request.form.get('address', '').strip()
+    new_catalog = request.form.get('new_ingredients')
+    if new_catalog is not None:
+        sup.catalog_items = new_catalog.strip()
+    db.session.commit()
+    flash(f'Supplier "{sup.name}" updated!', 'success')
+    return redirect(url_for('admin.inventory', tab='suppliers'))
+
+@admin_bp.route('/suppliers/delete/<int:sup_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_supplier(sup_id):
+    sup = Supplier.query.get_or_404(sup_id)
+    # Unlink ingredients from this supplier but don't delete them
+    Ingredient.query.filter_by(supplier_id=sup_id).update({'supplier_id': None})
+    db.session.delete(sup)
+    db.session.commit()
+    flash(f'Supplier "{sup.name}" deleted.', 'success')
+    return redirect(url_for('admin.inventory', tab='suppliers'))
+
+@admin_bp.route('/suppliers/bulk-delete', methods=['POST'])
+@login_required
+@admin_required
+def bulk_delete_suppliers():
+    item_ids = request.form.getlist('item_ids[]')
+    if item_ids:
+        Ingredient.query.filter(Ingredient.supplier_id.in_(item_ids)).update({'supplier_id': None}, synchronize_session=False)
+        Supplier.query.filter(Supplier.id.in_(item_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f'Deleted {len(item_ids)} suppliers.', 'success')
+    return redirect(url_for('admin.inventory', tab='suppliers'))
+
+# ─── WASTE MANAGEMENT ─────────────────────────────────────────────
+@admin_bp.route('/inventory/waste', methods=['GET'])
+@login_required
+@admin_required
+def waste_records():
+    records = WasteRecord.query.order_by(WasteRecord.created_at.desc()).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    total_lost = sum(float(r.cost_lost or 0) for r in records)
+    return render_template('admin/waste.html', records=records, ingredients=ingredients, total_lost=total_lost)
+
+@admin_bp.route('/inventory/waste/add', methods=['POST'])
+@login_required
+@admin_required
+def add_waste_record():
+    ing_id = request.form.get('ingredient_id', type=int)
+    qty = request.form.get('quantity_wasted', type=float)
+    reason = request.form.get('reason', 'OTHER')
+    notes = request.form.get('notes', '').strip()
+
+    ing = Ingredient.query.get_or_404(ing_id)
+    cost_lost = qty * float(ing.cost_per_unit or 0)
+    prev_qty = float(ing.stock_qty)
+    ing.stock_qty = max(0, prev_qty - qty)
+
+    record = WasteRecord(
+        ingredient_id=ing_id,
+        recorded_by_id=current_user.id,
+        quantity_wasted=qty,
+        reason=reason,
+        notes=notes,
+        cost_lost=cost_lost
+    )
+    db.session.add(record)
+    log_inventory_change(ing_id, 'SPOILED', qty, prev_qty, f'Waste: {reason} - {notes}')
+    db.session.commit()
+    flash(f'Waste record added. ₱{cost_lost:,.2f} lost. Stock deducted.', 'warning')
+    return redirect(url_for('admin.waste_records'))
+
+# ─── FIFO BATCH MANAGEMENT ────────────────────────────────────────
+@admin_bp.route('/inventory/batches', methods=['GET'])
+@login_required
+@admin_required
+def ingredient_batches():
+    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    today = date.today()
+    batches = IngredientBatch.query.filter_by(is_exhausted=False).order_by(
+        IngredientBatch.purchase_date.asc()
+    ).all()
+    return render_template('admin/batches.html', batches=batches, ingredients=ingredients, today=today)
+
+@admin_bp.route('/inventory/batches/add', methods=['POST'])
+@login_required
+@admin_required
+def add_ingredient_batch():
+    ing_id = request.form.get('ingredient_id', type=int)
+    qty = request.form.get('batch_qty', type=float)
+    cost = request.form.get('cost_per_unit', type=float, default=0)
+    purchase_date_str = request.form.get('purchase_date')
+    exp_date_str = request.form.get('expiration_date', '')
+
+    purchase_date = date.fromisoformat(purchase_date_str)
+    exp_date = date.fromisoformat(exp_date_str) if exp_date_str else None
+
+    ing = Ingredient.query.get_or_404(ing_id)
+    prev_qty = float(ing.stock_qty)
+    ing.stock_qty = prev_qty + qty
+
+    batch = IngredientBatch(
+        ingredient_id=ing_id,
+        batch_qty=qty,
+        remaining_qty=qty,
+        cost_per_unit=cost,
+        purchase_date=purchase_date,
+        expiration_date=exp_date
+    )
+    db.session.add(batch)
+    log_inventory_change(ing_id, 'ADD', qty, prev_qty, f'Batch received on {purchase_date}')
+    db.session.commit()
+    flash(f'Batch of {qty} {ing.unit} added for {ing.name}.', 'success')
+    return redirect(url_for('admin.ingredient_batches'))
+
+# ─── INVENTORY AUDIT HISTORY ──────────────────────────────────────
+@admin_bp.route('/inventory/audit', methods=['GET'])
+@login_required
+@admin_required
+def inventory_audit():
+    ing_filter = request.args.get('ingredient_id', type=int)
+    action_filter = request.args.get('action', '')
+    query = InventoryLog.query
+    if ing_filter:
+        query = query.filter_by(ingredient_id=ing_filter)
+    if action_filter:
+        query = query.filter_by(action=action_filter)
+    logs = query.order_by(InventoryLog.created_at.desc()).limit(200).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    return render_template('admin/inventory_audit.html', logs=logs, ingredients=ingredients,
+                           ing_filter=ing_filter, action_filter=action_filter)
+
+# ─── KITCHEN STOCK REQUESTS ───────────────────────────────────────
+@admin_bp.route('/stock-requests', methods=['GET'])
+@login_required
+@admin_required
+def stock_requests():
+    role_upper = current_user.role.upper() if current_user.role else ''
+    if role_upper == 'KITCHEN':
+        # Kitchen sees its own requests
+        requests_list = StockRequest.query.filter_by(
+            requested_by_id=current_user.id
+        ).order_by(StockRequest.created_at.desc()).all()
+    else:
+        # Inventory / Admin sees all requests
+        requests_list = StockRequest.query.order_by(StockRequest.created_at.desc()).all()
+        
+    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    pending_count = StockRequest.query.filter_by(status='PENDING').count()
+    return render_template('admin/stock_requests.html',
+                           requests=requests_list, ingredients=ingredients,
+                           pending_count=pending_count)
+
+@admin_bp.route('/stock-requests/create', methods=['POST'])
+@login_required
+@admin_required
+def create_stock_request():
+    ing_id = request.form.get('ingredient_id', type=int)
+    qty = request.form.get('quantity_requested', type=float)
+    notes = request.form.get('notes', '').strip()
+    req = StockRequest(
+        ingredient_id=ing_id,
+        requested_by_id=current_user.id,
+        quantity_requested=qty,
+        notes=notes
+    )
+    db.session.add(req)
+    db.session.commit()
+    flash('Stock request submitted! Waiting for inventory staff approval.', 'info')
+    
+    # Notify inventory staff
+    inv_staff = User.query.filter(User.role.in_(['INVENTORY_STAFF', 'INVENTORY', 'ADMIN'])).all()
+    for s in inv_staff:
+        _create_web_notification(s.id, 'New Stock Request', f'Kitchen requested {qty} units of ingredient ID {ing_id}', 'SYSTEM')
+
+    return redirect(url_for('admin.stock_requests'))
+
+@admin_bp.route('/stock-requests/<int:req_id>/fulfill', methods=['POST'])
+@login_required
+@admin_required
+def fulfill_stock_request(req_id):
+    req = StockRequest.query.get_or_404(req_id)
+    action = request.form.get('action')  # approve, reject, fulfill
+    qty_fulfilled = request.form.get('quantity_fulfilled', type=float)
+
+    if action == 'reject':
+        req.status = 'REJECTED'
+        req.fulfilled_by_id = current_user.id
+        db.session.commit()
+        _create_web_notification(req.requested_by_id, 'Stock Request Rejected', f'Your request for {req.ingredient.name} was rejected.', 'SYSTEM')
+        flash(f'Stock request #{req_id} rejected.', 'warning')
+    elif action == 'fulfill' and qty_fulfilled:
+        ing = Ingredient.query.get(req.ingredient_id)
+        if ing:
+            prev_qty = float(ing.stock_qty)
+            ing.stock_qty = max(0, prev_qty - qty_fulfilled)
+            log_inventory_change(ing.id, 'DEDUCT', qty_fulfilled, prev_qty,
+                                 f'Fulfilled kitchen stock request #{req_id}')
+            
+        req.quantity_fulfilled = qty_fulfilled
+        req.fulfilled_by_id = current_user.id
+        req.status = 'FULFILLED'
+        db.session.commit()
+        
+        _create_web_notification(req.requested_by_id, 'Stock Request Fulfilled', f'{qty_fulfilled} {ing.unit} of {ing.name} is ready.', 'SYSTEM')
+        flash(f'Stock request #{req_id} fulfilled! {qty_fulfilled} units sent to kitchen.', 'success')
+    return redirect(url_for('admin.stock_requests'))
+
+# ─── CUSTOMER CHAT MANAGEMENT ──────────────────────
+@admin_bp.route('/chats')
+@login_required
+@admin_required
+def chats():
+    """List all users who have sent messages"""
+    from models import db
+    # Get users who have messages, grouped by user
+    subquery = db.session.query(
+        ChatMessage.user_id,
+        func.max(ChatMessage.created_at).label('last_msg_at')
+    ).group_by(ChatMessage.user_id).subquery()
+    
+    chat_users = db.session.query(User, subquery.c.last_msg_at)\
+        .join(subquery, User.id == subquery.c.user_id)\
+        .order_by(subquery.c.last_msg_at.desc()).all()
+        
+    return render_template('admin/chats.html', chat_users=chat_users)
+
+@admin_bp.route('/chats/<int:user_id>')
+@login_required
+@admin_required
+def chat_with_user(user_id):
+    """View chat history and reply to a specific user"""
+    user = User.query.get_or_404(user_id)
+    messages = ChatMessage.query.filter_by(user_id=user_id).order_by(ChatMessage.created_at.asc()).all()
+    
+    # Mark messages as read by admin
+    ChatMessage.query.filter_by(user_id=user_id, sender='USER', is_read=False).update({'is_read': True})
+    db.session.commit()
+    
+    return render_template('admin/chat_detail.html', user=user, messages=messages)
+
+@admin_bp.route('/chats/<int:user_id>/reply', methods=['POST'])
+@login_required
+@admin_required
+def chat_reply(user_id):
+    """Send a reply from admin to a user"""
+    from flask import request
+    message_text = request.form.get('message', '').strip()
+    if not message_text:
+        flash("Message cannot be empty.", "danger")
+        return redirect(url_for('admin.chat_with_user', user_id=user_id))
+        
+    new_msg = ChatMessage(
+        user_id=user_id,
+        sender='ADMIN',
+        message=message_text,
+        is_read=False
+    )
+    db.session.add(new_msg)
+    db.session.commit()
+    
+    return redirect(url_for('admin.chat_with_user', user_id=user_id))
+
+# ─── AUDIT LOG HELPER ──────────────────────────────
+def log_audit(action, target_type, target_id, description):
+    """Centralized audit log helper"""
+    try:
+        log = AuditLog(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            description=description,
+            ip_address=request.remote_addr
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+# ─── AUDIT LOGS PAGE ───────────────────────────────
+@admin_bp.route('/audit-logs')
+@login_required
+@admin_required
+def audit_logs():
+    """View system audit logs"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    return render_template('admin/audit_logs.html', logs=logs)
+
+# ─── SMART INVENTORY ALERTS API ────────────────────
+@admin_bp.route('/api/inventory-alerts')
+@login_required
+@admin_required
+def inventory_alerts_api():
+    """Get low-stock ingredient alerts"""
+    low_stock = Ingredient.query.filter(Ingredient.stock_qty <= Ingredient.reorder_level).all()
+    alerts = []
+    for ing in low_stock:
+        alerts.append({
+            'id': ing.id,
+            'name': ing.name,
+            'stock_qty': float(ing.stock_qty),
+            'reorder_level': float(ing.reorder_level),
+            'unit': ing.unit,
+            'status': 'OUT_OF_STOCK' if float(ing.stock_qty) == 0 else 'LOW_STOCK'
+        })
+    return jsonify({'success': True, 'alerts': alerts, 'count': len(alerts)})
+
+# ─── ADVANCED ANALYTICS: PEAK HOURS + RETENTION ───
+@admin_bp.route('/api/advanced-analytics')
+@login_required
+@admin_required
+def advanced_analytics_api():
+    """Advanced business analytics (peak hours, retention rate)"""
+    import json as _json
+    today = date.today()
+
+    # Peak Hours Analysis
+    peak_data = db.session.query(
+        func.extract('hour', Order.created_at).label('hr'),
+        func.count(Order.id).label('cnt')
+    ).group_by('hr').order_by(func.count(Order.id).desc()).all()
+    
+    peak_hours = [{'hour': f'{int(h):02d}:00', 'orders': int(c)} for h, c in peak_data[:5]]
+
+    # Customer Retention Rate
+    total_customers_with_orders = db.session.query(func.count(func.distinct(Order.user_id))).scalar() or 0
+    
+    repeat_sub = db.session.query(Order.user_id).group_by(Order.user_id).having(func.count(Order.id) > 1).subquery()
+    repeat_count = db.session.query(func.count()).select_from(repeat_sub).scalar() or 0
+    
+    retention_rate = round((repeat_count / total_customers_with_orders * 100), 1) if total_customers_with_orders > 0 else 0
+
+    # Average Order Value
+    avg_order = db.session.query(func.avg(Order.total_amount)).scalar()
+    avg_order_value = round(float(avg_order), 2) if avg_order else 0
+
+    # Orders by Day of Week
+    dow_data = db.session.query(
+        func.extract('dow', Order.created_at).label('dow'),
+        func.count(Order.id)
+    ).group_by('dow').order_by('dow').all()
+    days_map = {0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat'}
+    orders_by_day = [{'day': days_map.get(int(d), str(d)), 'orders': int(c)} for d, c in dow_data]
+
+    return jsonify({
+        'success': True,
+        'peak_hours': peak_hours,
+        'retention_rate': retention_rate,
+        'repeat_customers': repeat_count,
+        'total_customers_with_orders': total_customers_with_orders,
+        'avg_order_value': avg_order_value,
+        'orders_by_day': orders_by_day
+    })
+
+# ─── VOUCHER MANAGEMENT (ADMIN) ───────────────────
+@admin_bp.route('/vouchers')
+@login_required
+@admin_required
+def vouchers():
+    """List all vouchers"""
+    all_vouchers = Voucher.query.order_by(Voucher.created_at.desc()).all()
+    return render_template('admin/vouchers.html', vouchers=all_vouchers)
+
+@admin_bp.route('/vouchers/add', methods=['POST'])
+@login_required
+@admin_required
+def voucher_add():
+    """Create a new voucher"""
+    code = request.form.get('code', '').strip().upper()
+    discount_type = request.form.get('discount_type', 'PERCENT')
+    discount_value = request.form.get('discount_value', 0, type=float)
+    min_order = request.form.get('min_order_amount', 0, type=float)
+    max_uses = request.form.get('max_uses', 100, type=int)
+    valid_from_str = request.form.get('valid_from', '')
+    valid_until_str = request.form.get('valid_until', '')
+
+    if not code or discount_value <= 0:
+        flash("Please provide a valid code and discount value.", "danger")
+        return redirect(url_for('admin.vouchers'))
+
+    if Voucher.query.filter_by(code=code).first():
+        flash(f"Voucher code '{code}' already exists.", "danger")
+        return redirect(url_for('admin.vouchers'))
+
+    valid_from = datetime.strptime(valid_from_str, '%Y-%m-%d') if valid_from_str else None
+    valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d') if valid_until_str else None
+
+    v = Voucher(
+        code=code,
+        discount_type=discount_type,
+        discount_value=discount_value,
+        min_order_amount=min_order,
+        max_uses=max_uses,
+        valid_from=valid_from,
+        valid_until=valid_until
+    )
+    db.session.add(v)
+    db.session.commit()
+
+    log_audit('CREATE', 'Voucher', v.id, f'Created voucher {code} ({discount_type} {discount_value})')
+    flash(f"Voucher '{code}' created successfully!", "success")
+    return redirect(url_for('admin.vouchers'))
+
+@admin_bp.route('/vouchers/<int:voucher_id>/toggle', methods=['POST'])
+@login_required
+@admin_required
+def voucher_toggle(voucher_id):
+    """Toggle voucher active/inactive"""
+    v = Voucher.query.get_or_404(voucher_id)
+    v.is_active = not v.is_active
+    db.session.commit()
+    status = 'activated' if v.is_active else 'deactivated'
+    log_audit('UPDATE', 'Voucher', v.id, f'Voucher {v.code} {status}')
+    flash(f"Voucher '{v.code}' {status}.", "success")
+    return redirect(url_for('admin.vouchers'))
+
+@admin_bp.route('/vouchers/<int:voucher_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def voucher_delete(voucher_id):
+    """Delete a voucher"""
+    v = Voucher.query.get_or_404(voucher_id)
+    code = v.code
+    db.session.delete(v)
+    db.session.commit()
+    log_audit('DELETE', 'Voucher', voucher_id, f'Deleted voucher {code}')
+    flash(f"Voucher '{code}' deleted.", "success")
+    return redirect(url_for('admin.vouchers'))

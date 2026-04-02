@@ -9,16 +9,55 @@
     <div class="auth-bg"></div>
     {% include 'includes/navbar.html' %}
 
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" style="position: fixed; top: 80px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
+
     <div class="container-fluid main-container" style="padding-top: 56px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="flash-messages px-4 mt-3">
-            {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toasts = [
+                {% for category, message in messages %}
+                { category: "{{ category }}", message: {{ message | tojson }} },
+                {% endfor %}
+            ];
+            toasts.forEach((t, i) => setTimeout(() => showToast(t.category, t.message), i * 200));
+        });
+        </script>
         {% endif %}
         {% endwith %}
+
+        <style>
+        .toast-notif {
+            pointer-events: all;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #fff;
+            border-radius: 14px;
+            padding: 14px 18px;
+            min-width: 300px;
+            max-width: 380px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(.22,1,.36,1), opacity 0.35s ease;
+            border-left: 4px solid #5D4037;
+            position: relative;
+            overflow: hidden;
+        }
+        .toast-notif.show { transform: translateX(0); opacity: 1; }
+        .toast-notif.hide { transform: translateX(120%); opacity: 0; }
+        .toast-notif .toast-icon { font-size: 1.3rem; margin-top: 1px; flex-shrink: 0; }
+        .toast-notif .toast-body { flex: 1; }
+        .toast-notif .toast-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 2px; }
+        .toast-notif .toast-msg { font-size: 0.82rem; color: #555; line-height: 1.4; }
+        .toast-notif .toast-close { background: none; border: none; cursor: pointer; color: #aaa; font-size: 1rem; padding: 0; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+        .toast-notif .toast-close:hover { color: #333; }
+        .toast-notif .toast-progress { position: absolute; bottom: 0; left: 0; height: 3px; border-radius: 0 0 0 14px; animation: toastProgress 4s linear forwards; }
+        @keyframes toastProgress { from { width: 100%; } to { width: 0%; } }
+        </style>
 
         {% block content %}{% endblock %}
     </div>

@@ -3,6 +3,8 @@ import '../theme.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'delivery_tracking_screen.dart';
+import 'order_chat_screen.dart';
+import 'cart_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -318,7 +320,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ? 'Dine In'
                       : diningOption == 'DELIVERY'
                           ? 'Delivery'
-                          : 'Take Out',
+                          : 'Pick-up',
                   diningOption == 'DELIVERY'
                       ? Icons.delivery_dining
                       : diningOption == 'DINE_IN'
@@ -488,6 +490,30 @@ class _OrdersScreenState extends State<OrdersScreen>
                       );
                     },
                   ),
+                
+                // Chat Rider (if assigned / tracking)
+                if (diningOption == 'DELIVERY' &&
+                    status != 'CANCELLED' &&
+                    status != 'COMPLETED') ...[
+                  const SizedBox(width: 8),
+                  _actionButton(
+                    'Chat',
+                    Icons.chat_bubble_rounded,
+                    AppColors.primary,
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OrderChatScreen(
+                            orderId: o['id'],
+                            otherPartyName: 'Delivery Rider',
+                            otherPartyRole: 'Rider',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
 
                 // Review button
                 if (status == 'COMPLETED' && o['review_rating'] == null) ...[
@@ -506,7 +532,22 @@ class _OrdersScreenState extends State<OrdersScreen>
                   _primaryActionButton(
                     'Buy Again',
                     () {
-                      // Navigate to menu
+                      for (final item in items) {
+                        final qty = item['quantity'] is int ? item['quantity'] : 1;
+                        for (int i = 0; i < qty; i++) {
+                          CartScreen.addItem({
+                            'id': item['menu_item_id'] ?? item['id'] ?? 0,
+                            'name': item['name'],
+                            'price': item['price'],
+                            'image_url': item['image_url'],
+                            'category': item['category'] ?? '',
+                          });
+                        }
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                      ).then((_) => setState(() {}));
                     },
                   ),
                 ],

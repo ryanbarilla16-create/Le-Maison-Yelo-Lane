@@ -1,0 +1,315 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Staff Performance{% endblock %}
+
+{% block content %}
+<style>
+    .perf-row { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.25rem; }
+    .perf-card { border: none; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); background: #fff; overflow: hidden; display: flex; flex-direction: column; }
+    .perf-card .card-header { background: #fff; border: none; padding: 18px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+    .perf-card .card-body { padding: 16px 20px 20px; flex: 1; }
+    .perf-half { flex: 1 1 calc(50% - 0.625rem); min-width: 320px; }
+    .perf-full { flex: 1 1 100%; }
+    .stat-mini { flex: 1 1 0; min-width: 140px; text-align: center; padding: 16px 10px; }
+    .stat-mini h3 { font-size: 1.5rem; font-weight: 800; margin: 6px 0 2px; }
+    .stat-mini small { color: #888; font-size: 0.78rem; }
+    .staff-avatar { width: 34px; height: 34px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.72rem; flex-shrink: 0; margin-right: 10px; }
+    .perf-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .perf-table thead tr { border-bottom: 2px solid #f0ebe5; }
+    .perf-table th { font-weight: 600; font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 10px; }
+    .perf-table td { padding: 10px; vertical-align: middle; font-size: 0.88rem; border-bottom: 1px solid #f7f3ef; }
+    .perf-table tbody tr:last-child td { border-bottom: none; }
+    .perf-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+    .kitchen-metric { text-align: center; padding: 12px 8px; border-radius: 12px; background: #faf6f2; }
+    .kitchen-metric h4 { font-size: 1.3rem; font-weight: 800; margin: 4px 0 2px; }
+    .kitchen-metric small { color: #888; font-size: 0.72rem; }
+    @media(max-width:768px) { .perf-half { flex: 1 1 100%; } }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
+        Staff Performance Metrics</h1>
+</div>
+
+<!-- ═══ SUMMARY STAT CARDS ═══ -->
+<div class="perf-row">
+    {% set stats = [
+        ('fas fa-users', '#8B4513,#A0522D', total_staff, 'Total Staff'),
+        ('fas fa-receipt', '#2563EB,#3B82F6', total_orders_processed, 'Orders Processed'),
+        ('fas fa-peso-sign', '#059669,#10B981', '₱' ~ "%.2f"|format(total_revenue_generated), 'Total Revenue'),
+        ('fas fa-truck', '#D97706,#F59E0B', total_deliveries_completed, 'Deliveries Done'),
+        ('fas fa-boxes-stacked', '#7C3AED,#8B5CF6', total_inv_actions, 'Inventory Actions')
+    ] %}
+    {% for icon, grad, value, label in stats %}
+    <div class="stat-mini perf-card">
+        <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,{{ grad }});display:flex;align-items:center;justify-content:center;margin:0 auto;">
+            <i class="{{ icon }} text-white" style="font-size:1.05rem;"></i>
+        </div>
+        <h3 style="color:var(--text-main);">{{ value }}</h3>
+        <small>{{ label }}</small>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ═══ ROW 1: CASHIER + RIDER (equal height) ═══ -->
+<div class="perf-row">
+    <!-- CASHIER -->
+    <div class="perf-half perf-card">
+        <div class="card-header">
+            <h6 class="fw-bold mb-0"><i class="fas fa-cash-register me-2 text-primary"></i>Cashier Productivity</h6>
+            <span class="perf-badge" style="background:rgba(37,99,235,0.1);color:#2563EB;">{{ cashier_stats|length }} staff</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="perf-table">
+                    <thead><tr>
+                        <th>Staff</th><th style="text-align:center;">Orders</th><th style="text-align:center;">Today</th><th style="text-align:right;">Avg</th><th style="text-align:right;">Total Sales</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for c in cashier_stats %}
+                    <tr>
+                        <td><div class="d-flex align-items-center">
+                            <div class="staff-avatar" style="background:linear-gradient(135deg,#2563EB,#3B82F6);">{{ c.name.split()[0][0] }}{{ c.name.split()[-1][0] if c.name.split()|length > 1 else '' }}</div>
+                            <span class="fw-bold">{{ c.name }}</span>
+                        </div></td>
+                        <td style="text-align:center;"><span class="perf-badge" style="background:rgba(37,99,235,0.1);color:#2563EB;">{{ c.count }}</span></td>
+                        <td style="text-align:center;"><span class="perf-badge" style="background:rgba(5,150,105,0.1);color:#059669;">{{ c.today_orders }}</span></td>
+                        <td style="text-align:right;color:#888;font-size:0.82rem;">₱{{ "%.2f"|format(c.avg_order) }}</td>
+                        <td style="text-align:right;font-weight:700;color:#059669;">₱{{ "%.2f"|format(c.sales) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not cashier_stats %}
+                    <tr><td colspan="5" style="text-align:center;padding:28px;color:#bbb;">
+                        <i class="fas fa-cash-register" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:6px;"></i>No cashier data yet.
+                    </td></tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIDER -->
+    <div class="perf-half perf-card">
+        <div class="card-header">
+            <h6 class="fw-bold mb-0"><i class="fas fa-motorcycle me-2 text-warning"></i>Rider Deliveries</h6>
+            <span class="perf-badge" style="background:rgba(217,119,6,0.1);color:#D97706;">{{ rider_stats|length }} riders</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="perf-table">
+                    <thead><tr>
+                        <th>Rider</th><th style="text-align:center;">Delivered</th><th style="text-align:center;">Pending</th><th style="text-align:right;">Rate</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for r in rider_stats %}
+                    <tr>
+                        <td><div class="d-flex align-items-center">
+                            <div class="staff-avatar" style="background:linear-gradient(135deg,#D97706,#F59E0B);">{{ r.name.split()[0][0] }}{{ r.name.split()[-1][0] if r.name.split()|length > 1 else '' }}</div>
+                            <div><span class="fw-bold d-block" style="line-height:1.2;">{{ r.name }}</span><small class="text-muted">₱{{ "%.2f"|format(r.earnings) }} earned</small></div>
+                        </div></td>
+                        <td style="text-align:center;"><span class="perf-badge" style="background:rgba(5,150,105,0.1);color:#059669;">{{ r.count }}</span></td>
+                        <td style="text-align:center;">
+                            {% if r.pending > 0 %}<span class="perf-badge" style="background:rgba(217,119,6,0.12);color:#92400E;">{{ r.pending }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;">
+                            {% if r.success_rate >= 80 %}<span class="perf-badge" style="background:#059669;color:#fff;">{{ r.success_rate }}%</span>
+                            {% elif r.success_rate >= 50 %}<span class="perf-badge" style="background:#D97706;color:#fff;">{{ r.success_rate }}%</span>
+                            {% else %}<span class="perf-badge" style="background:#9CA3AF;color:#fff;">{{ r.success_rate }}%</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not rider_stats %}
+                    <tr><td colspan="4" style="text-align:center;padding:28px;color:#bbb;">
+                        <i class="fas fa-motorcycle" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:6px;"></i>No rider data yet.
+                    </td></tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ROW 2: INVENTORY + KITCHEN (equal height) ═══ -->
+<div class="perf-row">
+    <!-- INVENTORY -->
+    <div class="perf-half perf-card">
+        <div class="card-header">
+            <h6 class="fw-bold mb-0"><i class="fas fa-boxes-stacked me-2" style="color:#7C3AED;"></i>Inventory Staff Activity</h6>
+            <span class="perf-badge" style="background:rgba(124,58,237,0.1);color:#7C3AED;">{{ inventory_stats|length }} staff</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="perf-table">
+                    <thead><tr>
+                        <th>Staff</th><th style="text-align:center;">Actions</th><th style="text-align:center;">In</th><th style="text-align:center;">Out</th><th style="text-align:center;">Waste</th><th style="text-align:right;">Items</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for s in inventory_stats %}
+                    <tr>
+                        <td><div class="d-flex align-items-center">
+                            <div class="staff-avatar" style="background:linear-gradient(135deg,#7C3AED,#8B5CF6);">{{ s.name.split()[0][0] }}{{ s.name.split()[-1][0] if s.name.split()|length > 1 else '' }}</div>
+                            <span class="fw-bold">{{ s.name }}</span>
+                        </div></td>
+                        <td style="text-align:center;"><span class="perf-badge" style="background:rgba(124,58,237,0.1);color:#7C3AED;">{{ s.total_actions }}</span></td>
+                        <td style="text-align:center;color:#059669;font-weight:700;"><i class="fas fa-arrow-up me-1" style="font-size:0.6rem;"></i>{{ s.adds }}</td>
+                        <td style="text-align:center;color:#2563EB;font-weight:700;"><i class="fas fa-arrow-down me-1" style="font-size:0.6rem;"></i>{{ s.deducts }}</td>
+                        <td style="text-align:center;">
+                            {% if s.spoiled > 0 %}<span class="perf-badge" style="background:rgba(220,38,38,0.1);color:#DC2626;">{{ s.spoiled }}</span>{% else %}<span class="text-muted">0</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;font-weight:700;color:#7C3AED;">{{ s.items_managed }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not inventory_stats %}
+                    <tr><td colspan="6" style="text-align:center;padding:28px;color:#bbb;">
+                        <i class="fas fa-boxes-stacked" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:6px;"></i>No inventory staff data yet.
+                    </td></tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- KITCHEN -->
+    <div class="perf-half perf-card">
+        <div class="card-header">
+            <h6 class="fw-bold mb-0"><i class="fas fa-fire-burner me-2" style="color:#DC2626;"></i>Kitchen Staff</h6>
+            <span class="perf-badge" style="background:rgba(220,38,38,0.1);color:#DC2626;">{{ kitchen_stats|length }} staff</span>
+        </div>
+        <div class="card-body">
+            <!-- Mini kitchen metrics -->
+            <div class="d-flex gap-2 mb-3">
+                <div class="kitchen-metric flex-fill">
+                    <i class="fas fa-check-circle" style="color:#059669;font-size:1rem;"></i>
+                    <h4 style="color:#059669;">{{ kitchen_completed_today }}</h4>
+                    <small>Done Today</small>
+                </div>
+                <div class="kitchen-metric flex-fill">
+                    <i class="fas fa-fire" style="color:#D97706;font-size:1rem;"></i>
+                    <h4 style="color:#D97706;">{{ kitchen_preparing_now }}</h4>
+                    <small>Preparing</small>
+                </div>
+                <div class="kitchen-metric flex-fill">
+                    <i class="fas fa-clock" style="color:#2563EB;font-size:1rem;"></i>
+                    <h4 style="color:#2563EB;">{{ avg_prep_minutes }}<small style="font-size:0.6rem;"> min</small></h4>
+                    <small>Avg Prep</small>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="perf-table">
+                    <thead><tr><th>Staff</th><th style="text-align:right;">Status</th></tr></thead>
+                    <tbody>
+                    {% for k in kitchen_stats %}
+                    <tr>
+                        <td><div class="d-flex align-items-center">
+                            <div class="staff-avatar" style="background:linear-gradient(135deg,#DC2626,#EF4444);">{{ k.name.split()[0][0] }}{{ k.name.split()[-1][0] if k.name.split()|length > 1 else '' }}</div>
+                            <span class="fw-bold">{{ k.name }}</span>
+                        </div></td>
+                        <td style="text-align:right;"><span class="perf-badge" style="background:rgba(5,150,105,0.1);color:#059669;"><i class="fas fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Active</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% if not kitchen_stats %}
+                    <tr><td colspan="2" style="text-align:center;padding:28px;color:#bbb;">
+                        <i class="fas fa-fire-burner" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:6px;"></i>No kitchen staff yet.
+                    </td></tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ROW 3: CHARTS (equal height) ═══ -->
+<div class="perf-row">
+    <div class="perf-half perf-card">
+        <div class="card-header"><h6 class="fw-bold mb-0"><i class="fas fa-chart-bar me-2 text-primary"></i>Orders &amp; Sales by Cashier</h6></div>
+        <div class="card-body" style="min-height:260px;"><canvas id="cashierChart"></canvas></div>
+    </div>
+    <div class="perf-half perf-card">
+        <div class="card-header"><h6 class="fw-bold mb-0"><i class="fas fa-chart-pie me-2 text-warning"></i>Deliveries by Rider</h6></div>
+        <div class="card-body" style="min-height:260px;"><canvas id="riderChart"></canvas></div>
+    </div>
+</div>
+
+<!-- ═══ ROW 4: ROLE DISTRIBUTION + TIP ═══ -->
+<div class="perf-row">
+    <div class="perf-half perf-card">
+        <div class="card-header"><h6 class="fw-bold mb-0"><i class="fas fa-user-tag me-2" style="color:#8B4513;"></i>Staff Role Distribution</h6></div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px;"><canvas id="roleChart"></canvas></div>
+    </div>
+    <div class="perf-half perf-card" style="background:linear-gradient(135deg,#8B4513,#A0522D);color:#fff;">
+        <div class="card-body d-flex flex-column justify-content-center p-4">
+            <div class="d-flex align-items-start mb-3">
+                <i class="fas fa-lightbulb fa-2x me-3" style="opacity:0.5;"></i>
+                <div>
+                    <h5 class="fw-bold mb-2">Performance Insights</h5>
+                    <ul class="mb-0 ps-3" style="opacity:0.85;font-size:0.88rem;line-height:1.8;">
+                        <li>Monitor <strong>daily order counts</strong> per cashier to balance workloads</li>
+                        <li>Track rider <strong>success rates</strong> — below 80% indicates delivery issues</li>
+                        <li>Watch <strong>inventory waste</strong> closely to reduce spoilage costs</li>
+                        <li>Average prep time indicates <strong>kitchen efficiency</strong> — aim for under 15 min</li>
+                        <li>Use these metrics to <strong>reward top performers</strong> and coach where needed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const sharedFont = { family: "'Inter', sans-serif" };
+    const gridColor = 'rgba(0,0,0,0.04)';
+
+    // Cashier Bar Chart
+    new Chart(document.getElementById('cashierChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ cashier_chart_labels|safe }},
+            datasets: [{
+                label: 'Orders',
+                data: {{ cashier_chart_data|safe }},
+                backgroundColor: 'rgba(37,99,235,0.7)', borderColor: 'rgba(37,99,235,1)', borderWidth: 1, borderRadius: 8, barPercentage: 0.5,
+            }, {
+                label: 'Sales ₱',
+                data: {{ cashier_sales_data|safe }},
+                backgroundColor: 'rgba(5,150,105,0.7)', borderColor: 'rgba(5,150,105,1)', borderWidth: 1, borderRadius: 8, barPercentage: 0.5, yAxisID: 'y1',
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11, ...sharedFont } } } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: gridColor }, title: { display: true, text: 'Orders', font: { size: 10 } } },
+                y1: { beginAtZero: true, position: 'right', grid: { display: false }, title: { display: true, text: 'Sales ₱', font: { size: 10 } } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Rider Doughnut
+    new Chart(document.getElementById('riderChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ rider_chart_labels|safe }},
+            datasets: [{ data: {{ rider_chart_data|safe }}, backgroundColor: ['#D97706','#F59E0B','#FBBF24','#FCD34D','#FDE68A'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11, ...sharedFont } } } } }
+    });
+
+    // Role Distribution Polar Area
+    new Chart(document.getElementById('roleChart'), {
+        type: 'polarArea',
+        data: {
+            labels: {{ role_dist_labels|safe }},
+            datasets: [{ data: {{ role_dist_data|safe }}, backgroundColor: ['rgba(37,99,235,0.6)','rgba(217,119,6,0.6)','rgba(124,58,237,0.6)','rgba(220,38,38,0.6)'], borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11, ...sharedFont } } } }, scales: { r: { grid: { color: gridColor }, ticks: { display: false } } } }
+    });
+})();
+</script>
+{% endblock %}

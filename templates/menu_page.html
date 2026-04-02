@@ -62,8 +62,9 @@
                     <h4 class="card-title fw-bold m-0" style="font-family: 'Georgia', serif; color: var(--text-main);">
                         {{ cat_name }}
                     </h4>
-                    <p class="text-muted mb-0 mt-auto" style="font-size: 0.95rem; padding-top: 0.5rem;">
-                        {{ info.count }} items
+                    <p class="mb-0 mt-auto fw-bold"
+                        style="font-size: 0.85rem; padding-top: 0.5rem; color: var(--primary-color);">
+                        Browse Selection <i class="fas fa-angle-right ms-1"></i>
                     </p>
                 </div>
             </div>
@@ -240,7 +241,9 @@
                         btn.style.backgroundColor = '#28a745'; // Green success color
 
                         // Show a quick global toast/alert
-                        showToast(data.message);
+                        if (window.showToast) {
+                            window.showToast('success', data.message);
+                        }
 
                         // Try to update the cart badge if there is one on the navbar
                         updateCartBadge(data.cart_count);
@@ -257,6 +260,9 @@
                     if (error.message !== 'Unauthorized') {
                         btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Error';
                         btn.style.backgroundColor = '#dc3545'; // Red error color
+                        if (window.showToast) {
+                            window.showToast('danger', "Failed to add item to cart.");
+                        }
                         setTimeout(() => {
                             btn.innerHTML = originalText;
                             btn.style.backgroundColor = originalColor;
@@ -276,52 +282,6 @@
                 badge.innerText = count;
                 badge.style.display = 'inline-block';
             });
-        }
-
-        // Custom Toast Notification
-        function showToast(message) {
-            let toastBox = document.getElementById('custom-toast-box');
-            if (!toastBox) {
-                toastBox = document.createElement('div');
-                toastBox.id = 'custom-toast-box';
-                toastBox.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;';
-                document.body.appendChild(toastBox);
-            }
-
-            const toast = document.createElement('div');
-            toast.className = 'shadow';
-            toast.style.cssText = `
-                background: var(--primary-color, #8b4513);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-family: 'Inter', sans-serif;
-                font-weight: 500;
-                transform: translateX(100%);
-                opacity: 0;
-                transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            `;
-            toast.innerHTML = `<i class="fas fa-check-circle"></i> <span>${message}</span>`;
-
-            toastBox.appendChild(toast);
-
-            // Animate in
-            setTimeout(() => {
-                toast.style.transform = 'translateX(0)';
-                toast.style.opacity = '1';
-            }, 10);
-
-            // Animate out and remove
-            setTimeout(() => {
-                toast.style.transform = 'translateY(-20px)';
-                toast.style.opacity = '0';
-                setTimeout(() => {
-                    toast.remove();
-                }, 300);
-            }, 3000);
         }
     </script>
 

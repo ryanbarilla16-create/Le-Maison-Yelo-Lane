@@ -8,7 +8,8 @@
         <!-- Glassmorphism Card (Warm Brown Vibe) -->
         <div class="card login-glass-card shadow-lg border-0">
             <div class="card-header text-center border-0 bg-transparent login-header">
-                <h2 class="fw-bold mb-2 login-title">Create an Account</h2>
+                
+                <h2 class="fw-bold mb-2 login-title" style="color: blue !important;">Create an Account - Test</h2>
                 <p class="text-muted login-subtitle">Join our exclusive dining community.</p>
             </div>
 
@@ -387,14 +388,26 @@ input:-webkit-autofill:active{
         }
     });
 
-    function showError(msg) {
-        const phoneInput = document.getElementById('phone_number');
-        const phoneError = document.getElementById('phoneError');
-        phoneError.textContent = msg;
-        phoneError.style.display = 'block';
-        phoneInput.style.border = '2px solid #ef4444';
+    function showFieldError(fieldId, msg) {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+        let errorDiv = document.getElementById(fieldId + '-error');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = fieldId + '-error';
+            errorDiv.className = 'text-danger small mt-1';
+            errorDiv.style.paddingLeft = '5px';
+            input.parentElement.appendChild(errorDiv);
+        }
+        errorDiv.textContent = msg;
+        errorDiv.style.display = 'block';
+        input.style.border = '2px solid #ef4444';
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
-        phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function clearErrors() {
+        document.querySelectorAll('.text-danger.small.mt-1').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.glass-input').forEach(el => el.style.border = '');
     }
 
     function checkStrength() {
@@ -416,65 +429,95 @@ input:-webkit-autofill:active{
     }
 
     function validateForm() {
+        clearErrors();
+        let isValid = true;
+
         const phoneInput = document.getElementById('phone_number');
         const phone = phoneInput.value;
 
         const phRegex = /^09\d{9}$/;
         if (!phRegex.test(phone)) {
-            showError("Needs to be exactly 11 digits and start with 09.");
-            return false;
-        }
-
-        const digitsOnly = phone.substring(2);
-        if (/^([0-9])\1{8}$/.test(digitsOnly)) {
-            showError("Invalid sequence (repeating). Please input a valid mobile number.");
-            return false;
-        }
-
-        const names = [document.getElementById('first_name').value, document.getElementById('last_name').value];
-        const middlename = document.getElementById('middle_name').value;
-        if (middlename) names.push(middlename);
-
-        const nameRegex = /^[A-Za-z\s\-]+$/;
-        for (let name of names) {
-            if (!nameRegex.test(name)) {
-                alert("Names can only contain letters, spaces, and dashes.");
-                return false;
+            showFieldError('phone_number', "Needs to be exactly 11 digits and start with 09.");
+            isValid = false;
+        } else {
+            const digitsOnly = phone.substring(2);
+            if (/^([0-9])\1{8}$/.test(digitsOnly)) {
+                showFieldError('phone_number', "Invalid sequence (repeating digit).");
+                isValid = false;
             }
         }
 
-        const email = document.getElementById('email').value;
-        if (!email.endsWith('@gmail.com')) {
-            alert("Email must end with @gmail.com (Gmail Only)");
-            return false;
+        const nameRegex = /^[A-Za-z\s\-]+$/;
+        ['first_name', 'last_name'].forEach(id => {
+            const val = document.getElementById(id).value;
+            if (!nameRegex.test(val)) {
+                showFieldError(id, "Names can only contain letters, spaces, and dashes.");
+                isValid = false;
+            }
+        });
+        
+        const middlename = document.getElementById('middle_name').value;
+        if (middlename && !nameRegex.test(middlename)) {
+            showFieldError('middle_name', "Names can only contain letters, spaces, and dashes.");
+            isValid = false;
         }
 
-        const emailLocal = email.replace('@gmail.com', '');
-        if (emailLocal.length < 6 || emailLocal.length > 30) {
-            alert("Email character length before @gmail.com must be 6 to 30.");
-            return false;
+        const email = document.getElementById('email').value;
+        const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+        if (!emailRegex.test(email)) {
+            showFieldError('email', "Please enter a valid email address.");
+            isValid = false;
+        }
+
+        const username = document.getElementById('username').value;
+        if (username.length < 5 || username.length > 20) {
+            showFieldError('username', "Username must be 5-20 characters.");
+            isValid = false;
+        } else if (!/^[A-Za-z0-9_]+$/.test(username)) {
+            showFieldError('username', "Username can only contain letters, numbers, and underscores.");
+            isValid = false;
         }
 
         const birthdayStr = document.getElementById('birthday').value;
-        const bday = new Date(birthdayStr);
-        const today = new Date();
-        let age = today.getFullYear() - bday.getFullYear();
-        if (today.getMonth() < bday.getMonth() || (today.getMonth() === bday.getMonth() && today.getDate() < bday.getDate())) {
-            age--;
-        }
-        if (age < 18) {
-            alert("You must be at least 18 years old to register.");
-            return false;
+        if (birthdayStr) {
+            const bday = new Date(birthdayStr);
+            const today = new Date();
+            let age = today.getFullYear() - bday.getFullYear();
+            if (today.getMonth() < bday.getMonth() || (today.getMonth() === bday.getMonth() && today.getDate() < bday.getDate())) {
+                age--;
+            }
+            if (age < 18) {
+                showFieldError('birthday', "You must be at least 18 years old to register.");
+                isValid = false;
+            } else if (age > 70) {
+                showFieldError('birthday', "Maximum age limit is 70 years old.");
+                isValid = false;
+            }
+        } else {
+            showFieldError('birthday', "Birthday is required.");
+            isValid = false;
         }
 
         const pwd = document.getElementById('password').value;
         const confirmResult = document.getElementById('confirm_password').value;
-        if (pwd !== confirmResult) {
-            alert("Passwords do not match.");
-            return false;
+        
+        if (pwd.startsWith(' ') || pwd.endsWith(' ')) {
+            showFieldError('password', "Password cannot start or end with spaces.");
+            isValid = false;
+        } else if (pwd.includes('   ')) {
+            showFieldError('password', "Password cannot contain too many consecutive spaces.");
+            isValid = false;
+        } else if (pwd.length < 6) {
+            showFieldError('password', "Password must be at least 6 characters.");
+            isValid = false;
+        }
+        
+        if (pwd && confirmResult && pwd !== confirmResult) {
+            showFieldError('confirm_password', "Passwords do not match.");
+            isValid = false;
         }
 
-        return true;
+        return isValid;
     }
 
     // --- Social Login Integration ---

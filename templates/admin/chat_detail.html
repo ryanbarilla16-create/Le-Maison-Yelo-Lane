@@ -1,0 +1,142 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Chat with {{ user.first_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('admin.chats') }}" class="text-decoration-none text-muted" style="font-size: 0.9rem;">
+        <i class="fas fa-arrow-left me-1"></i> Back to Conversation List
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm" style="border-radius: 20px; height: 75vh; overflow: hidden;">
+            <!-- Chat Header -->
+            <div class="card-header border-bottom shadow-sm p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-success rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" style="width: 45px; height: 45px; font-size: 1.2rem;">
+                        {{ user.first_name[0] }}
+                    </div>
+                    <div>
+                        <h6 class="mb-0 fw-bold" style="color: var(--text-main);">{{ user.first_name }} {{ user.last_name }}</h6>
+                        <small class="text-success"><i class="fas fa-circle me-1" style="font-size: 0.6rem;"></i> Customer</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="admin-chat-messages" class="card-body bg-light" style="overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 20px;">
+                {% for msg in messages %}
+                {% set isAdmin = msg.sender == 'ADMIN' %}
+                <div class="p-3 shadow-sm {% if isAdmin %}align-self-end bg-primary text-white{% else %}align-self-start bg-white text-dark{% endif %}" 
+                     style="max-width: 85%; {% if isAdmin %}border-radius: 18px 18px 2px 18px; background: linear-gradient(135deg, #8B4513, #A0522D) !important;{% else %}border-radius: 18px 18px 18px 2px; border: 1px solid rgba(0,0,0,0.05);{% endif %}; font-size: 0.95rem;">
+                    
+                    <div>{{ msg.message }}</div>
+                    <div class="small mt-1 {% if isAdmin %}text-white-50{% else %}text-muted{% endif %}" style="font-size: 0.7rem; text-align: right;">
+                        {{ msg.created_at.strftime('%I:%M %p') }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted my-5">No messages yet. Send a message to start the conversation!</div>
+                {% endfor %}
+            </div>
+
+            <!-- Chat Input -->
+            <div class="card-footer bg-white border-top p-3">
+                <form id="admin-chat-form" action="{{ url_for('admin.chat_reply', user_id=user.id) }}" method="POST">
+                    <div class="input-group">
+                        <textarea name="message" class="form-control border-0 bg-light px-4 py-3" rows="1" placeholder="Write a reply..." style="border-radius: 25px; resize: none; box-shadow: none;" required></textarea>
+                        <button type="submit" class="btn rounded-circle text-white ms-2 shadow-sm d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: #8B4513;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const chatMessages = document.getElementById('admin-chat-messages');
+        const chatForm = document.getElementById('admin-chat-form');
+        const textarea = chatForm.querySelector('textarea');
+        const userId = {{ user.id }};
+        let lastMsgCount = {{ messages|length }};
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        scrollToBottom();
+
+        function renderMessage(msg) {
+            const isAdmin = msg.sender === 'ADMIN';
+            const align = isAdmin ? 'align-self-end' : 'align-self-start';
+            const bgClass = isAdmin ? 'bg-primary text-white' : 'bg-white text-dark';
+            const radiusClass = isAdmin ? 'border-radius: 18px 18px 2px 18px; background: linear-gradient(135deg, #8B4513, #A0522D) !important;' : 'border-radius: 18px 18px 18px 2px; border: 1px solid rgba(0,0,0,0.05);';
+            const extra = isAdmin ? 'text-white-50' : 'text-muted';
+            
+            const escMsg = msg.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            
+            const div = document.createElement('div');
+            div.className = `p-3 shadow-sm ${align} ${bgClass}`;
+            div.style.cssText = `max-width: 85%; ${radiusClass} font-size: 0.95rem;`;
+            div.innerHTML = `
+                <div>${escMsg}</div>
+                <div class="small mt-1 ${extra}" style="font-size: 0.7rem; text-align: right;">
+                    ${msg.created_at.split(' ')[1]}
+                </div>
+            `;
+            chatMessages.appendChild(div);
+        }
+
+        async function loadMessages() {
+            try {
+                const resp = await fetch(`/api/chat/${userId}`);
+                const data = await resp.json();
+                if(data.success && data.messages.length > lastMsgCount) {
+                    // Update only new messages
+                    chatMessages.innerHTML = '';
+                    data.messages.forEach(msg => renderMessage(msg));
+                    lastMsgCount = data.messages.length;
+                    scrollToBottom();
+                }
+            } catch(e) {}
+        }
+
+        // Handle Send via AJAX
+        chatForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const text = textarea.value.trim();
+            if(!text) return;
+            
+            textarea.value = '';
+            
+            try {
+                const resp = await fetch(`/api/chat/${userId}/send`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ message: text, sender: 'ADMIN' })
+                });
+                const data = await resp.json();
+                if(data.success) {
+                    loadMessages();
+                }
+            } catch(e) {}
+        };
+
+        // Handle Enter key to submit
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Poll for new messages every 3 seconds
+        setInterval(loadMessages, 3000);
+    });
+</script>
+{% endblock %}

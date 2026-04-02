@@ -51,21 +51,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email is required.';
     final email = value.trim();
-    if (!email.endsWith('@gmail.com'))
-      return 'Email must use @gmail.com domain.';
-    final local = email.substring(0, email.length - 10);
-    if (local.length < 6 || local.length > 30)
-      return 'Email before @gmail.com must be 6-30 characters.';
-    if (!RegExp(r'[A-Za-z]').hasMatch(local))
-      return 'Email must contain at least one letter.';
-    if (RegExp(r'[\s_]').hasMatch(local))
-      return 'Email cannot contain spaces or underscores.';
-    if (local.startsWith('.') || local.endsWith('.'))
-      return 'Email cannot start or end with a period.';
-    if (local.contains('..'))
-      return 'Email cannot contain consecutive periods.';
-    if (!RegExp(r'^[a-zA-Z0-9.]+$').hasMatch(local))
-      return 'Email can only contain letters, numbers, and periods.';
+    if (!RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$').hasMatch(email))
+      return 'Please enter a valid email address.';
     return null;
   }
 
@@ -92,12 +79,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Password is required.';
+    if (value.startsWith(' ') || value.endsWith(' ')) return 'Password cannot start or end with spaces.';
+    if (value.contains('   ')) return 'Password cannot contain too many consecutive spaces.';
     if (value.length < 6) return 'Password must be at least 6 characters.';
     if (!RegExp(r'[A-Z]').hasMatch(value))
       return 'Password must contain an uppercase letter.';
     if (!RegExp(r'[0-9]').hasMatch(value))
       return 'Password must contain a number.';
-    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value))
+    if (!RegExp(r'[^A-Za-z0-9\s]').hasMatch(value))
       return 'Password must contain a special character.';
     return null;
   }
@@ -253,8 +242,13 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    if (_calcAge(_birthday!) < 18) {
+    final age = _calcAge(_birthday!);
+    if (age < 18) {
       _showMsg('You must be at least 18 years old to register.');
+      return;
+    }
+    if (age > 70) {
+      _showMsg('Maximum age limit is 70 years old.');
       return;
     }
 
