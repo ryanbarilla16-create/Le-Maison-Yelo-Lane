@@ -139,7 +139,51 @@ def reserve():
             )
             
         flash("Reservation submitted successfully and is pending admin approval.", "success")
-        return redirect(url_for('main.reserve'))
+        return redirect(url_for('main.my_reservations'))
 
     menu_items = MenuItem.query.filter_by(is_available=True).all()
     return render_template('reserve.html', menu_items=menu_items)
+
+
+@main_bp.route('/my-reservations')
+@login_required
+def my_reservations():
+    reservations = Reservation.query.filter_by(user_id=current_user.id)\
+        .order_by(Reservation.date.desc(), Reservation.time.desc()).all()
+    return render_template('my_reservations_list.html', reservations=reservations)
+
+
+@main_bp.route('/cancel-reservation/<int:res_id>', methods=['POST'])
+@login_required
+def cancel_reservation(res_id):
+    res = Reservation.query.get_or_404(res_id)
+    if res.user_id != current_user.id:
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('main.my_reservations'))
+
+    if res.status != 'PENDING':
+        flash("Only pending reservations can be cancelled.", "warning")
+        return redirect(url_for('main.my_reservations'))
+
+    reason = request.form.get('cancel_reason', '').strip()
+    other_reason = request.form.get('other_reason', '').strip()
+    if reason == 'Other' and other_reason:
+        reason = f"Other: {other_reason}"
+
+    res.status = 'CANCELLED'
+    res.cancel_reason = reason or 'No reason given'
+    db.session.commit()
+
+    # Notify admins
+    from models import User
+    from utils import create_notification
+    for admin in User.query.filter_by(role='ADMIN').all():
+        create_notification(
+            admin.id,
+            'Reservation Cancelled',
+            f'{current_user.first_name} cancelled their reservation on {res.date.strftime("%b %d, %Y")}. Reason: {res.cancel_reason}',
+            'RESERVATION'
+        )
+
+    flash("Your reservation has been successfully cancelled.", "success")
+    return redirect(url_for('main.my_reservations'))

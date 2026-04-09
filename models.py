@@ -46,6 +46,7 @@ class Reservation(db.Model):
     
     status = db.Column(db.String(20), default='PENDING') # PENDING, CONFIRMED, REJECTED, COMPLETED
     table_number = db.Column(db.String(20), nullable=True) # Assigned by admin
+    cancel_reason = db.Column(db.String(255), nullable=True) # Reason for cancellation
     created_at = db.Column(db.DateTime, default=get_ph_time)
 
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
