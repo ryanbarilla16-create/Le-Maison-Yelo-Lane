@@ -37,6 +37,13 @@ app.jinja_env.cache = {}
 socketio.init_app(app, async_mode='eventlet')
 # Tell Flask it is behind a proxy (like LocalTunnel) so redirects use the correct url
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# WhiteNoise for incredibly fast rendering of static images in production
+from whitenoise import WhiteNoise
+import os
+static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+app.wsgi_app = WhiteNoise(app.wsgi_app, root=static_folder, prefix='static/')
+
 app.config.from_object(Config)
 
 # Initialize Security & Documentation
