@@ -71,32 +71,33 @@
     /* Quick Links Grid */
     .quick-links {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 3rem;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 2.5rem;
         position: relative;
         z-index: 10;
     }
 
     .link-item {
-        padding: 2.5rem;
+        padding: 1.5rem 1rem;
         text-align: center;
         text-decoration: none !important;
         color: var(--deep-espresso);
+        border-radius: 20px;
     }
 
     .link-item i {
-        font-size: 2.5rem;
-        margin-bottom: 1.2rem;
+        font-size: 1.6rem;
+        margin-bottom: 0.6rem;
         color: var(--accent-brown);
         display: block;
     }
 
     .link-item span {
-        font-weight: 800;
-        font-size: 0.9rem;
+        font-weight: 700;
+        font-size: 0.72rem;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
+        letter-spacing: 1px;
     }
 
     /* Main Dashboard Layout */
@@ -183,8 +184,8 @@
     }
 
     .item-card {
-        height: 400px;
-        border-radius: 35px;
+        height: 360px;
+        border-radius: 24px;
         overflow: hidden;
         position: relative;
         text-decoration: none;
@@ -238,8 +239,8 @@
         <h1>Welcome Back,<br>{{ current_user.first_name }}</h1>
         <p>Experience the finest blend of tradition and taste. Your private sanctuary of flavor awaits.</p>
         <div class="d-flex justify-content-center gap-3">
-            <a href="{{ url_for('main.menu_page') }}" class="btn rounded-pill px-5 shadow-lg fw-bold">Order Now</a>
-            <a href="{{ url_for('main.reserve') }}" class="btn btn-outline-light rounded-pill px-5 fw-bold border-2" style="background: transparent;">Reserve</a>
+            <a href="{{ url_for('main.menu_page') }}" class="btn rounded-pill px-4 py-2 shadow-sm fw-bold" style="background:linear-gradient(135deg,#5D4037,#795548);color:#fff;font-size:0.88rem;">Order Now</a>
+            <a href="{{ url_for('main.reserve') }}" class="btn btn-outline-light rounded-pill px-4 py-2 fw-bold border-2" style="background:transparent;font-size:0.88rem;">Reserve</a>
         </div>
     </section>
 
@@ -374,7 +375,7 @@
                             <span class="small fw-bold text-uppercase letter-spacing-2 opacity-75 mb-1">Curation</span>
                             <h4>{{ cat.category }}</h4>
                             <div class="d-flex align-items-center gap-2 small">
-                                <span>Browse Selection</span>
+                                <span>See more...</span>
                                 <i class="fas fa-chevron-right scale-50"></i>
                             </div>
                         </div>

@@ -3,29 +3,44 @@
 
 {% block content %}
 <style>
-    .reslist-page { max-width: 860px; margin: 5rem auto 5rem; padding: 0 1.5rem; }
+    .reslist-page { max-width: 820px; margin: 5rem auto 4rem; padding: 0 1.25rem; }
 
-    .page-header { margin-bottom: 2rem; }
-    .page-header h2 { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 2rem; color: #3E2723; margin: 0; }
-    .page-header p { color: #888; font-size: 0.9rem; margin: 0; }
+    .page-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
+    .page-header h2 { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 1.6rem; color: #3E2723; margin: 0; }
+    .page-header p { color: #888; font-size: 0.82rem; margin: 0; }
+    .btn-new-booking {
+        background: linear-gradient(135deg, #5D4037, #795548);
+        color: #fff; border: none; border-radius: 50px;
+        padding: 0.5rem 1.25rem; font-size: 0.78rem; font-weight: 700;
+        text-decoration: none; transition: all 0.2s;
+        box-shadow: 0 3px 12px rgba(93,64,55,0.2);
+    }
+    .btn-new-booking:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(93,64,55,0.3); color: #fff; }
+
+    /* Scrollable reservation list */
+    .res-scroll-container {
+        max-height: 70vh;
+        overflow-y: auto;
+        padding-right: 6px;
+    }
+    .res-scroll-container::-webkit-scrollbar { width: 3px; }
+    .res-scroll-container::-webkit-scrollbar-thumb { background: #8D6E63; border-radius: 10px; }
 
     .res-card {
         background: #fff;
-        border: 1px solid rgba(93,64,55,0.1);
-        border-radius: 20px;
-        padding: 1.5rem;
-        margin-bottom: 1.25rem;
+        border: 1px solid rgba(93,64,55,0.08);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 0.75rem;
         transition: box-shadow 0.2s;
         position: relative;
-        overflow: hidden;
     }
-    .res-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.06); }
+    .res-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
     .res-card::before {
         content: '';
         position: absolute;
-        left: 0; top: 0; bottom: 0;
-        width: 4px;
-        border-radius: 4px 0 0 4px;
+        left: 0; top: 12px; bottom: 12px;
+        width: 3px; border-radius: 3px;
     }
     .res-card.status-PENDING::before { background: #FF9800; }
     .res-card.status-CONFIRMED::before { background: #4CAF50; }
@@ -33,195 +48,172 @@
     .res-card.status-COMPLETED::before { background: #2196F3; }
     .res-card.status-CANCELLED::before { background: #9E9E9E; }
 
-    .res-meta-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-    .res-meta-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; }
-    .res-meta-item i { font-size: 0.75rem; color: #8D6E63; width: 14px; }
+    .res-meta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+    .res-meta-item { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #555; }
+    .res-meta-item i { font-size: 0.7rem; color: #8D6E63; width: 13px; }
 
     .status-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 4px 12px; border-radius: 50px;
-        font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 50px;
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
     }
     .badge-PENDING   { background: rgba(255,152,0,0.1); color: #E65100; }
     .badge-CONFIRMED { background: rgba(76,175,80,0.1); color: #1B5E20; }
     .badge-REJECTED  { background: rgba(244,67,54,0.1); color: #B71C1C; }
     .badge-COMPLETED { background: rgba(33,150,243,0.1); color: #0D47A1; }
-    .badge-CANCELLED { background: rgba(158,158,158,0.12); color: #555; }
+    .badge-CANCELLED { background: rgba(158,158,158,0.1); color: #666; }
 
     .btn-cancel-res {
-        background: transparent;
-        border: 1.5px solid #f44336;
-        color: #f44336;
-        border-radius: 50px;
-        padding: 0.45rem 1rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
+        background: transparent; border: 1px solid rgba(244,67,54,0.3);
+        color: #f44336; border-radius: 50px;
+        padding: 0.3rem 0.85rem; font-size: 0.7rem; font-weight: 700;
+        cursor: pointer; transition: all 0.2s;
     }
     .btn-cancel-res:hover { background: #f44336; color: #fff; }
 
-    .empty-state { text-align: center; padding: 4rem 2rem; }
-    .empty-state i { font-size: 3.5rem; opacity: 0.15; color: #5D4037; margin-bottom: 1rem; }
-    .empty-state h5 { font-family: 'Playfair Display', serif; color: #3E2723; margin-bottom: 0.5rem; }
-    .empty-state p { color: #aaa; font-size: 0.88rem; }
+    .excl-tag {
+        background: rgba(212,168,98,0.1); color: #8B634B;
+        border-radius: 50px; padding: 2px 8px; font-size: 0.65rem; font-weight: 700;
+    }
+
+    .empty-state { text-align: center; padding: 3.5rem 2rem; }
+    .empty-state i { font-size: 2.5rem; opacity: 0.12; color: #5D4037; margin-bottom: 0.75rem; }
 
     /* Cancel Modal */
-    .modal-content { border-radius: 20px; border: none; overflow: hidden; }
-    .modal-header { background: linear-gradient(135deg, #5D4037, #795548); color: #fff; border: none; }
+    .modal-content { border-radius: 18px; border: none; }
+    .modal-header { background: linear-gradient(135deg, #5D4037, #795548); color: #fff; border: none; padding: 1rem 1.25rem; }
     .reason-option {
-        display: flex; align-items: center; gap: 10px;
-        padding: 0.75rem 1rem; border: 1.5px solid #f0ece9;
-        border-radius: 12px; cursor: pointer; transition: all 0.2s;
-        margin-bottom: 0.5rem; font-size: 0.88rem;
+        display: flex; align-items: center; gap: 8px;
+        padding: 0.6rem 0.85rem; border: 1.5px solid #f0ece9;
+        border-radius: 10px; cursor: pointer; transition: all 0.2s;
+        margin-bottom: 0.4rem; font-size: 0.82rem;
     }
-    .reason-option:hover, .reason-option.selected { border-color: #5D4037; background: rgba(93,64,55,0.04); }
+    .reason-option:hover, .reason-option.selected { border-color: #5D4037; background: rgba(93,64,55,0.03); }
     .reason-option input { accent-color: #5D4037; }
 
     @media (max-width: 600px) {
-        .res-meta-row { gap: 0.6rem; }
+        .res-meta-row { gap: 0.5rem; }
         .reslist-page { padding: 0 1rem; }
+        .res-card { padding: 1rem 1.25rem; }
     }
 </style>
 
 <div class="reslist-page">
-    <div class="d-flex justify-content-between align-items-end page-header">
+    <div class="page-header">
         <div>
             <h2>My Reservations</h2>
-            <p>Track and manage all your table bookings</p>
+            <p>Track and manage your table bookings</p>
         </div>
-        <a href="{{ url_for('main.reserve') }}" class="btn fw-bold btn-sm px-3 py-2 rounded-pill"
-           style="background:#5D4037;color:#fff;font-size:0.82rem;">
+        <a href="{{ url_for('main.reserve') }}" class="btn-new-booking">
             <i class="fas fa-plus me-1"></i> New Booking
         </a>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
-        <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' }} rounded-4 mb-3 small">
+        <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' }} rounded-3 mb-3 small py-2">
             <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'exclamation-circle' }} me-2"></i>{{ msg }}
         </div>
         {% endfor %}
     {% endwith %}
 
     {% if reservations %}
+    <div class="res-scroll-container">
         {% for r in reservations %}
         <div class="res-card status-{{ r.status }}">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-                <div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="status-badge badge-{{ r.status }}">
-                        <i class="fas fa-circle" style="font-size:0.45rem;"></i>
-                        {% if r.status == 'PENDING' %}Pending Approval
+                        <i class="fas fa-circle" style="font-size:0.35rem;"></i>
+                        {% if r.status == 'PENDING' %}Pending
                         {% elif r.status == 'CONFIRMED' %}Confirmed
                         {% elif r.status == 'REJECTED' %}Rejected
                         {% elif r.status == 'COMPLETED' %}Completed
                         {% elif r.status == 'CANCELLED' %}Cancelled
-                        {% else %}{{ r.status }}
-                        {% endif %}
+                        {% else %}{{ r.status }}{% endif %}
                     </span>
                     {% if r.booking_type == 'EXCLUSIVE' %}
-                    <span class="ms-2" style="background:rgba(212,168,98,0.12);color:#A0522D;border-radius:50px;padding:3px 10px;font-size:0.7rem;font-weight:700;">
-                        <i class="fas fa-crown me-1"></i>Exclusive
-                    </span>
+                    <span class="excl-tag"><i class="fas fa-crown me-1"></i>Exclusive</span>
                     {% endif %}
                 </div>
-                <div class="text-muted small opacity-60" style="font-size:0.72rem;">
+                <div class="text-muted" style="font-size:0.68rem;">
                     Booked {{ r.created_at.strftime('%b %d, %Y') if r.created_at else '' }}
                 </div>
             </div>
 
-            <div class="res-meta-row mb-3">
-                <div class="res-meta-item">
-                    <i class="fas fa-calendar"></i>
-                    <span>{{ r.date.strftime('%B %d, %Y') }}</span>
-                </div>
-                <div class="res-meta-item">
-                    <i class="fas fa-clock"></i>
-                    <span>{{ r.time.strftime('%I:%M %p') }}</span>
-                </div>
-                <div class="res-meta-item">
-                    <i class="fas fa-hourglass-half"></i>
-                    <span>{{ r.duration or 2 }} hr{{ 's' if (r.duration or 2) > 1 }}</span>
-                </div>
-                <div class="res-meta-item">
-                    <i class="fas fa-users"></i>
-                    <span>{{ r.guest_count }} guests</span>
-                </div>
+            <div class="res-meta-row mb-2">
+                <div class="res-meta-item"><i class="fas fa-calendar"></i>{{ r.date.strftime('%B %d, %Y') }}</div>
+                <div class="res-meta-item"><i class="fas fa-clock"></i>{{ r.time.strftime('%I:%M %p') }}</div>
+                <div class="res-meta-item"><i class="fas fa-hourglass-half"></i>{{ r.duration or 2 }} hrs</div>
+                <div class="res-meta-item"><i class="fas fa-users"></i>{{ r.guest_count }} guests</div>
                 {% if r.table_number %}
-                <div class="res-meta-item">
-                    <i class="fas fa-chair"></i>
-                    <span>Table {{ r.table_number }}</span>
-                </div>
+                <div class="res-meta-item"><i class="fas fa-chair"></i>Table {{ r.table_number }}</div>
                 {% endif %}
                 {% if r.occasion %}
-                <div class="res-meta-item">
-                    <i class="fas fa-star"></i>
-                    <span>{{ r.occasion }}</span>
-                </div>
+                <div class="res-meta-item"><i class="fas fa-star"></i>{{ r.occasion }}</div>
                 {% endif %}
             </div>
 
             {% if r.cancel_reason %}
-            <div class="small px-3 py-2 rounded-3 mb-3" style="background:rgba(158,158,158,0.08);color:#888;border-left:3px solid #ddd;">
-                <i class="fas fa-comment-slash me-2 opacity-50"></i><em>Reason: {{ r.cancel_reason }}</em>
+            <div class="small px-2 py-1 rounded-2 mb-2" style="background:rgba(158,158,158,0.06);color:#999;border-left:2px solid #ddd;font-size:0.75rem;">
+                <i class="fas fa-comment-slash me-1 opacity-50"></i><em>{{ r.cancel_reason }}</em>
             </div>
             {% endif %}
 
             {% if r.status == 'PENDING' %}
             <button class="btn-cancel-res" onclick="openCancelModal({{ r.id }})">
-                <i class="fas fa-times me-1"></i> Cancel Booking
+                <i class="fas fa-times me-1"></i>Cancel
             </button>
             {% elif r.status == 'CONFIRMED' %}
-            <div class="small text-muted opacity-60">
-                <i class="fas fa-lock me-1"></i> Confirmed bookings cannot be cancelled. Contact us if you need assistance.
+            <div class="small text-muted opacity-50" style="font-size:0.72rem;">
+                <i class="fas fa-lock me-1"></i>Confirmed — contact us to make changes
             </div>
             {% endif %}
         </div>
         {% endfor %}
+    </div>
     {% else %}
     <div class="res-card empty-state">
         <i class="fas fa-calendar-times d-block"></i>
-        <h5>No Reservations Yet</h5>
-        <p>You haven't made any table bookings. Start by making your first reservation!</p>
-        <a href="{{ url_for('main.reserve') }}" class="btn mt-2 px-4 py-2 rounded-pill fw-bold" style="background:#5D4037;color:#fff;font-size:0.88rem;">
-            <i class="fas fa-calendar-plus me-2"></i>Book a Table
-        </a>
+        <h6 class="fw-bold" style="color:#3E2723;">No Reservations Yet</h6>
+        <p class="text-muted small mb-3">Book a table and start your dining experience!</p>
+        <a href="{{ url_for('main.reserve') }}" class="btn-new-booking"><i class="fas fa-calendar-plus me-1"></i>Book a Table</a>
     </div>
     {% endif %}
 </div>
 
-<!-- Cancel Confirmation Modal -->
+<!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
         <div class="modal-content">
-            <div class="modal-header py-3 px-4">
-                <h6 class="modal-title fw-bold"><i class="fas fa-calendar-times me-2"></i>Cancel Reservation</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold small"><i class="fas fa-calendar-times me-2"></i>Cancel Booking</h6>
+                <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body px-4 py-3">
-                <p class="small text-muted mb-3">Please select a reason for cancelling your reservation:</p>
+                <p class="small text-muted mb-3">Why are you cancelling?</p>
                 <form id="cancelForm" method="POST">
-                    <div class="reason-option" onclick="selectReason(this, 'Change of plans')">
+                    <div class="reason-option" onclick="selectReason(this,'Change of plans')">
                         <input type="radio" name="cancel_reason" value="Change of plans"> Change of plans
                     </div>
-                    <div class="reason-option" onclick="selectReason(this, 'Emergency')">
+                    <div class="reason-option" onclick="selectReason(this,'Emergency')">
                         <input type="radio" name="cancel_reason" value="Emergency"> Emergency
                     </div>
-                    <div class="reason-option" onclick="selectReason(this, 'Found another venue')">
+                    <div class="reason-option" onclick="selectReason(this,'Found another venue')">
                         <input type="radio" name="cancel_reason" value="Found another venue"> Found another venue
                     </div>
-                    <div class="reason-option" onclick="selectReason(this, 'Date conflict')">
+                    <div class="reason-option" onclick="selectReason(this,'Date conflict')">
                         <input type="radio" name="cancel_reason" value="Date conflict"> Date conflict
                     </div>
-                    <div class="reason-option" id="otherOption" onclick="selectReason(this, 'Other')">
-                        <input type="radio" name="cancel_reason" value="Other"> Other (specify below)
+                    <div class="reason-option" id="otherOption" onclick="selectReason(this,'Other')">
+                        <input type="radio" name="cancel_reason" value="Other"> Other
                     </div>
                     <div id="otherBox" style="display:none;" class="mt-2">
-                        <textarea name="other_reason" class="form-control rounded-3 small" rows="2" placeholder="Brief reason..." style="font-size:0.82rem;border:1.5px solid rgba(93,64,55,0.15);"></textarea>
+                        <textarea name="other_reason" class="form-control rounded-3" rows="2" placeholder="Brief reason..." style="font-size:0.78rem;border:1.5px solid rgba(93,64,55,0.12);"></textarea>
                     </div>
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="button" class="btn btn-light flex-grow-1 rounded-pill small fw-bold" data-bs-dismiss="modal">Keep Booking</button>
-                        <button type="submit" class="btn flex-grow-1 rounded-pill small fw-bold" style="background:#f44336;color:#fff;">
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-light rounded-pill small fw-bold flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size:0.8rem;">Keep</button>
+                        <button type="submit" class="btn rounded-pill small fw-bold flex-grow-1 py-2" style="background:#f44336;color:#fff;font-size:0.8rem;">
                             <i class="fas fa-times me-1"></i>Cancel It
                         </button>
                     </div>
@@ -233,20 +225,17 @@
 
 <script>
     function openCancelModal(resId) {
-        const form = document.getElementById('cancelForm');
-        form.action = `/cancel-reservation/${resId}`;
-        // Reset selections
+        document.getElementById('cancelForm').action = `/cancel-reservation/${resId}`;
         document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
         document.querySelectorAll('input[name="cancel_reason"]').forEach(r => r.checked = false);
         document.getElementById('otherBox').style.display = 'none';
         new bootstrap.Modal(document.getElementById('cancelModal')).show();
     }
-
     function selectReason(el, val) {
         document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
         el.classList.add('selected');
         el.querySelector('input').checked = true;
-        document.getElementById('otherBox').style.display = (val === 'Other') ? 'block' : 'none';
+        document.getElementById('otherBox').style.display = val === 'Other' ? 'block' : 'none';
     }
 </script>
 {% endblock %}

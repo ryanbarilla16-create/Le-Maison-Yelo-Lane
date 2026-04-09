@@ -1,13 +1,20 @@
 <style>
     .main-nav {
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: none !important;
+        padding: 0.5rem 0 !important;
+        transition: all 0.35s ease;
+    }
+    .main-nav.scrolled {
         background: rgba(255, 255, 255, 0.97) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
-        box-shadow: 0 1px 0 rgba(93,64,55,0.08) !important;
-        padding: 0.5rem 0 !important;
-        transition: box-shadow 0.3s;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.06) !important;
     }
     .main-nav:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important; }
+
 
     /* Nav text links */
     .navTxt {
@@ -448,3 +455,20 @@
     setInterval(fetchUserUnreadCount, 15000);
 </script>
 {% endif %}
+
+<!-- Navbar Scroll Effect -->
+<script>
+    (function() {
+        const nav = document.querySelector('.main-nav');
+        if (!nav) return;
+        function checkScroll() {
+            if (window.scrollY > 30) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        }
+        window.addEventListener('scroll', checkScroll, { passive: true });
+        checkScroll();
+    })();
+</script>
