@@ -1,460 +1,409 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}Dashboard | Le Maison{% endblock %}
+{% block title %}Home | Le Maison yelo Lane{% endblock %}
 
 {% block content %}
 <style>
+    /* Design Consistency with layouts/base.html & style.css */
     :root {
-        --deep-brown: #3E2723;
-        --accent-brown: #5D4037;
-        --rich-caramel: #8D6E63;
-        --warm-sand: #D7CCC8;
-        --soft-cream: #FDFBF9;
-        --gold-glow: #D4A862;
-        --card-shadow: 0 15px 35px rgba(62, 39, 35, 0.08);
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(139, 69, 19, 0.15);
+        --accent-brown: #8B4513;
+        --deep-espresso: #3E2723;
     }
 
     body {
-        background-color: var(--soft-cream) !important;
-        color: var(--deep-brown);
+        background: transparent !important; /* Let auth-bg from base.html show through */
     }
 
-    /* Cinematic Banner */
-    .hero-banner {
-        position: relative;
-        height: 50vh;
-        min-height: 400px;
-        background: var(--deep-brown);
-        overflow: hidden;
-        margin-top: -80px;
+    .main-container {
+        min-height: 100vh;
         display: flex;
-        align-items: center;
-        border-bottom-left-radius: 60px;
-        border-bottom-right-radius: 60px;
+        flex-direction: column;
     }
 
-    .hero-banner img {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.5;
-        filter: sepia(0.2) brightness(0.7);
-        transform: scale(1.1);
-        animation: subtlePan 30s linear infinite alternate;
-    }
-
-    @keyframes subtlePan {
-        from { transform: scale(1.1) translateX(-2%); }
-        to { transform: scale(1.15) translateX(2%); }
-    }
-
-    .hero-overlay {
+    /* Hero Section - Integrated with Glass Aesthetic */
+    .dashboard-hero {
         position: relative;
-        z-index: 10;
-        width: 100%;
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 3rem;
+        padding: 6rem 2rem 4rem;
+        text-align: center;
+        margin-top: -56px;
+        background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), transparent);
         color: #fff;
+        border-bottom-left-radius: 50px;
+        border-bottom-right-radius: 50px;
+        margin-bottom: -50px;
+        z-index: 1;
     }
 
-    .hero-overlay h1 {
+    .dashboard-hero h1 {
         font-family: 'Playfair Display', serif;
         font-weight: 900;
-        font-size: clamp(2.5rem, 6vw, 4.5rem);
-        line-height: 1.1;
-        margin-bottom: 1.5rem;
-        text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        font-size: clamp(2.5rem, 8vw, 4.5rem);
+        margin-bottom: 1rem;
+        text-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
-    .hero-overlay p {
+    .dashboard-hero p {
         font-size: 1.1rem;
-        color: var(--warm-sand);
-        max-width: 500px;
-        margin-bottom: 2rem;
+        opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto 2rem;
         letter-spacing: 0.5px;
     }
 
-    /* Main Grid */
-    .dash-container {
-        max-width: 1400px;
-        margin: -60px auto 5rem;
-        padding: 0 2rem;
-        position: relative;
-        z-index: 20;
+    /* Glass Cards */
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--glass-border);
+        border-radius: 28px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
-    /* Quick Action Grid */
-    .action-grid {
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Quick Links Grid */
+    .quick-links {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1.5rem;
         margin-bottom: 3rem;
+        position: relative;
+        z-index: 10;
     }
 
-    .action-card {
-        background: #fff;
-        border-radius: 24px;
-        padding: 2rem;
+    .link-item {
+        padding: 2.5rem;
         text-align: center;
         text-decoration: none !important;
-        color: var(--deep-brown);
-        border: 1px solid rgba(141, 110, 99, 0.1);
-        box-shadow: var(--card-shadow);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        color: var(--deep-espresso);
     }
 
-    .action-card:hover {
-        transform: translateY(-10px);
-        background: var(--deep-brown);
-        color: #fff;
-    }
-
-    .action-card i {
-        font-size: 2rem;
-        margin-bottom: 1rem;
+    .link-item i {
+        font-size: 2.5rem;
+        margin-bottom: 1.2rem;
+        color: var(--accent-brown);
         display: block;
-        color: var(--rich-caramel);
-        transition: color 0.3s;
     }
 
-    .action-card:hover i { color: var(--gold-glow); }
-
-    .action-card span {
+    .link-item span {
         font-weight: 800;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         text-transform: uppercase;
         letter-spacing: 1.5px;
     }
 
-    /* Status & Stats Section */
-    .status-layout {
+    /* Main Dashboard Layout */
+    .dashboard-grid {
         display: grid;
-        grid-template-columns: 1fr 380px;
+        grid-template-columns: 1fr 360px;
         gap: 2.5rem;
         margin-bottom: 4rem;
+        position: relative;
+        z-index: 10;
     }
 
-    .status-main {
-        background: #fff;
-        border-radius: 40px;
+    .activity-feed {
         padding: 3rem;
-        box-shadow: var(--card-shadow);
-        border: 1px solid rgba(141, 110, 99, 0.05);
     }
 
-    .status-header {
+    .activity-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid var(--warm-sand);
     }
 
-    .status-header h2 {
+    .activity-header h2 {
         font-family: 'Playfair Display', serif;
         font-weight: 800;
+        color: var(--deep-espresso);
         margin: 0;
     }
 
-    .status-item {
+    .status-tile {
         display: flex;
         align-items: center;
-        gap: 2rem;
+        gap: 1.5rem;
         padding: 1.5rem;
-        background: var(--soft-cream);
+        background: rgba(255,255,255,0.4);
         border-radius: 20px;
         margin-bottom: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.3);
     }
 
-    .status-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 15px;
-        background: var(--deep-brown);
+    .tile-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        background: var(--accent-brown);
+        color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--gold-glow);
+        font-size: 1.2rem;
+        box-shadow: 0 8px 16px rgba(139, 69, 19, 0.2);
     }
 
     /* Sidebar Stats */
-    .sidebar-stats {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-
-    .stat-mini {
-        background: linear-gradient(135deg, var(--deep-brown), var(--accent-brown));
-        border-radius: 30px;
+    .stat-box {
         padding: 2.5rem;
-        color: #fff;
         text-align: center;
-        position: relative;
-        overflow: hidden;
+        background: linear-gradient(135deg, rgba(62, 39, 35, 0.95), rgba(93, 64, 55, 0.9));
+        color: #fff;
+        border: none;
     }
 
-    .stat-mini::after {
-        content: '';
-        position: absolute;
-        width: 100px;
-        height: 100px;
-        background: rgba(255,255,255,0.05);
-        border-radius: 50%;
-        top: -20px;
-        right: -20px;
-    }
-
-    .stat-mini h3 {
+    .stat-box h3 {
         font-family: 'Playfair Display', serif;
         font-size: 3.5rem;
         font-weight: 900;
-        color: var(--gold-glow);
-        margin: 0;
+        margin-bottom: 0.2rem;
+        color: #D4A862;
     }
 
-    .stat-mini p {
-        margin: 0;
+    .stat-box p {
         font-weight: 700;
         font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 2px;
         opacity: 0.8;
+        margin: 0;
     }
 
-    /* Category Carousel/Grid */
-    .discover-section {
+    /* Signature Categories */
+    .signature-section {
         margin-bottom: 5rem;
     }
 
-    .discover-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 2rem;
-    }
-
-    .discover-card {
-        height: 380px;
-        border-radius: 30px;
+    .item-card {
+        height: 400px;
+        border-radius: 35px;
         overflow: hidden;
         position: relative;
         text-decoration: none;
         display: block;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
     }
 
-    .discover-card img {
+    .item-card img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         transition: transform 0.6s ease;
     }
 
-    .discover-card:hover img { transform: scale(1.1); }
+    .item-card:hover img { transform: scale(1.1); }
 
-    .discover-overlay {
+    .item-overlay {
         position: absolute;
         inset: 0;
-        background: linear-gradient(to top, rgba(62,39,35,0.9), transparent);
+        background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+        padding: 2.5rem;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 2.5rem;
         color: #fff;
     }
 
-    .discover-overlay h3 {
+    .item-overlay h4 {
         font-family: 'Playfair Display', serif;
-        font-size: 1.8rem;
+        font-size: 2rem;
+        font-weight: 700;
         margin-bottom: 0.5rem;
     }
 
     /* Mobile Adaptations */
     @media (max-width: 992px) {
-        .hero-banner { height: 40vh; margin-top: -60px; }
-        .hero-overlay { padding: 0 1.5rem; }
-        .action-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-        .status-layout { grid-template-columns: 1fr; }
-        .dash-container { padding: 0 1.5rem; }
-        .status-main { padding: 2rem; }
+        .dashboard-grid { grid-template-columns: 1fr; }
+        .dashboard-hero { padding-top: 5rem; }
     }
 
     @media (max-width: 600px) {
-        .action-card { padding: 1.5rem; }
-        .action-card i { font-size: 1.5rem; }
-        .discover-grid { grid-template-columns: 1fr; }
+        .quick-links { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        .link-item { padding: 1.5rem; }
+        .activity-feed { padding: 1.5rem; }
     }
 </style>
 
-<div class="hero-banner">
-    <img src="https://images.unsplash.com/photo-1544145945-f904253db0ad?q=80&w=2070&auto=format&fit=crop" alt="Coffee Interior">
-    <div class="hero-overlay">
-        <span>The Art of Coffee</span>
-        <h1>Brewing Moments<br>Discover Flavors.</h1>
-        <p>Your sanctuary for premium blends and cozy conversations. Welcome back to Le Maison.</p>
-    </div>
-</div>
+<div class="main-container">
+    <!-- Fluid Hero -->
+    <section class="dashboard-hero">
+        <span>Est. 2024</span>
+        <h1>Welcome Back,<br>{{ current_user.first_name }}</h1>
+        <p>Experience the finest blend of tradition and taste. Your private sanctuary of flavor awaits.</p>
+        <div class="d-flex justify-content-center gap-3">
+            <a href="{{ url_for('main.menu_page') }}" class="btn rounded-pill px-5 shadow-lg fw-bold">Order Now</a>
+            <a href="{{ url_for('main.reserve') }}" class="btn btn-outline-light rounded-pill px-5 fw-bold border-2" style="background: transparent;">Reserve</a>
+        </div>
+    </section>
 
-<div class="dash-container">
-    <!-- Quick Action Grid -->
-    <div class="action-grid">
-        <a href="{{ url_for('main.menu_page') }}" class="action-card">
-            <i class="fas fa-utensils"></i>
-            <span>Order Menu</span>
-        </a>
-        <a href="{{ url_for('main.reserve') }}" class="action-card">
-            <i class="fas fa-calendar-plus"></i>
-            <span>Reserve Table</span>
-        </a>
-        <a href="{{ url_for('main.my_orders') }}" class="action-card">
-            <i class="fas fa-shopping-bag"></i>
-            <span>Order History</span>
-        </a>
-        <a href="{{ url_for('main.profile') }}" class="action-card">
-            <i class="fas fa-user-gear"></i>
-            <span>Account</span>
-        </a>
-    </div>
+    <!-- Content Container -->
+    <div class="container-fluid px-md-5">
+        <!-- Dashboard Navigation -->
+        <div class="quick-links">
+            <a href="{{ url_for('main.menu_page') }}" class="glass-card link-item">
+                <i class="fas fa-mug-hot"></i>
+                <span>Explore Menu</span>
+            </a>
+            <a href="{{ url_for('main.reserve') }}" class="glass-card link-item">
+                <i class="fas fa-calendar-check"></i>
+                <span>My Reservations</span>
+            </a>
+            <a href="{{ url_for('main.my_orders') }}" class="glass-card link-item">
+                <i class="fas fa-receipt"></i>
+                <span>Order History</span>
+            </a>
+            <a href="{{ url_for('main.profile') }}" class="glass-card link-item">
+                <i class="fas fa-user-edit"></i>
+                <span>My Account</span>
+            </a>
+        </div>
 
-    <!-- Status & mini stats -->
-    <div class="status-layout">
-        <div class="status-main">
-            <div class="status-header">
-                <h2>Your Journey</h2>
-                <a href="{{ url_for('main.reserve') }}" class="text-decoration-none text-muted small fw-bold">VIEW ALL <i class="fas fa-arrow-right ms-1"></i></a>
+        <div class="dashboard-grid">
+            <!-- Left: Activity/Status -->
+            <div class="glass-card activity-feed">
+                <div class="activity-header">
+                    <h2>Current Chapters</h2>
+                    <span class="badge rounded-pill bg-light text-dark px-3 py-2 border">Live Status</span>
+                </div>
+
+                {% if upcoming %}
+                    {% for res in upcoming[:2] %}
+                    <div class="status-tile">
+                        <div class="tile-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <div class="flex-grow-1">
+                            <div class="small fw-bold text-muted text-uppercase mb-1" style="letter-spacing: 1px;">Reservation Confirmed</div>
+                            <h6 class="fw-bold mb-0 text-dark">{{ res.date.strftime('%A, %B %d') }} at {{ res.timeslot }}</h6>
+                            <small class="text-muted">{{ res.reservation_type|title }} · {{ res.guests }} Guests</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge rounded-pill px-3 py-2 bg-success bg-opacity-10 text-success border border-success border-opacity-25">{{ res.status|title }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5 rounded-4" style="border: 2px dashed rgba(139, 69, 19, 0.15); background: rgba(255,255,255,0.2);">
+                        <i class="fas fa-calendar-plus text-muted mb-3 fa-2x"></i>
+                        <h6 class="text-muted">No Upcoming Reservations</h6>
+                        <a href="{{ url_for('main.reserve') }}" class="small fw-bold text-decoration-none" style="color: var(--accent-brown);">Book a table now</a>
+                    </div>
+                {% endif %}
+
+                <!-- Rewards Preview -->
+                <div class="row g-4 mt-2">
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 border bg-white shadow-sm h-100">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="p-2 rounded-3" style="background: #FFF3E0; color: #F57C00;"><i class="fas fa-crown"></i></div>
+                                <h6 class="fw-bold m-0">Loyalty Status</h6>
+                            </div>
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="text-muted">Progress to Silver</span>
+                                    <span class="fw-bold">75%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; border-radius: 10px;">
+                                    <div class="progress-bar" style="width: 75%; background: var(--accent-brown);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 rounded-4 border bg-white shadow-sm h-100">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="p-2 rounded-3" style="background: #E8F5E9; color: #2E7D32;"><i class="fas fa-wallet"></i></div>
+                                <h6 class="fw-bold m-0">Eco Wallet</h6>
+                            </div>
+                            <h4 class="fw-bold m-0">₱1,240.00</h4>
+                            <small class="text-muted">Available for next order</small>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {% if upcoming %}
-                {% for res in upcoming[:2] %}
-                <div class="status-item">
-                    <div class="status-icon"><i class="fas fa-calendar-alt"></i></div>
-                    <div class="flex-grow-1">
-                        <p class="text-uppercase small fw-bold text-muted mb-1">Upcoming Reservation</p>
-                        <h6 class="fw-bold mb-0">{{ res.date.strftime('%B %d, %Y') }} at {{ res.timeslot }}</h6>
-                        <small class="text-muted">{{ res.reservation_type|title }} · {{ res.guests }} Guests</small>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge rounded-pill px-3 py-2 bg-success bg-opacity-10 text-success fw-bold">{{ res.status|upper }}</span>
-                    </div>
+            <!-- Right: Sidebar Stats -->
+            <div class="sidebar-column d-flex flex-column gap-3">
+                <div class="glass-card stat-box">
+                    <h3>{{ total_visits }}</h3>
+                    <p>Culinary Chapters</p>
+                </div>
+                <div class="glass-card stat-box" style="background: var(--accent-brown);">
+                    <h3 style="color: #fff;">{{ upcoming|length }}</h3>
+                    <p style="color: rgba(255,255,255,0.7);">Pending Bookings</p>
+                </div>
+                <!-- Contact Mini Card -->
+                <div class="glass-card p-4 text-center">
+                    <i class="fas fa-clock mb-3 text-muted fa-lg"></i>
+                    <h6 class="fw-bold">Operating Hours</h6>
+                    <p class="text-muted small mb-0">Daily · 8:00 AM - 10:00 PM</p>
+                    <hr class="my-3 opacity-10">
+                    <i class="fas fa-phone-alt mb-2 text-muted small d-block"></i>
+                    <span class="small fw-bold">+(63) 123 456 7890</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discover Signature Categories -->
+        <section class="signature-section">
+            <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+                <div>
+                    <h5 class="text-uppercase small fw-bold text-muted mb-1" style="letter-spacing: 2px;">Handpicked</h5>
+                    <h2 class="font-serif fw-bold" style="color: var(--deep-espresso);">Signature Cravings</h2>
+                </div>
+                <a href="{{ url_for('main.menu_page') }}" class="btn btn-link text-decoration-none p-0 fw-bold" style="color: var(--accent-brown);">SEE MENU <i class="fas fa-arrow-right scale-75 ms-1"></i></a>
+            </div>
+
+            <div class="row g-4">
+                {% for cat in categories[:3] %}
+                <div class="col-lg-4 col-md-6">
+                    <a href="{{ url_for('main.menu_page', category=cat.category) }}" class="item-card shadow-sm">
+                        {% if cat.sample_image %}
+                        <img src="{{ cat.sample_image }}" alt="{{ cat.category }}">
+                        {% else %}
+                        <div class="w-100 h-100 bg-secondary d-flex align-items-center justify-content-center">
+                            <i class="fas fa-mug-saucer text-white-50 fa-4x"></i>
+                        </div>
+                        {% endif %}
+                        <div class="item-overlay">
+                            <span class="small fw-bold text-uppercase letter-spacing-2 opacity-75 mb-1">Curation</span>
+                            <h4>{{ cat.category }}</h4>
+                            <div class="d-flex align-items-center gap-2 small">
+                                <span>Browse Selection</span>
+                                <i class="fas fa-chevron-right scale-50"></i>
+                            </div>
+                        </div>
+                    </a>
                 </div>
                 {% endfor %}
-            {% else %}
-                <div class="text-center py-4 border rounded-4 border-dashed bg-light">
-                    <i class="fas fa-calendar-xmark text-muted mb-3 fa-2x"></i>
-                    <p class="text-muted mb-0">No active reservations found.</p>
-                    <a href="{{ url_for('main.reserve') }}" class="small fw-bold">Plan your next visit</a>
-                </div>
-            {% endif %}
+            </div>
+        </section>
 
-            <div class="mt-4 pt-2">
-                <div class="row g-3">
-                    <div class="col-6 col-md-3">
-                        <div class="p-3 border rounded-4 text-center bg-white">
-                            <i class="fas fa-ticket text-warning mb-2"></i>
-                            <div class="small fw-bold">Rewards</div>
-                            <small class="text-muted">Bronze</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="p-3 border rounded-4 text-center bg-white">
-                            <i class="fas fa-heart text-danger mb-2"></i>
-                            <div class="small fw-bold">Favorites</div>
-                            <small class="text-muted">12 Items</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="p-3 border rounded-4 text-center bg-white">
-                            <i class="fas fa-star text-info mb-2"></i>
-                            <div class="small fw-bold">Points</div>
-                            <small class="text-muted">840 pts</small>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="p-3 border rounded-4 text-center bg-white">
-                            <i class="fas fa-envelope text-primary mb-2"></i>
-                            <div class="small fw-bold">Inbox</div>
-                            <small class="text-muted">2 New</small>
+        <!-- Final Map Section -->
+        <div class="glass-card overflow-hidden shadow mb-5">
+            <div class="row g-0">
+                <div class="col-lg-4 p-5 d-flex flex-column justify-content-center">
+                    <h3 class="font-serif fw-bold mb-4">Find Your Sanctuary</h3>
+                    <p class="text-muted mb-4">Located in the heart of Pagsanjan, Le Maison yelo Lane offers an escape from the ordinary.</p>
+                    <div class="d-flex gap-3 align-items-start mb-4">
+                        <div class="tile-icon" style="width:40px;height:40px;flex-shrink:0;"><i class="fas fa-map-marker-alt"></i></div>
+                        <div>
+                            <div class="fw-bold small">Pagsanjan, Laguna</div>
+                            <p class="text-muted small m-0">General Taino Street, Yelo Lane</p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="sidebar-stats">
-            <div class="stat-mini">
-                <h3>{{ total_visits }}</h3>
-                <p>Culinary Chapters</p>
-            </div>
-            <div class="stat-mini" style="background: var(--rich-caramel);">
-                <h3>{{ upcoming|length }}</h3>
-                <p>Pending Bookings</p>
-            </div>
-            <div class="stat-mini" style="background: #fff; border: 1px solid rgba(141, 110, 110, 0.1);">
-                <i class="fas fa-clock mb-3 fa-2x" style="color: var(--rich-caramel);"></i>
-                <div class="text-dark small fw-bold mb-1">Open Today</div>
-                <div class="text-muted small">8:00 AM - 10:00 PM</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Discover More -->
-    <div class="discover-section">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <p class="text-uppercase small fw-bold text-muted mb-1">Handpicked Selections</p>
-                <h2 class="font-serif fw-bold m-0" style="color: var(--deep-brown);">Signature Categories</h2>
-            </div>
-            <a href="{{ url_for('main.menu_page') }}" class="btn fw-bold btn-link text-decoration-none">EXPLORE ALL <i class="fas fa-chevron-right ms-2 scale-75"></i></a>
-        </div>
-
-        <div class="discover-grid">
-            {% for cat in categories[:4] %}
-            <a href="{{ url_for('main.menu_page', category=cat.category) }}" class="discover-card">
-                {% if cat.sample_image %}
-                <img src="{{ cat.sample_image }}" alt="{{ cat.category }}">
-                {% else %}
-                <div class="w-100 h-100 bg-secondary d-flex align-items-center justify-content-center">
-                    <i class="fas fa-mug-saucer text-white-50 fa-3x"></i>
+                <div class="col-lg-8" style="min-height: 400px;">
+                    <iframe
+                        src="https://maps.google.com/maps?q=Le%20Maison%20de%20Yelo%20Lane,%20General%20Taino%20Street,%20Pagsanjan,%20Laguna,%20Philippines&t=&z=16&ie=UTF8&iwloc=&output=embed"
+                        width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"></iframe>
                 </div>
-                {% endif %}
-                <div class="discover-overlay">
-                    <h3>{{ cat.category }}</h3>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <span class="small fw-bold text-uppercase letter-spacing-1">Explore Selection</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Location Integration -->
-    <div class="dash-location border rounded-5 overflow-hidden shadow-sm bg-white p-2">
-        <div class="row g-0">
-            <div class="col-lg-4 p-5">
-                <h3 class="font-serif fw-bold mb-4">Visit Our Sanctuary</h3>
-                <p class="text-muted mb-4">Located in the heart of Pagsanjan, we offer a serene escape for coffee lovers and food enthusiasts alike.</p>
-                
-                <div class="d-flex gap-3 mb-4">
-                    <div class="bg-light p-3 rounded-4"><i class="fas fa-map-marker-alt text-danger"></i></div>
-                    <div>
-                        <div class="fw-bold small">Our Location</div>
-                        <div class="text-muted small">Yelo Lane, General Taino Street, Laguna</div>
-                    </div>
-                </div>
-
-                <a href="https://maps.google.com" target="_blank" class="btn btn-dark w-100 rounded-pill py-2 fw-bold">Get Directions</a>
-            </div>
-            <div class="col-lg-8" style="min-height: 400px;">
-                <iframe
-                    src="https://maps.google.com/maps?q=Le%20Maison%20de%20Yelo%20Lane,%20General%20Taino%20Street,%20Pagsanjan,%20Laguna,%20Philippines&t=&z=16&ie=UTF8&iwloc=&output=embed"
-                    width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"></iframe>
             </div>
         </div>
     </div>
