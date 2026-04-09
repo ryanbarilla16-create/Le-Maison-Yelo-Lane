@@ -6,6 +6,7 @@ from flask_login import LoginManager
 from routes import main_bp
 import os
 from flask_cors import CORS
+# from sync import setup_supabase_sync
 from flask_mail import Mail
 from utils import get_ph_time
 
@@ -16,8 +17,9 @@ from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 from extensions import socketio
 from flasgger import Swagger
-import json
 from flask_compress import Compress
+import threading
+from sqlalchemy import text as sql_text
 
 app = Flask(__name__)
 # Initialize extensions
@@ -26,24 +28,10 @@ Compress(app)
 app.config['COMPRESS_REGISTER'] = True
 app.config['COMPRESS_ALGORITHM'] = ['gzip', 'br', 'deflate']
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000 # Cache static resources for 1 year
-app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get('FLASK_ENV') != 'production'
-
-# Jinja Template Compilation Optimization
-from jinja2 import FileSystemBytecodeCache
-import tempfile
-app.jinja_env.bytecode_cache = FileSystemBytecodeCache(tempfile.gettempdir())
-app.jinja_env.cache = {}
 
 socketio.init_app(app, async_mode='eventlet')
 # Tell Flask it is behind a proxy (like LocalTunnel) so redirects use the correct url
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-# WhiteNoise for incredibly fast rendering of static images in production
-from whitenoise import WhiteNoise
-import os
-static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-app.wsgi_app = WhiteNoise(app.wsgi_app, root=static_folder, prefix='static/')
-
 app.config.from_object(Config)
 
 # Initialize Security & Documentation
@@ -91,14 +79,67 @@ app.register_blueprint(admin_bp)
 from routes.api import api_bp
 app.register_blueprint(api_bp)
 
-try:
-    from routes.portals import cashier_bp, kitchen_bp, inventory_bp, rider_bp
-    app.register_blueprint(cashier_bp)
-    app.register_blueprint(kitchen_bp)
-    app.register_blueprint(inventory_bp)
-    app.register_blueprint(rider_bp)
-except Exception as e:
-    print(f"Failed to register portals blueprints: {e}")
+# Ensure database tables exist (Crucial for Render production)
+with app.app_context():
+    try:
+        db.create_all()
+        print("--- DB INIT: Tables verified/created successfully ---")
+    except Exception as e:
+        print(f"--- DB INIT ERROR: {e} ---")
+
+def _maybe_create_indexes_background():
+    """
+    Create DB indexes to speed up frequent filters/joins.
+    Runs in a background thread so it won't block app startup.
+    """
+    # Avoid running on SQLite (indexes unnecessary; and SQL differs).
+    try:
+        dialect = db.engine.dialect.name
+    except Exception:
+        return
+    if dialect not in ("postgresql", "postgres"):
+        return
+
+    # You can disable by setting AUTO_CREATE_INDEXES=0
+    enabled = os.environ.get("AUTO_CREATE_INDEXES", "").strip()
+    if enabled == "0":
+        return
+
+    def worker():
+        with app.app_context():
+            try:
+                stmts = [
+                    # Reservations overlap checks / listings
+                    "CREATE INDEX IF NOT EXISTS idx_reservation_date_status_booking_time ON reservation (date, status, booking_type, time)",
+                    "CREATE INDEX IF NOT EXISTS idx_reservation_user_date_status ON reservation (user_id, date, status)",
+                    # Orders (rider tracking + user dashboards)
+                    "CREATE INDEX IF NOT EXISTS idx_order_rider_delivery_status_id ON \"order\" (rider_id, delivery_status, id)",
+                    "CREATE INDEX IF NOT EXISTS idx_order_user_created_at ON \"order\" (user_id, created_at DESC)",
+                    # Reviews admin page
+                    "CREATE INDEX IF NOT EXISTS idx_review_status_created_at ON review (status, created_at DESC)",
+                    # Menu page category browsing
+                    "CREATE INDEX IF NOT EXISTS idx_menu_item_category_name ON menu_item (category, name)",
+                    # Order chat
+                    "CREATE INDEX IF NOT EXISTS idx_order_chat_order_id_created_at ON order_chat (order_id, created_at DESC)",
+                    # Order items / recipes joins
+                    "CREATE INDEX IF NOT EXISTS idx_order_item_order_menuitem ON order_item (order_id, menu_item_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_menu_item_ingredient_menuitem_ingredient ON menu_item_ingredient (menu_item_id, ingredient_id)",
+                ]
+                conn = db.engine.connect()
+                try:
+                    for s in stmts:
+                        conn.execute(sql_text(s))
+                    conn.commit()
+                finally:
+                    conn.close()
+            except Exception as e:
+                # Do not crash app; just log.
+                print(f"Index creation skipped/failed: {e}")
+
+    threading.Thread(target=worker, daemon=True).start()
+
+_maybe_create_indexes_background()
+
 
 @app.before_request
 def init_session():
@@ -106,6 +147,19 @@ def init_session():
     if session:
         pass
     session.permanent = True
+
+@app.after_request
+def add_static_cache_headers(resp):
+    """
+    Strong caching for static assets to reduce repeat loading.
+    """
+    try:
+        path = request.path or ""
+        if path.startswith("/static/"):
+            resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    except Exception:
+        pass
+    return resp
 
 @app.context_processor
 def inject_config():
@@ -117,34 +171,39 @@ def inject_config():
         site=load_site_settings()
     )
 
-if __name__ == '__main__':
-    # Monkey patch for Eventlet support in development
-    try:
-        import eventlet
-        eventlet.monkey_patch()
-    except Exception as e:
-        print(f"Eventlet warning: {e}")
+import traceback
+import sys
 
-    # Ensure database tables exist
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    
+    # Log the full traceback to the Render logs
+    print("🚨 TRACEBACK ERROR LOGGED BY ANTIGRAVITY:", file=sys.stderr)
+    traceback.print_exc()
+    
+    # Try to render the 500 error page if it exists, else return text
+    return "Internal Server Error - Check Render Logs for the Antigravity Traceback", 500
+
+if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        
+    
     # Get local IP address
     import socket
     hostname = socket.gethostname()
-    local_ip = '127.0.0.1'
-    try:
-        local_ip = socket.gethostbyname(hostname)
-    except:
-        pass
+    local_ip = socket.gethostbyname(hostname)
     
     # Print accessible URLs
     print("\n" + "="*60)
-    print("Le Maison Flask App is Running!")
+    print("🚀 Le Maison Flask App is Running!")
     print("="*60)
-    print(f"Local Access:        http://localhost:5000")
-    print(f"Local IP Access:     http://127.0.0.1:5000")
-    print(f"Network Access:      http://{local_ip}:5000")
+    print(f"📱 Local Access:        http://localhost:5000")
+    print(f"📱 Local IP Access:     http://127.0.0.1:5000")
+    print(f"🌐 Network Access:      http://{local_ip}:5000")
     print("="*60 + "\n")
     
     # Run with debug=True for development only

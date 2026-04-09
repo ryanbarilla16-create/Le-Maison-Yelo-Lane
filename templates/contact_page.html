@@ -1,0 +1,58 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<main class="py-5" style="margin-top: 130px; min-height: 80vh;">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h1 style="font-family: 'Playfair Display', serif; color: var(--text-main); font-size: 3rem; margin-bottom: 2rem;">Contact Us</h1>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <!-- Clean minimalist form matching the reference -->
+                <form action="#" method="POST" style="background: transparent;">
+                    
+                    <div class="mb-4">
+                        <input type="text" class="form-control" name="first_name" placeholder="First Name" required
+                            style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.8rem 1rem; color: #555; background: #fff; font-size: 0.95rem;">
+                    </div>
+
+                    <div class="mb-4">
+                        <input type="text" class="form-control" name="last_name" placeholder="Last Name" required
+                            style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.8rem 1rem; color: #555; background: #fff; font-size: 0.95rem;">
+                    </div>
+
+                    <div class="mb-4">
+                        <input type="email" class="form-control" name="email" placeholder="Email" required
+                            style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.8rem 1rem; color: #555; background: #fff; font-size: 0.95rem;">
+                    </div>
+
+                    <div class="mb-4">
+                        <input type="tel" class="form-control" name="phone_number" placeholder="Phone Number" required
+                            style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.8rem 1rem; color: #555; background: #fff; font-size: 0.95rem;">
+                    </div>
+
+                    <div class="mb-4">
+                        <textarea class="form-control" name="message" placeholder="Message" rows="6" required
+                            style="border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.8rem 1rem; color: #555; background: #fff; font-size: 0.95rem; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="text-start mt-4">
+                        <button type="submit" class="btn text-white w-100 py-3 fw-bold" 
+                            style="background-color: var(--text-main); border-radius: 4px; font-size: 1rem; letter-spacing: 1px;">Send Message</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+    /* Prevent blue focus outline, make it soft gray */
+    .form-control:focus {
+        border-color: #999 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+</style>
+{% endblock %}

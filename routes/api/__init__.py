@@ -3,7 +3,7 @@ from flask_mail import Message
 from models import db, MenuItem, User, Reservation, Order, OrderItem, Review, Notification, ChatMessage, Voucher
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, time as dtime
-from utils import get_ph_time, create_notification
+from utils import get_ph_time, safe_elapsed, create_notification, send_email
 import re
 import random
 import traceback
@@ -11,25 +11,59 @@ import os
 import base64
 import requests as http_requests
 import threading
+import time
+from sqlalchemy.orm import selectinload
 from flask import current_app
 
 def send_async_email(app, msg):
     """Sends email in a background thread to avoid blocking the API response."""
     with app.app_context():
-        try:
-            mail = app.extensions.get('mail')
-            if mail:
+        mail = app.extensions.get('mail')
+        if not mail:
+            return
+        for attempt in range(1, 4):
+            try:
                 mail.send(msg)
-        except Exception as e:
-            print(f"Async Email Error: {e}")
-            import traceback
-            traceback.print_exc()
+                return
+            except Exception as e:
+                # Transient SMTP issues happen; retry a few times.
+                if attempt >= 3:
+                    print(f"Async Email Error (final): {e}")
+                    traceback.print_exc()
+                    return
+                time.sleep(0.75 * attempt)
+
+def send_email_async(to_email: str, subject: str, html_content: str):
+    """Queue utils.send_email() in a background thread to avoid blocking API latency."""
+    app_obj = current_app._get_current_object()
+
+    def _worker():
+        with app_obj.app_context():
+            try:
+                send_email(to_email, subject, html_content)
+            except Exception as e:
+                print(f"Async send_email failed: {e}")
+                traceback.print_exc()
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# Setup Xendit (direct HTTP - SDK has urllib3 compatibility issues)
-XENDIT_SECRET_KEY = os.environ.get('XENDIT_SECRET_KEY')
+# Setup Xendit API Endpoint
 XENDIT_API_URL = 'https://api.xendit.co/v2/invoices'
+
+# Simple TTL cache for hot menu endpoints (speeds up Flutter loading)
+_MENU_API_CACHE = {}
+_MENU_API_TTL_SECONDS = 60
+
+def _cache_get(key, loader, ttl_seconds=_MENU_API_TTL_SECONDS):
+    entry = _MENU_API_CACHE.get(key)
+    now = time.monotonic()
+    if entry and (now - entry['ts']) < ttl_seconds:
+        return entry['value']
+    value = loader()
+    _MENU_API_CACHE[key] = {'ts': now, 'value': value}
+    return value
 
 # ═══ VALIDATION HELPERS (same as web) ═══
 def has_repeated_chars(s, limit=4):
@@ -86,34 +120,50 @@ def check_reservation_time(t):
 @api_bp.route('/menu', methods=['GET'])
 def get_menu():
     """
-    Get all available menu items
+    Get menu items (optionally filtered by category)
     ---
+    parameters:
+      - name: category
+        in: query
+        type: string
+        description: The category to filter by
     responses:
       200:
         description: A list of menu items
-        schema:
-          type: array
-          items:
-            properties:
-              id: {type: integer}
-              name: {type: string}
-              price: {type: number}
-              category: {type: string}
-              image_url: {type: string}
     """
     try:
-        items = MenuItem.query.filter_by(is_available=True).all()
-        menu_list = []
-        for item in items:
-            menu_list.append({
-                'id': item.id,
-                'name': item.name,
-                'description': item.description,
-                'price': float(item.price),
-                'category': item.category,
-                'image_url': item.image_url
-            })
-        return jsonify(menu_list), 200
+        cat_filter = request.args.get('category')
+        limit = request.args.get('limit', type=int)
+
+        cat_key = cat_filter if cat_filter else 'All'
+        limit_key = str(limit) if limit else ''
+        cache_key = f"menu:items:cat={cat_key}:limit={limit_key}"
+
+        def loader():
+            query = MenuItem.query
+            if cat_filter and cat_filter != 'All':
+                query = query.filter_by(category=cat_filter)
+
+            if limit:
+                items = query.limit(limit).all()
+            else:
+                items = query.all()
+
+            menu_list = []
+            for item in items:
+                menu_list.append({
+                    'id': item.id,
+                    'name': item.name,
+                    'description': item.description,
+                    'price': float(item.price),
+                    'category': item.category,
+                    'image_url': item.image_url,
+                    # Avoid heavy ingredient-based `is_out_of_stock` computation here.
+                    'is_out_of_stock': (not item.is_available),
+                })
+            return menu_list
+
+        return jsonify(_cache_get(cache_key, loader)), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -132,7 +182,7 @@ def get_categories():
             MenuItem.category,
             func.count(MenuItem.id).label('count'),
             func.min(MenuItem.image_url).label('sample_image')
-        ).filter(MenuItem.is_available == True).group_by(MenuItem.category).all()
+        ).group_by(MenuItem.category).all()
         
         result = [{'category': c.category, 'count': c.count, 'sample_image': c.sample_image} for c in cats]
         return jsonify(result), 200
@@ -142,19 +192,59 @@ def get_categories():
 @api_bp.route('/menu/bestsellers', methods=['GET'])
 def get_bestsellers():
     try:
-        items = MenuItem.query.filter_by(is_available=True, category='Best Sellers').all()
-        result = [{'id': i.id, 'name': i.name, 'description': i.description, 'price': float(i.price), 'category': i.category, 'image_url': i.image_url} for i in items]
-        return jsonify(result), 200
+        def loader():
+            items = (
+                MenuItem.query.filter_by(category='Best Sellers')
+                .order_by(MenuItem.name.asc())
+                .limit(12)
+                .all()
+            )
+            return [{
+                'id': i.id,
+                'name': i.name,
+                'description': i.description,
+                'price': float(i.price),
+                'category': i.category,
+                'image_url': i.image_url,
+                'is_out_of_stock': (not i.is_available),
+            } for i in items]
+
+        return jsonify(_cache_get('menu:bestsellers', loader, ttl_seconds=60)), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/menu/featured', methods=['GET'])
 def get_featured():
     try:
-        from sqlalchemy import func
-        items = MenuItem.query.filter_by(is_available=True).order_by(func.random()).limit(6).all()
-        result = [{'id': i.id, 'name': i.name, 'description': i.description, 'price': float(i.price), 'category': i.category, 'image_url': i.image_url} for i in items]
-        return jsonify(result), 200
+        def loader():
+            import random
+            total_available = MenuItem.query.filter_by(is_available=True).count()
+            if total_available <= 0:
+                return []
+
+            offset = 0
+            if total_available > 6:
+                offset = random.randint(0, total_available - 6)
+
+            items = (
+                MenuItem.query.filter_by(is_available=True)
+                .order_by(MenuItem.id.asc())
+                .offset(offset)
+                .limit(6)
+                .all()
+            )
+            return [{
+                'id': i.id,
+                'name': i.name,
+                'description': i.description,
+                'price': float(i.price),
+                'category': i.category,
+                'image_url': i.image_url,
+                'is_out_of_stock': (not i.is_available),
+            } for i in items]
+
+        # Cache briefly to reduce DB load (featured uses random, so keep TTL small).
+        return jsonify(_cache_get('menu:featured', loader, ttl_seconds=30)), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -254,14 +344,9 @@ def api_signup():
 
     print(f"--- OTP FOR {email} IS: {otp} ---")
 
-    # Send OTP via Gmail
+    # Send OTP via SendGrid Optimized Utility
     try:
-        msg = Message(
-            subject='Le Maison Yelo Lane - Your OTP Verification Code',
-            sender=current_app.config['MAIL_USERNAME'],
-            recipients=[email]
-        )
-        msg.html = f"""
+        html_content = f"""
         <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
             <div style="text-align: center; margin-bottom: 30px;">
                 <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
@@ -275,11 +360,9 @@ def api_signup():
             <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 5 minutes.</p>
         </div>
         """
-        app = current_app._get_current_object()
-        threading.Thread(target=send_async_email, args=(app, msg)).start()
+        send_email_async(email, 'Your OTP Verification Code', html_content)
     except Exception as e:
-        print(f"Email queuing failed: {e}")
-        traceback.print_exc()
+        print(f"SendGrid OTP failed: {e}")
 
     return jsonify({'success': True, 'user_id': new_user.id, 'message': f'OTP sent to {email}.'}), 201
 
@@ -314,7 +397,7 @@ def api_resend_otp():
         return jsonify({'success': False, 'message': 'Account already verified.'}), 400
     
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         if elapsed < 300:
             remaining = int(300 - elapsed)
             return jsonify({'success': False, 'message': f'Please wait {remaining // 60}m {remaining % 60}s before requesting a new code.'}), 429
@@ -329,7 +412,7 @@ def api_resend_otp():
     try:
         msg = Message(
             subject='Le Maison Yelo Lane - Your New OTP Code',
-            sender=current_app.config['MAIL_USERNAME'],
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER') or 'ryanbarilla16@gmail.com',
             recipients=[user.email]
         )
         msg.html = f"""
@@ -405,12 +488,38 @@ def api_social_auth():
     user = User.query.filter_by(email=email).first()
 
     if user:
-        # Update profile picture if missing
         if picture_url and not user.profile_picture_url:
             user.profile_picture_url = picture_url
             db.session.commit()
 
-        # Block staff/admin from mobile login
+        if not user.is_verified:
+            # Send new OTP for unverified user
+            otp = f"{random.randint(100000, 999999)}"
+            user.otp_code = otp
+            from utils import get_ph_time, send_email
+            user.otp_created_at = get_ph_time()
+            db.session.commit()
+            
+            html_msg = f"""
+            <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+                    <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+                    </div>
+                    <div style="padding: 40px 35px; color: #4e342e;">
+                        <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                        <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
+                        <p style="font-size: 15px; color: #6d4c41;">Please use the following code to verify your {provider} account on the mobile app:</p>
+                        <div style="text-align: center; margin: 40px 0;">
+                            <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """
+            send_email_async(user.email, 'Verify your mobile account', html_msg)
+            return jsonify({'success': False, 'needs_otp': True, 'user_id': user.id, 'message': 'Please verify your account. An OTP has been sent.'}), 403
+
         if user.role in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
             return jsonify({'success': False, 'message': 'Staff/Admin accounts cannot login via the mobile app.'}), 403
 
@@ -431,35 +540,54 @@ def api_social_auth():
             }
         }), 200
 
-    # Auto-create user since they used social login
+    # Auto-create user
     base_username = (first_name + last_name).lower().replace(' ', '')
     if len(base_username) < 5:
         base_username = base_username + 'user'
     username = f"{base_username}{secrets.randbelow(9999)}"
-
     while User.query.filter_by(username=username).first():
         username = f"{base_username}{secrets.randbelow(99999)}"
 
     random_password = secrets.token_urlsafe(16)
+    otp = f"{random.randint(100000, 999999)}"
 
     new_user = User(
-        first_name=first_name,
-        last_name=last_name,
-        username=username,
-        email=email,
-        status=status_override or 'PENDING',
-        is_verified=True,
-        profile_picture_url=picture_url
+        first_name=first_name, last_name=last_name, username=username,
+        email=email, status='PENDING', is_verified=False,
+        profile_picture_url=picture_url, otp_code=otp
     )
+    from utils import get_ph_time, send_email
+    new_user.otp_created_at = get_ph_time()
     new_user.set_password(random_password)
-
     db.session.add(new_user)
     db.session.commit()
 
+    html_msg = f"""
+    <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+            <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+            </div>
+            <div style="padding: 40px 35px; color: #4e342e;">
+                <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{first_name}</strong>,</p>
+                <p style="font-size: 15px; color: #6d4c41;">Welcome! Please use the following code to verify your new {provider} account on the mobile app:</p>
+                <div style="text-align: center; margin: 40px 0;">
+                    <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    send_email_async(email, 'Verify your mobile account', html_msg)
+
     return jsonify({
         'success': False,
-        'message': f'Welcome {first_name}! Your account was created via {provider} but requires admin approval before you can log in.'
+        'needs_otp': True,
+        'user_id': new_user.id,
+        'message': f'Welcome {first_name}! Your account was created via {provider} but requires email verification.'
     }), 201
+
 
 # --- MOBILE SOCIAL LOGIN POLLING ---
 mobile_sessions = {}
@@ -488,6 +616,35 @@ def api_social_complete():
         if picture_url and not user.profile_picture_url:
             user.profile_picture_url = picture_url
             db.session.commit()
+
+        if not user.is_verified:
+            # Send new OTP
+            otp = f"{random.randint(100000, 999999)}"
+            user.otp_code = otp
+            from utils import get_ph_time, send_email
+            user.otp_created_at = get_ph_time()
+            db.session.commit()
+            
+            html_msg = f"""
+            <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+                    <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+                    </div>
+                    <div style="padding: 40px 35px; color: #4e342e;">
+                        <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                        <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
+                        <p style="font-size: 15px; color: #6d4c41;">Please verify your {provider} account on the app using this code:</p>
+                        <div style="text-align: center; margin: 40px 0;">
+                            <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """
+            send_email_async(user.email, 'Verify your account', html_msg)
+            mobile_sessions[session_id] = {'success': False, 'needs_otp': True, 'user_id': user.id, 'message': 'Account verification required.'}
+            return jsonify({'success': True})
 
         if user.role in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
             mobile_sessions[session_id] = {'success': False, 'status': 'failed', 'message': 'Staff/Admin cannot login via mobile.'}
@@ -520,25 +677,47 @@ def api_social_complete():
     while User.query.filter_by(username=username).first():
         username = f"{base_username}{secrets.randbelow(99999)}"
 
+    random_password = secrets.token_urlsafe(16)
+    otp = f"{random.randint(100000, 999999)}"
+
     new_user = User(
-        first_name=first_name,
-        last_name=last_name,
-        username=username,
-        email=email,
-        status=status_override or 'PENDING',
-        is_verified=True,
-        profile_picture_url=picture_url
+        first_name=first_name, last_name=last_name, username=username,
+        email=email, status='PENDING', is_verified=False,
+        profile_picture_url=picture_url, otp_code=otp
     )
-    new_user.set_password(secrets.token_urlsafe(16))
+    from utils import get_ph_time, send_email
+    new_user.otp_created_at = get_ph_time()
+    new_user.set_password(random_password)
     db.session.add(new_user)
     db.session.commit()
 
+    html_msg = f"""
+    <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+            <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+            </div>
+            <div style="padding: 40px 35px; color: #4e342e;">
+                <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{first_name}</strong>,</p>
+                <p style="font-size: 15px; color: #6d4c41;">Welcome! Please verify your new {provider} account on the app using this code:</p>
+                <div style="text-align: center; margin: 40px 0;">
+                    <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    send_email_async(email, 'Verify your account', html_msg)
+
     mobile_sessions[session_id] = {
         'success': False,
-        'status': 'failed', 
-        'message': f'Welcome {first_name}! Account created via {provider} but requires admin approval.'
+        'needs_otp': True,
+        'user_id': new_user.id,
+        'message': f'Welcome {first_name}! Account created via {provider} but requires email verification.'
     }
     return jsonify({'success': True})
+
 
 @api_bp.route('/auth/social/poll', methods=['GET'])
 def api_social_poll():
@@ -567,7 +746,15 @@ def api_user_dashboard(user_id):
         Reservation.status == 'COMPLETED'
     ).count()
     
-    recent_orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).limit(3).all()
+    recent_orders = (
+        Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item)
+        )
+        .filter_by(user_id=user_id)
+        .order_by(Order.created_at.desc())
+        .limit(3)
+        .all()
+    )
     
     return jsonify({
         'upcoming_reservations': [{
@@ -586,9 +773,25 @@ def api_user_dashboard(user_id):
 # ═══ ORDERS API ═══
 @api_bp.route('/user/<int:user_id>/orders', methods=['GET'])
 def api_user_orders(user_id):
-    orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
-    
-    user_reviews = Review.query.filter_by(user_id=user_id).all()
+    orders = (
+        Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item)
+        )
+        .filter_by(user_id=user_id)
+        .order_by(Order.created_at.desc())
+        .limit(30)
+        .all()
+    )
+
+    order_ids = [o.id for o in orders]
+    if order_ids:
+        user_reviews = Review.query.filter(
+            Review.user_id == user_id,
+            Review.order_id.in_(order_ids),
+        ).all()
+    else:
+        user_reviews = []
+
     reviews_by_order = {r.order_id: r.rating for r in user_reviews if r.order_id}
     
     result = []
@@ -608,9 +811,18 @@ def api_user_orders(user_id):
             'review_rating': reviews_by_order.get(o.id)
         })
     
-    pending_count = sum(1 for o in orders if o.status == 'PENDING')
-    preparing_count = sum(1 for o in orders if o.status == 'PREPARING')
-    completed_count = sum(1 for o in orders if o.status == 'COMPLETED')
+    # Grouped counts in 1 query (faster than 3 separate COUNTs).
+    from sqlalchemy import func
+    rows = (
+        db.session.query(Order.status, func.count(Order.id))
+        .filter(Order.user_id == user_id)
+        .group_by(Order.status)
+        .all()
+    )
+    counts = {s: int(c or 0) for s, c in rows}
+    pending_count = counts.get('PENDING', 0)
+    preparing_count = counts.get('PREPARING', 0)
+    completed_count = counts.get('COMPLETED', 0)
     
     return jsonify({
         'orders': result,
@@ -627,6 +839,7 @@ def api_checkout():
     notes = data.get('notes', '')
     dining_option = data.get('dining_option', 'DINE_IN')
     payment_method = data.get('payment_method', 'COUNTER')
+    voucher_code = (data.get('voucher_code') or '').strip().upper()
     
     if not user_id or not cart_items:
         return jsonify({'success': False, 'message': 'Cart is empty.'}), 400
@@ -639,23 +852,63 @@ def api_checkout():
         return jsonify({'success': False, 'message': msg}), 400
     # ------------------------------
     
-    total = 0
-    order_items = []
+    # Batch-fetch menu items to avoid N+1 queries
+    item_ids = []
+    qty_by_id = {}
     for ci in cart_items:
-        menu_item = MenuItem.query.get(ci['menu_item_id'])
-        if menu_item and menu_item.is_available:
-            price = float(menu_item.price)
-            subtotal = price * ci['quantity']
-            total += subtotal
-            order_items.append(OrderItem(
+        try:
+            mid = int(ci.get('menu_item_id'))
+            qty = int(ci.get('quantity', 0))
+        except Exception:
+            continue
+        if mid and qty > 0:
+            item_ids.append(mid)
+            qty_by_id[mid] = qty_by_id.get(mid, 0) + qty
+
+    if not item_ids:
+        return jsonify({'success': False, 'message': 'Cart is empty.'}), 400
+
+    menu_items = MenuItem.query.filter(MenuItem.id.in_(item_ids)).all()
+    menu_items_by_id = {m.id: m for m in menu_items}
+
+    total = 0.0
+    order_items = []
+    for mid, qty in qty_by_id.items():
+        menu_item = menu_items_by_id.get(mid)
+        if not menu_item:
+            continue
+        # Keep fast stock check for API: treat disabled items as out of stock
+        if not menu_item.is_available:
+            continue
+
+        price = float(menu_item.price)
+        total += price * qty
+        order_items.append(
+            OrderItem(
                 menu_item_id=menu_item.id,
-                quantity=ci['quantity'],
-                price_at_time=price
-            ))
+                quantity=qty,
+                price_at_time=price,
+            )
+        )
     
     if not order_items:
         return jsonify({'success': False, 'message': 'Items in cart are no longer available.'}), 400
     
+    # Apply Voucher Discount if any
+    discount_amount = 0
+    if voucher_code:
+        from models import Voucher
+        v = Voucher.query.filter_by(code=voucher_code, is_active=True).first()
+        if v and total >= float(v.min_order_amount):
+            if v.discount_type == 'PERCENT':
+                discount_amount = total * (float(v.discount_value) / 100.0)
+            else:
+                discount_amount = float(v.discount_value)
+            
+            discount_amount = min(discount_amount, total)
+            total -= discount_amount
+            v.times_used += 1
+
     new_order = Order(
         user_id=user_id,
         total_amount=total,
@@ -679,19 +932,21 @@ def api_checkout():
     
     # ═══ HANDLE ONLINE PAYMENT (XENDIT) ═══
     invoice_url = None
-    if payment_method == 'GCASH' and XENDIT_SECRET_KEY:
+    xendit_secret = os.environ.get('XENDIT_SECRET_KEY')
+    if payment_method == 'GCASH' and xendit_secret:
         try:
             # Build auth header
-            auth_str = base64.b64encode(f'{XENDIT_SECRET_KEY}:'.encode()).decode()
+            auth_str = base64.b64encode(f'{xendit_secret}:'.encode()).decode()
             
             # Build invoice items
-            inv_items = [
-                {
-                    'name': item.menu_item.name,
+            inv_items = []
+            for item in order_items:
+                m = menu_items_by_id.get(item.menu_item_id)
+                inv_items.append({
+                    'name': m.name if m else f"Item #{item.menu_item_id}",
                     'quantity': int(item.quantity),
-                    'price': float(item.price_at_time)
-                } for item in order_items
-            ]
+                    'price': float(item.price_at_time),
+                })
             
             # Create Xendit Invoice via REST API
             xendit_resp = http_requests.post(
@@ -703,7 +958,7 @@ def api_checkout():
                 json={
                     'external_id': f'order_{new_order.id}',
                     'amount': float(total),
-                    'payer_email': User.query.get(user_id).email,
+                    'payer_email': (User.query.with_entities(User.email).filter_by(id=user_id).scalar() or ''),
                     'description': f'Order #{new_order.id} - Le Maison Yelo Lane',
                     'invoice_duration': 86400,
                     'currency': 'PHP',
@@ -830,6 +1085,9 @@ def api_reserve():
     occasion = data.get('occasion', '')
     booking_type = data.get('booking_type', 'REGULAR')
     duration_str = data.get('duration', '2')
+    menu_items = data.get('menu_items', []) # New: List of {id, qty} for pre-order
+    
+    # Keep API responsive: avoid noisy prints on every request
     
     try:
         res_date = datetime.strptime(res_date_str, '%Y-%m-%d').date()
@@ -840,6 +1098,7 @@ def api_reserve():
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': 'Invalid data format.'}), 400
     
+    # ... Same validation logic as web ...
     today = date.today()
     diff = (res_date - today).days
     
@@ -850,64 +1109,60 @@ def api_reserve():
         if diff < 0:
             return jsonify({'success': False, 'message': 'Cannot book in the past.'}), 400
         if diff == 0:
-            from datetime import datetime as dt
-            curr_t = dt.now().time()
+            curr_t = datetime.now().time()
             if res_time <= curr_t:
-                return jsonify({'success': False, 'message': 'You cannot book a time slot that has already passed today.'}), 400
-    
-    if diff > 60:
-        return jsonify({'success': False, 'message': 'Reservation can be max 2 months (60 days) in advance.'}), 400
+                return jsonify({'success': False, 'message': 'This time slot has already passed today.'}), 400
+            # Strict cutoff for same-day booking
+            if curr_t >= dtime(20, 30):
+                return jsonify({'success': False, 'message': 'Restaurant is now closed for same-day bookings. Please book for tomorrow.'}), 400
+
     
     if not check_reservation_time(res_time):
-        return jsonify({'success': False, 'message': 'Time must be between 11:30 AM - 8:30 PM with 30-minute intervals.'}), 400
+        return jsonify({'success': False, 'message': 'Time must be between 11:30 AM - 8:30 PM.'}), 400
     
-    if guest_count <= 0:
-        return jsonify({'success': False, 'message': 'Guest count must be at least 1.'}), 400
-    
-    if booking_type == 'EXCLUSIVE':
-        if guest_count > 50:
-            return jsonify({'success': False, 'message': 'Exclusive Venue can hold up to 50 guests maximum.'}), 400
-    else:
-        if guest_count > 20:
-            return jsonify({'success': False, 'message': 'Regular tables max at 20 guests.'}), 400
-    
-    active_res = Reservation.query.filter(
+    # Check for conflicts
+    c_start = datetime.combine(res_date, res_time)
+    c_end = c_start + timedelta(hours=duration)
+
+    # SQL EXISTS overlap check (prevents heavy Python loops as reservations grow).
+    # Conflict rule:
+    # - If request is REGULAR: only overlaps with existing EXCLUSIVE reservations matter.
+    # - If request is EXCLUSIVE: overlaps with any reservation matter.
+    from sqlalchemy import text as sql_text
+    dur_expr = func.coalesce(Reservation.duration, 2)
+
+    # Convert (date + time) to a timestamp in SQL so we can compare proper intervals.
+    # This works well on Postgres (NeonDB).
+    start_ts = func.make_timestamp(
+        func.cast(func.extract('year', Reservation.date), db.Integer),
+        func.cast(func.extract('month', Reservation.date), db.Integer),
+        func.cast(func.extract('day', Reservation.date), db.Integer),
+        func.cast(func.extract('hour', Reservation.time), db.Integer),
+        func.cast(func.extract('minute', Reservation.time), db.Integer),
+        func.cast(func.extract('second', Reservation.time), db.Integer),
+    )
+    end_ts = start_ts + (dur_expr * sql_text("interval '1 hour'"))
+
+    q = Reservation.query.filter(
         Reservation.date == res_date,
-        Reservation.status.in_(['PENDING', 'CONFIRMED'])
-    ).all()
-    
-    from datetime import timedelta
-    current_res_start = datetime.combine(res_date, res_time)
-    current_res_end = current_res_start + timedelta(hours=duration)
-    
-    conflict = False
-    conflict_msg = ""
-    for r in active_res:
-        r_start = datetime.combine(r.date, r.time)
-        r_dur = r.duration if r.duration is not None else 2
-        r_end = r_start + timedelta(hours=r_dur)
-        if current_res_start < r_end and r_start < current_res_end:
-            if booking_type == 'EXCLUSIVE' or r.booking_type == 'EXCLUSIVE':
-                conflict = True
-                conflict_msg = "Conflicting exclusive booking or overlapping reservation."
-                break
-                
-    if conflict:
-        return jsonify({'success': False, 'message': conflict_msg}), 400
-        
+        Reservation.status.in_(['PENDING', 'CONFIRMED']),
+    )
     if booking_type != 'EXCLUSIVE':
-        overlapping_guests = 0
-        for r in active_res:
-            if r.booking_type != 'EXCLUSIVE':
-                r_start = datetime.combine(r.date, r.time)
-                r_dur = r.duration if r.duration is not None else 2
-                r_end = r_start + timedelta(hours=r_dur)
-                if current_res_start < r_end and r_start < current_res_end:
-                    overlapping_guests += r.guest_count
-        
-        if overlapping_guests + guest_count > 50:
-            return jsonify({'success': False, 'message': 'Time slot is fully booked. Not enough seats.'}), 400
-    
+        q = q.filter(Reservation.booking_type == 'EXCLUSIVE')
+
+    conflict = (
+        q.filter(
+            start_ts < c_end,
+            end_ts > c_start,
+        )
+        .with_entities(Reservation.id)
+        .limit(1)
+        .first()
+    )
+    if conflict:
+        return jsonify({'success': False, 'message': 'This time slot overlaps with an exclusive booking.'}), 400
+
+    # 1. Create Reservation
     new_res = Reservation(
         user_id=user_id,
         date=res_date,
@@ -915,40 +1170,161 @@ def api_reserve():
         duration=duration,
         guest_count=guest_count,
         occasion=occasion,
-        booking_type=booking_type
+        booking_type=booking_type,
+        status='PENDING'
     )
     db.session.add(new_res)
+    db.session.flush()
+
+    # 2. Handle Pre-Order if menu_items present
+    order_id = None
+    invoice_url = None
+    food_total = 0
+    
+    if menu_items:
+        new_order = Order(
+            user_id=user_id,
+            reservation_id=new_res.id,
+            status='HOLD',
+            payment_status='UNPAID',
+            dining_option='RESERVATION',
+            total_amount=0 # Update later
+        )
+        db.session.add(new_order)
+        db.session.flush()
+        
+        from decimal import Decimal
+        # Batch fetch to avoid N+1
+        pre_ids = []
+        qty_by_id = {}
+        for it in menu_items:
+            try:
+                mid = int(it.get('id'))
+                qty = int(it.get('qty', 0))
+            except Exception:
+                continue
+            if mid and qty > 0:
+                pre_ids.append(mid)
+                qty_by_id[mid] = qty_by_id.get(mid, 0) + qty
+
+        fetched = MenuItem.query.filter(MenuItem.id.in_(pre_ids)).all() if pre_ids else []
+        fetched_by_id = {m.id: m for m in fetched}
+
+        for mid, qty in qty_by_id.items():
+            m_item = fetched_by_id.get(mid)
+            if not m_item or not m_item.is_available:
+                continue
+            price = Decimal(str(m_item.price))
+            food_total += price * qty
+            db.session.add(
+                OrderItem(
+                    order_id=new_order.id,
+                    menu_item_id=m_item.id,
+                    quantity=qty,
+                    price_at_time=float(price),
+                )
+            )
+        
+        new_order.total_amount = float(food_total)
+        order_id = new_order.id
+
+        # Generate Xendit Link
+        xendit_secret = os.environ.get('XENDIT_SECRET_KEY')
+        if food_total > 0 and xendit_secret:
+            try:
+                auth_str = base64.b64encode(f'{xendit_secret}:'.encode()).decode()
+                x_resp = http_requests.post(XENDIT_API_URL, headers={'Authorization': f'Basic {auth_str}', 'Content-Type': 'application/json'},
+                    json={
+                        'external_id': f'res_{new_res.id}_ord_{new_order.id}',
+                        'amount': float(food_total),
+                        'payer_email': (User.query.with_entities(User.email).filter_by(id=user_id).scalar() or ''),
+                        'description': f'Reservation Order - Le Maison Yelo Lane',
+                        'currency': 'PHP'
+                    }, timeout=15)
+                if x_resp.status_code == 200:
+                    inv_data = x_resp.json()
+                    new_order.xendit_invoice_url = inv_data.get('invoice_url')
+                    invoice_url = inv_data.get('invoice_url')
+            except: pass
+
     db.session.commit()
     
-    # Send notification to user
-    _create_notification(user_id, 'Reservation Submitted', f'Your reservation for {res_date.strftime("%b %d, %Y")} at {res_time.strftime("%I:%M %p")} has been submitted. Pending approval.', 'RESERVATION')
+    _create_notification(user_id, 'Reservation Received', f'Your reservation for {res_date_str} has been received.', 'RESERVATION')
     
-    return jsonify({'success': True, 'message': 'Reservation submitted! Pending admin approval.'}), 201
+    return jsonify({
+        'success': True, 
+        'message': 'Reservation submitted!',
+        'reservation_id': new_res.id,
+        'order_id': order_id,
+        'invoice_url': invoice_url
+    }), 201
 
 @api_bp.route('/user/<int:user_id>/reservations', methods=['GET'])
 def api_user_reservations(user_id):
     today = date.today()
-    upcoming = Reservation.query.filter(
+    upcoming = (
+        Reservation.query.options(
+            selectinload(Reservation.linked_order)
+            .selectinload(Order.items)
+            .selectinload(OrderItem.menu_item)
+        )
+        .filter(
         Reservation.user_id == user_id,
         Reservation.date >= today,
         Reservation.status.in_(['PENDING', 'CONFIRMED'])
-    ).order_by(Reservation.date.asc(), Reservation.time.asc()).all()
+        )
+        .order_by(Reservation.date.asc(), Reservation.time.asc())
+        .limit(10)
+        .all()
+    )
     
-    past = Reservation.query.filter(
-        Reservation.user_id == user_id,
-        Reservation.status.in_(['COMPLETED', 'REJECTED'])
-    ).order_by(Reservation.created_at.desc()).limit(10).all()
+    past = (
+        Reservation.query.options(
+            selectinload(Reservation.linked_order)
+            .selectinload(Order.items)
+            .selectinload(OrderItem.menu_item)
+        )
+        .filter(
+            Reservation.user_id == user_id,
+            Reservation.status.in_(['COMPLETED', 'REJECTED'])
+        )
+        .order_by(Reservation.created_at.desc())
+        .limit(10)
+        .all()
+    )
     
     return jsonify({
         'upcoming': [{
             'id': r.id, 'date': r.date.strftime('%Y-%m-%d'), 'date_formatted': r.date.strftime('%b %d, %Y'),
             'time': r.time.strftime('%H:%M'), 'time_formatted': r.time.strftime('%I:%M %p'),
-            'guest_count': r.guest_count, 'occasion': r.occasion, 'booking_type': r.booking_type, 'status': r.status
+            'guest_count': r.guest_count, 'occasion': r.occasion, 'booking_type': r.booking_type, 'status': r.status,
+            'linked_order': {
+                'id': r.linked_order.id,
+                'total_amount': float(r.linked_order.total_amount),
+                'status': r.linked_order.status,
+                'payment_status': r.linked_order.payment_status,
+                'items': [{
+                    'name': item.menu_item.name,
+                    'quantity': item.quantity,
+                    'price': float(item.price_at_time),
+                    'image_url': item.menu_item.image_url
+                } for item in r.linked_order.items]
+            } if r.linked_order else None
         } for r in upcoming],
         'past': [{
             'id': r.id, 'date_formatted': r.date.strftime('%b %d, %Y'),
             'time_formatted': r.time.strftime('%I:%M %p'),
-            'guest_count': r.guest_count, 'occasion': r.occasion, 'status': r.status
+            'guest_count': r.guest_count, 'occasion': r.occasion, 'status': r.status,
+            'linked_order': {
+                'id': r.linked_order.id,
+                'total_amount': float(r.linked_order.total_amount),
+                'status': r.linked_order.status,
+                'items': [{
+                    'name': item.menu_item.name,
+                    'quantity': item.quantity,
+                    'price': float(item.price_at_time)
+                } for item in r.linked_order.items]
+            } if r.linked_order else None
         } for r in past]
     }), 200
 
@@ -978,27 +1354,74 @@ def api_update_profile(user_id):
     
     data = request.json
     first_name = (data.get('first_name') or '').strip()
+    middle_name = (data.get('middle_name') or '').strip()
     last_name = (data.get('last_name') or '').strip()
     username = (data.get('username') or '').strip()
     email = (data.get('email') or '').strip()
     phone_number = (data.get('phone_number') or '').strip()
     
+    current_password = data.get('current_password', '')
+    new_password = data.get('new_password', '')
+    confirm_new_password = data.get('confirm_new_password', '')
+
+    # --- VALIDATIONS ---
     if not all([first_name, last_name, username, email, phone_number]):
-        return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        return jsonify({'success': False, 'message': 'All profile fields are required.'}), 400
     
+    # Validate Names
+    for name, label in [(first_name, 'First Name'), (last_name, 'Last Name')]:
+        err = validate_name(name, label)
+        if err: return jsonify({'success': False, 'message': err}), 400
+    if middle_name:
+        err = validate_name(middle_name, 'Middle Name')
+        if err: return jsonify({'success': False, 'message': err}), 400
+
+    # Validate Email
+    err = validate_email(email)
+    if err: return jsonify({'success': False, 'message': err}), 400
+
+    # Validate Username
+    err = validate_username(username, first_name, last_name)
+    if err: return jsonify({'success': False, 'message': err}), 400
+
+    # Conflicts
     if email != user.email and User.query.filter_by(email=email).first():
         return jsonify({'success': False, 'message': 'Email already registered.'}), 400
     if username != user.username and User.query.filter_by(username=username).first():
         return jsonify({'success': False, 'message': 'Username already taken.'}), 400
     
+    # Password Change
+    if new_password:
+        if not current_password:
+            return jsonify({'success': False, 'message': 'Current password is required to change password.'}), 400
+        if not user.check_password(current_password):
+            return jsonify({'success': False, 'message': 'Incorrect current password.'}), 400
+        
+        err = validate_password(new_password, confirm_new_password)
+        if err: return jsonify({'success': False, 'message': err}), 400
+        
+        user.set_password(new_password)
+    
     user.first_name = first_name
+    user.middle_name = middle_name
     user.last_name = last_name
     user.username = username
     user.email = email
     user.phone_number = phone_number
     db.session.commit()
     
-    return jsonify({'success': True, 'message': 'Profile updated!'}), 200
+    return jsonify({
+        'success': True, 
+        'message': 'Profile updated!',
+        'user': {
+            'first_name': user.first_name,
+            'middle_name': user.middle_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
+            'phone_number': user.phone_number
+        }
+    }), 200
 
 # ═══ FORGOT PASSWORD API ═══
 @api_bp.route('/auth/forgot-password', methods=['POST'])
@@ -1016,7 +1439,7 @@ def api_forgot_password():
     
     # Rate-limit OTP (wait 60 seconds between requests)
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         if elapsed < 60:
             remaining = int(60 - elapsed)
             return jsonify({'success': False, 'message': f'Please wait {remaining}s before requesting a new code.'}), 429
@@ -1028,15 +1451,9 @@ def api_forgot_password():
     
     print(f"--- FORGOT PASSWORD OTP FOR {email} IS: {otp} ---")
     
-    # Send OTP via Gmail
+    # Send OTP via SendGrid Optimized Utility
     try:
-        mail = current_app.extensions['mail']
-        msg = Message(
-            subject='Le Maison Yelo Lane - Password Reset Code',
-            sender=current_app.config['MAIL_USERNAME'],
-            recipients=[email]
-        )
-        msg.html = f"""
+        html_content = f"""
         <div style="font-family: 'Georgia', serif; max-width: 500px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
             <div style="text-align: center; margin-bottom: 30px;">
                 <h1 style="color: #8B4513; margin: 0; font-size: 1.5rem;">Le Maison Yelo Lane</h1>
@@ -1050,10 +1467,9 @@ def api_forgot_password():
             <p style="color: #999; font-size: 0.8rem; text-align: center;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
         </div>
         """
-        mail.send(msg)
+        send_email_async(email, 'Password Reset Code', html_content)
     except Exception as e:
-        print(f"Email sending failed: {e}")
-        traceback.print_exc()
+        print(f"SendGrid Forgot Password failed: {e}")
     
     return jsonify({'success': True, 'user_id': user.id, 'message': f'OTP sent to {email}.'}), 200
 
@@ -1070,7 +1486,7 @@ def api_forgot_password_verify_otp():
     
     # Check OTP expiry (5 minutes)
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         if elapsed > 300:
             return jsonify({'success': False, 'message': 'OTP has expired. Please request a new one.'}), 400
     
@@ -1098,7 +1514,7 @@ def api_forgot_password_reset():
         
     # Check OTP expiry (5 minutes)
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         if elapsed > 300:
             return jsonify({'success': False, 'message': 'OTP has expired. Please start over.'}), 400
     
@@ -1116,6 +1532,28 @@ def api_forgot_password_reset():
     _create_notification(user.id, 'Password Changed', 'Your password was successfully changed.', 'SYSTEM')
     
     return jsonify({'success': True, 'message': 'Password reset successfully! You can now log in with your new password.'}), 200
+
+# ═══ REVIEWS API ═══
+@api_bp.route('/user/<int:user_id>/reviews', methods=['GET'])
+def api_get_user_reviews(user_id):
+    """
+    Get all reviews submitted by a specific user
+    """
+    from models import Review
+    limit = request.args.get('limit', 50, type=int)
+    limit = max(1, min(limit, 100))
+    reviews = Review.query.filter_by(user_id=user_id).order_by(Review.created_at.desc()).limit(limit).all()
+    
+    return jsonify({
+        'success': True,
+        'reviews': [{
+            'id': r.id,
+            'rating': r.rating,
+            'comment': r.comment,
+            'status': r.status,
+            'created_at': r.created_at.strftime('%b %d, %Y') if r.created_at else '',
+        } for r in reviews]
+    }), 200
 
 # ═══ NOTIFICATIONS API ═══
 def _create_notification(user_id, title, message, notif_type='SYSTEM'):
@@ -1180,6 +1618,51 @@ def api_mark_notifications_read():
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# ── VOUCHERS ──────────────────────────────────────────────────────────
+@api_bp.route('/voucher/validate', methods=['POST'])
+def validate_voucher():
+    data = request.json
+    code = (data.get('code') or '').strip().upper()
+    user_id = data.get('user_id')
+    order_amount = float(data.get('order_amount') or 0)
+
+    if not code:
+        return jsonify({'success': False, 'message': 'Voucher code is required.'}), 400
+
+    from models import Voucher
+    voucher = Voucher.query.filter_by(code=code, is_active=True).first()
+
+    if not voucher:
+        return jsonify({'success': False, 'message': 'Invalid or inactive voucher code.'}), 404
+
+    now = get_ph_time()
+    if voucher.valid_from and now < voucher.valid_from:
+        return jsonify({'success': False, 'message': 'Voucher is not yet valid.'}), 400
+    if voucher.valid_until and now > voucher.valid_until:
+        return jsonify({'success': False, 'message': 'Voucher has expired.'}), 400
+    if voucher.times_used >= voucher.max_uses:
+        return jsonify({'success': False, 'message': 'Voucher usage limit reached.'}), 400
+    if order_amount < float(voucher.min_order_amount):
+        return jsonify({'success': False, 'message': f'Minimum order of ₱{float(voucher.min_order_amount):.2f} required.'}), 400
+
+    # Calculate discount
+    discount = 0.0
+    if voucher.discount_type == 'PERCENT':
+        discount = order_amount * (float(voucher.discount_value) / 100.0)
+    else: # FIXED
+        discount = float(voucher.discount_value)
+
+    # Ensure discount doesn't exceed total
+    discount = min(discount, order_amount)
+
+    return jsonify({
+        'success': True,
+        'message': 'Voucher applied successfully!',
+        'discount_amount': discount,
+        'voucher_code': voucher.code
+    })
+
+# ── CART / CHECKOUT ───────────────────────────────────────────────────
 # ═══ CHAT SUPPORT API ═══
 @api_bp.route('/chat/<int:user_id>', methods=['GET'])
 def api_get_chat_messages(user_id):
@@ -1187,7 +1670,16 @@ def api_get_chat_messages(user_id):
     Get all chat messages for a specific user
     """
     try:
-        messages = ChatMessage.query.filter_by(user_id=user_id).order_by(ChatMessage.created_at.asc()).all()
+        limit = request.args.get('limit', default=200, type=int)
+        limit = max(1, min(limit, 500))
+        messages = (
+            ChatMessage.query.filter_by(user_id=user_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        # Return in chronological order for the UI
+        messages = list(reversed(messages))
         return jsonify({
             'success': True,
             'messages': [{
@@ -1309,27 +1801,36 @@ def rider_get_deliveries():
     
     # Available = DELIVERY dining + no rider assigned yet (or WAITING)
     # Show PENDING, PREPARING, and COMPLETED orders so rider sees them immediately
-    available = Order.query.filter(
+    available = Order.query.options(
+        selectinload(Order.items).selectinload(OrderItem.menu_item),
+        selectinload(Order.user),
+    ).filter(
         Order.dining_option == 'DELIVERY',
         Order.status.in_(['PENDING', 'PREPARING', 'COMPLETED']),
         (Order.rider_id == None) | (Order.delivery_status == 'WAITING')
-    ).order_by(Order.created_at.desc()).all()
+    ).order_by(Order.created_at.desc()).limit(50).all()
     
     # My active deliveries
     my_active = []
     if rider_id:
-        my_active = Order.query.filter(
+        my_active = Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.user),
+        ).filter(
             Order.rider_id == rider_id,
             Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY'])
-        ).order_by(Order.created_at.desc()).all()
+        ).order_by(Order.created_at.desc()).limit(50).all()
     
-    # My completed deliveries (all history)
+    # My completed deliveries (Limited to last 20 for optimization)
     my_completed = []
     if rider_id:
-        my_completed = Order.query.filter(
+        my_completed = Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.user),
+        ).filter(
             Order.rider_id == rider_id,
             Order.delivery_status == 'DELIVERED'
-        ).order_by(Order.created_at.desc()).all()
+        ).order_by(Order.created_at.desc()).limit(20).all()
     
     def order_to_dict(o):
         return {
@@ -1351,6 +1852,21 @@ def rider_get_deliveries():
             } for item in o.items],
             'rider_id': o.rider_id,
         }
+
+    # Cache order_ids used by /rider/location so we don't hit DB every GPS update.
+    if rider_id:
+        try:
+            loc = _rider_locations.get(rider_id, {})
+            waiting_ids = [
+                o.id
+                for o in available
+                if o.rider_id == rider_id and (o.delivery_status is None or o.delivery_status == 'WAITING')
+            ]
+            loc['order_ids'] = waiting_ids + [o.id for o in my_active]
+            loc['order_ids_refresh_ts'] = get_ph_time().isoformat()
+            _rider_locations[rider_id] = loc
+        except Exception:
+            pass
     
     return jsonify({
         'success': True,
@@ -1451,35 +1967,28 @@ def rider_update_delivery(order_id):
 @api_bp.route('/rider/summary/<int:rider_id>', methods=['GET'])
 def rider_summary(rider_id):
     from datetime import date
-    total_deliveries = Order.query.filter(
-        Order.rider_id == rider_id,
-        Order.delivery_status == 'DELIVERED'
-    ).count()
-    
-    active_deliveries = Order.query.filter(
-        Order.rider_id == rider_id,
-        Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY'])
-    ).count()
-    
-    # Today's deliveries
     today = date.today()
-    today_deliveries = Order.query.filter(
-        Order.rider_id == rider_id,
-        Order.delivery_status == 'DELIVERED',
-        db.func.date(Order.created_at) == today
-    ).count()
+    from sqlalchemy import func, case
+
+    # Single aggregate query (faster than multiple COUNT queries).
+    row = db.session.query(
+        func.coalesce(func.sum(case((Order.delivery_status == 'DELIVERED', 1), else_=0)), 0).label('delivered'),
+        func.coalesce(func.sum(case((Order.delivery_status.in_(['PICKED_UP', 'ON_THE_WAY']), 1), else_=0)), 0).label('active'),
+        func.coalesce(func.sum(case(((Order.delivery_status == 'DELIVERED') & (db.func.date(Order.created_at) == today), 1), else_=0)), 0).label('today_delivered'),
+        func.coalesce(func.sum(case(((Order.delivery_status == 'DELIVERED') & (db.func.date(Order.created_at) == today), Order.delivery_fee), else_=0)), 0).label('today_delivery_fee_sum'),
+    ).filter(Order.rider_id == rider_id).first()
+
+    total_deliveries = int(row.delivered or 0) if row else 0
+    active_deliveries = int(row.active or 0) if row else 0
+    today_deliveries = int(row.today_delivered or 0) if row else 0
+    sum_delivery_fee = float(row.today_delivery_fee_sum or 0) if row else 0.0
     
     # Wallet balance
     rider = User.query.get(rider_id)
     wallet_balance = float(rider.wallet_balance or 0) if rider else 0.0
     
     # Today's earnings estimate (commission: ₱20 + 50% delivery fee per delivery)
-    today_orders = Order.query.filter(
-        Order.rider_id == rider_id,
-        Order.delivery_status == 'DELIVERED',
-        db.func.date(Order.created_at) == today
-    ).all()
-    today_earnings = sum(20.0 + (float(o.delivery_fee or 0) * 0.5) for o in today_orders)
+    today_earnings = round(20.0 * float(today_deliveries) + (float(sum_delivery_fee) * 0.5), 2)
     
     return jsonify({
         'success': True,
@@ -1505,24 +2014,48 @@ def rider_update_location():
     if not rider_id or lat is None or lng is None:
         return jsonify({'success': False, 'message': 'Missing rider_id, latitude, or longitude.'}), 400
     
-    rider = User.query.get(rider_id)
-    rider_name = f"{rider.first_name} {rider.last_name}" if rider else 'Unknown'
-    
-    # Get active order IDs for this rider
-    active_orders = Order.query.filter(
-        Order.rider_id == rider_id,
-        Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
-    ).all()
-    order_ids = [o.id for o in active_orders]
-    
-    _rider_locations[rider_id] = {
+    now = get_ph_time()
+    loc = _rider_locations.get(rider_id, {})
+
+    # Cache rider name to avoid DB hit on every GPS update.
+    rider_name = loc.get('rider_name')
+    if not rider_name:
+        rider = User.query.get(rider_id)
+        rider_name = f"{rider.first_name} {rider.last_name}" if rider else 'Unknown'
+
+    order_ids = loc.get('order_ids') or []
+    order_ids_refresh_ts = loc.get('order_ids_refresh_ts')
+
+    should_refresh = (not order_ids) or (not order_ids_refresh_ts)
+    if not should_refresh:
+        try:
+            age_seconds = (now - datetime.fromisoformat(order_ids_refresh_ts)).total_seconds()
+            # GPS posts can be very frequent; refresh order ids less often.
+            if age_seconds > 90:
+                should_refresh = True
+        except Exception:
+            should_refresh = True
+
+    # Refresh order_ids only occasionally (GPS posts can be frequent).
+    if should_refresh:
+        order_ids = [
+            row[0]
+            for row in Order.query.with_entities(Order.id).filter(
+                Order.rider_id == rider_id,
+                Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
+            ).order_by(Order.id.desc()).limit(150).all()
+        ]
+        loc['order_ids_refresh_ts'] = now.isoformat()
+
+    loc.update({
         'lat': float(lat),
         'lng': float(lng),
-        'timestamp': get_ph_time().isoformat(),
+        'timestamp': now.isoformat(),
         'rider_name': rider_name,
         'rider_id': rider_id,
         'order_ids': order_ids,
-    }
+    })
+    _rider_locations[rider_id] = loc
     
     return jsonify({'success': True, 'message': 'Location updated.'})
 
@@ -1550,7 +2083,7 @@ def get_all_rider_locations():
 @api_bp.route('/delivery/track/<int:order_id>', methods=['GET'])
 def track_delivery(order_id):
     """Customer: Track a specific delivery order on the map"""
-    order = Order.query.get(order_id)
+    order = Order.query.options(selectinload(Order.rider)).get(order_id)
     if not order:
         return jsonify({'success': False, 'message': 'Order not found.'}), 404
     
@@ -1585,12 +2118,22 @@ def track_delivery(order_id):
 def get_order_chat(order_id):
     """Fetch chat history for a specific order (between rider and customer)"""
     from models import OrderChat, Order
+    from sqlalchemy.orm import selectinload
     
     order = Order.query.get(order_id)
     if not order:
         return jsonify({'success': False, 'message': 'Order not found.'}), 404
     
-    messages = OrderChat.query.filter_by(order_id=order_id).order_by(OrderChat.created_at.asc()).all()
+    limit = request.args.get('limit', default=200, type=int)
+    limit = max(1, min(limit, 500))
+    messages = (
+        OrderChat.query.options(selectinload(OrderChat.sender))
+        .filter_by(order_id=order_id)
+        .order_by(OrderChat.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    messages = list(reversed(messages))
     
     message_list = [{
         'id': msg.id,

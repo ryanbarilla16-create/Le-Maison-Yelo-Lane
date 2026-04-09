@@ -5,9 +5,20 @@ from models import db, User
 import re
 import random
 import traceback
+import threading
 from datetime import datetime, date
-from utils import get_ph_time
+from utils import get_ph_time, safe_elapsed
 from .. import main_bp
+
+# Email sending can be slow (SMTP/API). Queue it in a background thread so pages don't time out.
+def _send_email_async_worker(app, to_email: str, subject: str, html_content: str):
+    with app.app_context():
+        try:
+            from utils import send_email
+            send_email(to_email, subject, html_content)
+        except Exception as e:
+            print(f"Async send_email failed: {e}")
+            traceback.print_exc()
 
 # --- VALIDATION HELPERS ---
 def has_repeated_chars(s, limit=4):
@@ -124,43 +135,38 @@ def signup():
 
         print(f"--- OTP FOR {email} IS: {otp} ---")
         
-        # Send OTP via Gmail
-        try:
-            mail = current_app.extensions['mail']
-            msg = Message(
-                subject='Le Maison Yelo Lane - Your OTP Verification Code',
-                sender=current_app.config['MAIL_USERNAME'],
-                recipients=[email]
-            )
-            msg.html = f"""
-            <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
-                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
-                    <div style="background-color: #5d4037; padding: 30px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
-                    </div>
-                    <div style="padding: 40px 35px; color: #4e342e;">
-                        <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
-                        <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{first_name}</strong>,</p>
-                        <p style="font-size: 15px; color: #6d4c41;">Welcome to Le Maison Yelo Lane! To complete your registration and secure your account, please use the following verification code:</p>
-                        <div style="text-align: center; margin: 40px 0;">
-                            <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
-                        </div>
-                        <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>10 minutes</strong>. Please do not share it with anyone.</p>
-                        <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
-                        <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">If you didn't create an account, you can safely ignore this email.</p>
-                    </div>
+        # Send OTP via Gmail (queued so request stays fast)
+        html_msg = f"""
+        <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+            <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+                <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
                 </div>
-                <div style="max-width: 550px; margin: 20px auto; text-align: center; color: #a1887f; font-size: 12px;">
-                    <p>© 2024 Le Maison Yelo Lane · Pagsanjan, Laguna</p>
+                <div style="padding: 40px 35px; color: #4e342e;">
+                    <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                    <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{first_name}</strong>,</p>
+                    <p style="font-size: 15px; color: #6d4c41;">Welcome to Le Maison Yelo Lane! To complete your registration and secure your account, please use the following verification code:</p>
+                    <div style="text-align: center; margin: 40px 0;">
+                        <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                    </div>
+                    <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>10 minutes</strong>. Please do not share it with anyone.</p>
+                    <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
+                    <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">If you didn't create an account, you can safely ignore this email.</p>
                 </div>
             </div>
-            """
-            mail.send(msg)
-            flash(f"An OTP has been sent to {email}. Please check your inbox.", "success")
-        except Exception as e:
-            print(f"Email sending failed: {e}")
-            traceback.print_exc()
-            flash(f"An OTP has been generated. (Email sending failed, check console for OTP)", "warning")
+            <div style="max-width: 550px; margin: 20px auto; text-align: center; color: #a1887f; font-size: 12px;">
+                <p>© 2024 Le Maison Yelo Lane · Pagsanjan, Laguna</p>
+            </div>
+        </div>
+        """
+        
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_email_async_worker,
+            args=(app_obj, email, 'Le Maison Yelo Lane - Your OTP Verification Code', html_msg),
+            daemon=True,
+        ).start()
+        flash(f"An OTP has been created and is being sent to {email}. Please check your inbox.", "success")
         
         return redirect(url_for('main.verify_otp', user_id=new_user.id))
 
@@ -184,7 +190,7 @@ def verify_otp(user_id):
     # Calculate remaining cooldown seconds for the resend button
     cooldown_remaining = 0
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         cooldown_remaining = max(0, int(300 - elapsed))  # 300 seconds = 5 minutes
     
     return render_template('auth/verify_otp.html', user=user, cooldown_remaining=cooldown_remaining)
@@ -199,7 +205,7 @@ def resend_otp(user_id):
     
     # 5-minute cooldown check
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         if elapsed < 300:  # 300 seconds = 5 minutes
             remaining = int(300 - elapsed)
             minutes = remaining // 60
@@ -215,40 +221,35 @@ def resend_otp(user_id):
     
     print(f"--- RESEND OTP FOR {user.email} IS: {otp} ---")
     
-    # Send OTP via Gmail
-    try:
-        mail = current_app.extensions['mail']
-        msg = Message(
-            subject='Le Maison Yelo Lane - Your New OTP Code',
-            sender=current_app.config['MAIL_USERNAME'],
-            recipients=[user.email]
-        )
-        msg.html = f"""
-        <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
-            <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
-                <div style="background-color: #5d4037; padding: 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+    # Send OTP via Gmail (queued so request stays fast)
+    html_msg = f"""
+    <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+            <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+            </div>
+            <div style="padding: 40px 35px; color: #4e342e;">
+                <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">New Verification Code</h2>
+                <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
+                <p style="font-size: 15px; color: #6d4c41;">We received a request for a new verification code. Please use the following code:</p>
+                <div style="text-align: center; margin: 40px 0;">
+                    <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
                 </div>
-                <div style="padding: 40px 35px; color: #4e342e;">
-                    <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">New Verification Code</h2>
-                    <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
-                    <p style="font-size: 15px; color: #6d4c41;">We received a request for a new verification code. Please use the following code:</p>
-                    <div style="text-align: center; margin: 40px 0;">
-                        <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
-                    </div>
-                    <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>10 minutes</strong>. If you did not request this, please secure your account.</p>
-                    <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
-                    <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">Warm regards,<br>The Le Maison Yelo Lane Team</p>
-                </div>
+                <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>10 minutes</strong>. If you did not request this, please secure your account.</p>
+                <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
+                <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">Warm regards,<br>The Le Maison Yelo Lane Team</p>
             </div>
         </div>
-        """
-        mail.send(msg)
-        flash(f"A new OTP has been sent to {user.email}. Please check your inbox.", "success")
-    except Exception as e:
-        print(f"Email sending failed: {e}")
-        traceback.print_exc()
-        flash(f"A new OTP has been generated. (Email sending failed, check console for OTP)", "warning")
+    </div>
+    """
+    
+    app_obj = current_app._get_current_object()
+    threading.Thread(
+        target=_send_email_async_worker,
+        args=(app_obj, user.email, 'Le Maison Yelo Lane - Your New OTP Code', html_msg),
+        daemon=True,
+    ).start()
+    flash(f"A new OTP has been created and is being sent to {user.email}. Please check your inbox.", "success")
     
     return redirect(url_for('main.verify_otp', user_id=user.id))
 
@@ -277,46 +278,103 @@ def social_auth():
             user.profile_picture_url = picture_url
             db.session.commit()
             
-        if user.role and user.role.upper() in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']:
-            flash("Staff accounts cannot use social login on the main page. Please use the staff portal.", "danger")
-            return jsonify({"success": True, "redirect": url_for('main.login')})
+        if not user.is_verified:
+            # Send new OTP
+            otp = f"{random.randint(100000, 999999)}"
+            user.otp_code = otp
+            from utils import get_ph_time
+            user.otp_created_at = get_ph_time()
+            db.session.commit()
             
-        if user.status != 'ACTIVE':
+            html_msg = f"""
+            <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+                    <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+                    </div>
+                    <div style="padding: 40px 35px; color: #4e342e;">
+                        <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                        <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
+                        <p style="font-size: 15px; color: #6d4c41;">Please use the following code to verify your {provider} account:</p>
+                        <div style="text-align: center; margin: 40px 0;">
+                            <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """
+            app_obj = current_app._get_current_object()
+            threading.Thread(
+                target=_send_email_async_worker,
+                args=(app_obj, user.email, 'Verify your account', html_msg),
+                daemon=True,
+            ).start()
+            flash(f"Please verify your account. An OTP was sent to {user.email}.", "info")
+            return jsonify({"success": True, "redirect": url_for('main.verify_otp', user_id=user.id)})
+
+        if user.status != 'ACTIVE' and user.role not in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
             flash(f"Your {provider} login was successful, but your account is pending admin approval.", "warning")
             return jsonify({"success": True, "redirect": url_for('main.login')})
             
         login_user(user)
-        return jsonify({"success": True, "redirect": url_for('main.index')})
+        # (Same redirection logic as before)
+        redir_url = url_for('main.index')
+        role_upper = user.role.upper() if user.role else ''
+        if role_upper == 'ADMIN': redir_url = url_for('admin.overview')
+        elif role_upper in ['CASHIER', 'STAFF']: redir_url = url_for('admin.orders')
+        elif role_upper in ['INVENTORY_STAFF', 'INVENTORY']: redir_url = url_for('admin.inventory')
+        elif role_upper == 'KITCHEN': redir_url = url_for('admin.kitchen_view')
+        elif role_upper == 'RIDER': redir_url = url_for('admin.deliveries')
+            
+        return jsonify({"success": True, "redirect": redir_url})
     
-    # Auto-create user since they used social login
+    # Auto-create user
     base_username = (first_name + last_name).lower().replace(' ', '')
     username = f"{base_username}{secrets.randbelow(9999)}"
-    
-    # Ensure unique username
     while User.query.filter_by(username=username).first():
         username = f"{base_username}{secrets.randbelow(99999)}"
         
     random_password = secrets.token_urlsafe(16)
+    otp = f"{random.randint(100000, 999999)}"
     
     new_user = User(
-        first_name=first_name, 
-        last_name=last_name,
-        username=username, 
-        email=email, 
-        status='PENDING',
-        is_verified=True,
-        profile_picture_url=picture_url
+        first_name=first_name, last_name=last_name, username=username, 
+        email=email, status='PENDING', is_verified=False,
+        profile_picture_url=picture_url, otp_code=otp
     )
+    from utils import get_ph_time
+    new_user.otp_created_at = get_ph_time()
     new_user.set_password(random_password)
-    
     db.session.add(new_user)
     db.session.commit()
     
-    flash(f"Welcome {first_name}! Your account was created via {provider} but requires admin approval before you can log in.", "success")
-    return jsonify({
-        "success": True, 
-        "redirect": url_for('main.login')
-    })
+    html_msg = f"""
+    <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+            <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+            </div>
+            <div style="padding: 40px 35px; color: #4e342e;">
+                <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Verification Code</h2>
+                <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{first_name}</strong>,</p>
+                <p style="font-size: 15px; color: #6d4c41;">Welcome! Please use the following code to verify your new {provider} account:</p>
+                <div style="text-align: center; margin: 40px 0;">
+                    <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    app_obj = current_app._get_current_object()
+    threading.Thread(
+        target=_send_email_async_worker,
+        args=(app_obj, email, 'Verify your account', html_msg),
+        daemon=True,
+    ).start()
+    
+    flash(f"Account created via {provider}! An OTP has been sent to {email}. Please verify to continue.", "info")
+    return jsonify({"success": True, "redirect": url_for('main.verify_otp', user_id=new_user.id)})
+
 
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -329,23 +387,27 @@ def login():
                 flash("Please complete your OTP verification first.", "warning")
                 return redirect(url_for('main.verify_otp', user_id=user.id))
             
-            role_upper = user.role.upper() if user.role else 'USER'
+            role_upper = user.role.upper() if user.role else ''
             staff_roles = ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']
             
-            # --- STRICT ROLE CHECK ---
-            # Main Login is ONLY for USER/CUSTOMER roles
-            if role_upper in staff_roles:
-                flash("This login is for customers only. Please use the staff portal.", "danger")
-                return redirect(url_for('main.login'))
-            
-            if user.status != 'ACTIVE':
+            if user.status != 'ACTIVE' and role_upper not in staff_roles:
                 flash("Your account is pending admin approval.", "warning")
                 return redirect(url_for('main.login'))
             
             login_user(user)
-            # Regular users always go to site index or dashboard
+            # Redirect admins/staff to their specific dashboards, regular users to homepage
+            if role_upper == 'ADMIN':
+                return redirect(url_for('admin.overview'))
+            elif role_upper in ['CASHIER', 'STAFF']:
+                return redirect(url_for('admin.orders'))
+            elif role_upper in ['INVENTORY_STAFF', 'INVENTORY']:
+                return redirect(url_for('admin.inventory'))
+            elif role_upper == 'KITCHEN':
+                return redirect(url_for('admin.kitchen_view'))
+            elif role_upper == 'RIDER':
+                return redirect(url_for('admin.deliveries'))
+                
             return redirect(url_for('main.index'))
-            
         flash("Invalid email or password.", "danger")
     return render_template('auth/login.html')
 
@@ -363,7 +425,7 @@ def forgot_password():
             
         # Rate-limit OTP (wait 60 seconds between requests)
         if user.otp_created_at:
-            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            elapsed = safe_elapsed(user.otp_created_at)
             if elapsed < 60:
                 flash(f"Please wait {int(60 - elapsed)}s before requesting a new code.", "warning")
                 return redirect(url_for('main.verify_reset_otp', user_id=user.id))
@@ -375,39 +437,35 @@ def forgot_password():
         
         print(f"--- WEB FORGOT PASSWORD OTP FOR {email} IS: {otp} ---")
         
-        try:
-            mail = current_app.extensions['mail']
-            msg = Message(
-                subject='Le Maison Yelo Lane - Password Reset Code',
-                sender=current_app.config['MAIL_USERNAME'],
-                recipients=[email]
-            )
-            msg.html = f"""
-            <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
-                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
-                    <div style="background-color: #5d4037; padding: 30px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+        # Send OTP via Gmail (queued so request stays fast)
+        html_msg = f"""
+        <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
+            <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
+                <div style="background-color: #5d4037; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 300; letter-spacing: 1px;">LE MAISON YELO LANE</h1>
+                </div>
+                <div style="padding: 40px 35px; color: #4e342e;">
+                    <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Password Reset</h2>
+                    <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
+                    <p style="font-size: 15px; color: #6d4c41;">You requested to reset your password. Use the following code to proceed with the reset:</p>
+                    <div style="text-align: center; margin: 40px 0;">
+                        <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
                     </div>
-                    <div style="padding: 40px 35px; color: #4e342e;">
-                        <h2 style="margin-top: 0; font-weight: 600; font-size: 20px; color: #5d4037;">Password Reset</h2>
-                        <p style="font-size: 16px; margin-bottom: 25px;">Hello <strong>{user.first_name}</strong>,</p>
-                        <p style="font-size: 15px; color: #6d4c41;">You requested to reset your password. Use the following code to proceed with the reset:</p>
-                        <div style="text-align: center; margin: 40px 0;">
-                            <div style="display: inline-block; background-color: #efebe9; border: 2px dashed #8d6e63; color: #5d4037; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px 40px; border-radius: 12px;">{otp}</div>
-                        </div>
-                        <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>5 minutes</strong>. If you didn't request this, no further action is needed.</p>
-                        <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
-                        <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">For security, never share this code with anyone.</p>
-                    </div>
+                    <p style="font-size: 14px; color: #8d6e63; text-align: center;">This code is valid for <strong>5 minutes</strong>. If you didn't request this, no further action is needed.</p>
+                    <hr style="border: 0; border-top: 1px solid #efebe9; margin: 30px 0;">
+                    <p style="font-size: 13px; color: #a1887f; text-align: center; margin: 0;">For security, never share this code with anyone.</p>
                 </div>
             </div>
-            """
-            mail.send(msg)
-            flash(f"An OTP has been sent to {email}. Please check your inbox.", "success")
-        except Exception as e:
-            print(f"Email sending failed: {e}")
-            traceback.print_exc()
-            flash("An OTP has been generated. (Email sending failed, check console for OTP)", "warning")
+        </div>
+        """
+        
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_email_async_worker,
+            args=(app_obj, email, 'Le Maison Yelo Lane - Password Reset Code', html_msg),
+            daemon=True,
+        ).start()
+        flash(f"An OTP has been created and is being sent to {email}. Please check your inbox.", "success")
             
         session['reset_user_id'] = user.id
         return redirect(url_for('main.verify_reset_otp', user_id=user.id))
@@ -428,7 +486,7 @@ def verify_reset_otp(user_id):
         
         # Check OTP expiry (5 minutes)
         if user.otp_created_at:
-            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            elapsed = safe_elapsed(user.otp_created_at)
             if elapsed > 300:
                 flash("OTP has expired. Please request a new one.", "danger")
                 return redirect(url_for('main.verify_reset_otp', user_id=user.id))
@@ -442,42 +500,37 @@ def verify_reset_otp(user_id):
             
     cooldown_remaining = 0
     if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+        elapsed = safe_elapsed(user.otp_created_at)
         cooldown_remaining = max(0, int(60 - elapsed))
         
     return render_template('auth/verify_reset_otp.html', user=user, cooldown_remaining=cooldown_remaining)
 
 @main_bp.route('/resend-reset-otp/<int:user_id>', methods=['POST'])
 def resend_reset_otp(user_id):
-    from flask import session
-    if session.get('reset_user_id') != user_id:
-        flash("Invalid session. Please start the password reset process again.", "danger")
-        return redirect(url_for('main.forgot_password'))
-        
-    user = User.query.get_or_404(user_id)
-    
-    if user.otp_created_at:
-        elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
-        if elapsed < 60:
-            remaining = int(60 - elapsed)
-            flash(f"Please wait {remaining}s before requesting a new code.", "warning")
-            return redirect(url_for('main.verify_reset_otp', user_id=user.id))
-            
-    otp = f"{random.randint(100000, 999999)}"
-    user.otp_code = otp
-    user.otp_created_at = get_ph_time()
-    db.session.commit()
-    
-    print(f"--- WEB RESEND FORGOT PASSWORD OTP FOR {user.email} IS: {otp} ---")
-    
     try:
-        mail = current_app.extensions['mail']
-        msg = Message(
-            subject='Le Maison Yelo Lane - New Password Reset Code',
-            sender=current_app.config['MAIL_USERNAME'],
-            recipients=[user.email]
-        )
-        msg.html = f"""
+        from flask import session
+        if session.get('reset_user_id') != user_id:
+            flash("Invalid session. Please start the password reset process again.", "danger")
+            return redirect(url_for('main.forgot_password'))
+            
+        user = User.query.get_or_404(user_id)
+        
+        if user.otp_created_at:
+            elapsed = safe_elapsed(user.otp_created_at)
+            if elapsed < 60:
+                remaining = int(60 - elapsed)
+                flash(f"Please wait {remaining}s before requesting a new code.", "warning")
+                return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+                
+        otp = f"{random.randint(100000, 999999)}"
+        user.otp_code = otp
+        user.otp_created_at = get_ph_time()
+        db.session.commit()
+        
+        print(f"--- WEB RESEND FORGOT PASSWORD OTP FOR {user.email} IS: {otp} ---")
+        
+        # Send OTP via Gmail (queued so request stays fast)
+        html_msg = f"""
         <div style="background-color: #f8f5f2; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6;">
             <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(93, 64, 55, 0.08); border: 1px solid #e8e0d8;">
                 <div style="background-color: #5d4037; padding: 30px; text-align: center;">
@@ -494,14 +547,22 @@ def resend_reset_otp(user_id):
             </div>
         </div>
         """
-        mail.send(msg)
-        flash(f"A new OTP has been sent to {user.email}. Please check your inbox.", "success")
-    except Exception as e:
-        print(f"Email sending failed: {e}")
-        traceback.print_exc()
-        flash("A new OTP has been generated. (Email sending failed, check console for OTP)", "warning")
         
-    return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_email_async_worker,
+            args=(app_obj, user.email, 'Le Maison Yelo Lane - New Password Reset Code', html_msg),
+            daemon=True,
+        ).start()
+        flash(f"A new OTP has been created and is being sent to {user.email}. Please check your inbox.", "success")
+            
+        return redirect(url_for('main.verify_reset_otp', user_id=user.id))
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f"An internal error occurred: {str(e)}", "danger")
+        return redirect(url_for('main.login'))
 
 @main_bp.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
@@ -519,7 +580,7 @@ def reset_password():
         
         # Check OTP expiry (5 minutes) - extra safety
         if user.otp_created_at:
-            elapsed = (get_ph_time() - user.otp_created_at).total_seconds()
+            elapsed = safe_elapsed(user.otp_created_at)
             if elapsed > 300:
                 flash("Your password reset session has expired (5 minutes). Please start over.", "danger")
                 session.pop('reset_user_id', None)
@@ -559,30 +620,73 @@ def logout():
 def profile():
     if request.method == 'POST':
         first_name = request.form.get('first_name', '').strip()
+        middle_name = request.form.get('middle_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
         phone_number = request.form.get('phone_number', '').strip()
+        
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_new_password = request.form.get('confirm_new_password', '')
 
-        # Simple validations
+        # --- VALIDATIONS ---
         if not all([first_name, last_name, username, email, phone_number]):
-            flash("All fields are required.", "danger")
+            flash("Profile information fields are required.", "danger")
             return redirect(url_for('main.profile'))
 
-        # Check for username / email conflicts if they changed it
+        # Validate Names
+        for name, label in [(first_name, 'First Name'), (last_name, 'Last Name')]:
+            err = validate_name(name, label)
+            if err: flash(err, "danger"); return redirect(url_for('main.profile'))
+        if middle_name:
+            err = validate_name(middle_name, 'Middle Name')
+            if err: flash(err, "danger"); return redirect(url_for('main.profile'))
+
+        # Validate Email
+        err = validate_email(email)
+        if err: flash(err, "danger"); return redirect(url_for('main.profile'))
+
+        # Validate Username
+        err = validate_username(username, first_name, last_name)
+        if err: flash(err, "danger"); return redirect(url_for('main.profile'))
+
+        # Check for conflicts
         if email != current_user.email:
-            existing = User.query.filter_by(email=email).first()
-            if existing:
+            if User.query.filter_by(email=email).first():
                 flash("Email already registered by another account.", "danger")
                 return redirect(url_for('main.profile'))
-                
         if username != current_user.username:
-            existing = User.query.filter_by(username=username).first()
-            if existing:
+            if User.query.filter_by(username=username).first():
                 flash("Username already taken.", "danger")
                 return redirect(url_for('main.profile'))
 
+        # --- PASSWORD CHANGE HANDLING ---
+        if new_password:
+            if not current_password:
+                flash("Current password is required to change to a new password.", "danger")
+                return redirect(url_for('main.profile'))
+            if not current_user.check_password(current_password):
+                flash("Incorrect current password.", "danger")
+                return redirect(url_for('main.profile'))
+            
+            err = validate_password(new_password, confirm_new_password)
+            if err:
+                flash(err, "danger")
+                return redirect(url_for('main.profile'))
+            
+            current_user.set_password(new_password)
+            flash("Password updated successfully.", "success")
+        elif current_password:
+            # User provided current password but no new password - maybe just validating to change profile details?
+            # Or just check it if they want to ensure they are the owner
+            if not current_user.check_password(current_password):
+                flash("Incorrect current password.", "danger")
+                return redirect(url_for('main.profile'))
+
+        # Update Info
         current_user.first_name = first_name
+        current_user.middle_name = middle_name
         current_user.last_name = last_name
         current_user.username = username
         current_user.email = email
@@ -594,15 +698,11 @@ def profile():
 
         profile_picture = request.files.get('profile_picture')
         if profile_picture and profile_picture.filename:
-            # Ensure folder exists
             upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'profiles')
             os.makedirs(upload_folder, exist_ok=True)
-            
             filename = secure_filename(f"{current_user.id}_{profile_picture.filename}")
             filepath = os.path.join(upload_folder, filename)
             profile_picture.save(filepath)
-            
-            # Update user model with relative URL for frontend
             current_user.profile_picture_url = url_for('static', filename=f"uploads/profiles/{filename}")
 
         db.session.commit()
@@ -716,37 +816,51 @@ def facebook_callback():
     from models import User
     user = User.query.filter_by(email=email).first()
     if user:
-        mobile_sessions[session_id]['user'] = {
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'role': user.role
-        }
+        if not user.is_verified:
+            import random
+            otp = f"{random.randint(100000, 999999)}"
+            user.otp_code = otp
+            from utils import get_ph_time
+            user.otp_created_at = get_ph_time()
+            db.session.commit()
+            app_obj = current_app._get_current_object()
+            threading.Thread(
+                target=_send_email_async_worker,
+                args=(app_obj, user.email, 'Verify your account', f'Your verification code is {otp}'),
+                daemon=True,
+            ).start()
+            mobile_sessions[session_id] = {
+                'success': False, 'needs_otp': True, 'user_id': user.id, 'message': 'Account verification required.'
+            }
+        else:
+            mobile_sessions[session_id]['user'] = {
+                'id': user.id, 'email': user.email, 'first_name': user.first_name,
+                'last_name': user.last_name, 'username': user.username, 'role': user.role
+            }
     else:
         # Create new user
-        import secrets
+        import secrets, random
+        otp = f"{random.randint(100000, 999999)}"
         new_user = User(
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            username=email.split('@')[0],
-            is_verified=True,
-            social_provider='Facebook'
+            email=email, first_name=first_name, last_name=last_name,
+            username=email.split('@')[0], is_verified=False,
+            social_provider='Facebook', otp_code=otp
         )
+        from utils import get_ph_time
+        new_user.otp_created_at = get_ph_time()
         new_user.set_password(secrets.token_hex(16))
-        from extensions import db
         db.session.add(new_user)
         db.session.commit()
-        mobile_sessions[session_id]['user'] = {
-            'id': new_user.id,
-            'email': new_user.email,
-            'first_name': new_user.first_name,
-            'last_name': new_user.last_name,
-            'username': new_user.username,
-            'role': new_user.role
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_email_async_worker,
+            args=(app_obj, email, 'Verify your account', f'Your verification code is {otp}'),
+            daemon=True,
+        ).start()
+        mobile_sessions[session_id] = {
+            'success': False, 'needs_otp': True, 'user_id': new_user.id, 'message': 'Account created. Please verify.'
         }
+
     
     return '''
     <html><body style="font-family:sans-serif;text-align:center;padding:40px;">

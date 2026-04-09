@@ -3,10 +3,56 @@ from flask_login import login_required, current_user, login_user, logout_user
 from flask_mail import Message
 from models import db, User, Reservation, MenuItem, Order, OrderItem, Review, Notification, Supplier, Ingredient, MenuItemIngredient, ChatMessage, AuditLog, Voucher, InventoryLog, WasteRecord, IngredientBatch, StockRequest
 from datetime import datetime, date, timedelta
-from utils import get_ph_time, create_notification
+from utils import get_ph_time, create_notification, validate_name, validate_email, validate_username, validate_password
 from sqlalchemy import func
+from sqlalchemy.orm import load_only, selectinload
 from functools import wraps
 import traceback
+import time
+import threading
+from sqlalchemy import text as sql_text
+
+# Small TTL caches to make admin tabs feel snappy (especially on remote DBs)
+_ADMIN_CACHE = {
+    "suppliers": {"loaded_at": 0.0, "value": None},
+    "ingredients_raw": {"loaded_at": 0.0, "value": None},
+    "walkin_items": {"loaded_at": 0.0, "value": None},
+}
+
+def _ttl_cached(key: str, ttl_seconds: int, loader):
+    now = time.monotonic()
+    slot = _ADMIN_CACHE.get(key)
+    if slot and slot["value"] is not None and (now - slot["loaded_at"]) < ttl_seconds:
+        return slot["value"]
+    val = loader()
+    if key in _ADMIN_CACHE:
+        _ADMIN_CACHE[key]["value"] = val
+        _ADMIN_CACHE[key]["loaded_at"] = now
+    return val
+
+def _get_suppliers_cached():
+    return _ttl_cached(
+        "suppliers",
+        15,
+        lambda: Supplier.query.options(load_only(Supplier.id, Supplier.name)).order_by(Supplier.name).all(),
+    )
+
+def _get_all_ingredients_raw_cached():
+    # Used for dropdowns/autocomplete; keep it light and cached
+    return _ttl_cached(
+        "ingredients_raw",
+        15,
+        lambda: Ingredient.query.options(load_only(Ingredient.id, Ingredient.name, Ingredient.unit)).order_by(Ingredient.name).all(),
+    )
+
+def _get_walkin_items_cached():
+    return _ttl_cached(
+        "walkin_items",
+        10,
+        lambda: MenuItem.query.options(
+            load_only(MenuItem.id, MenuItem.name, MenuItem.price, MenuItem.category, MenuItem.image_url, MenuItem.is_available)
+        ).filter_by(is_available=True).order_by(MenuItem.category, MenuItem.name).all(),
+    )
 
 def _create_web_notification(user_id, title, message, notif_type='SYSTEM'):
     """Backwards compatible helper for admin routes"""
@@ -34,6 +80,28 @@ def log_inventory_change(ingredient_id, action, quantity, previous_stock, reason
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+def _send_flask_mail_worker(app, msg):
+    """Background worker to send Flask-Mail messages without blocking the request thread."""
+    with app.app_context():
+        mail = app.extensions.get('mail')
+        if not mail:
+            return
+        for attempt in range(1, 4):
+            try:
+                mail.send(msg)
+                return
+            except Exception as e:
+                if attempt >= 3:
+                    print(f"Async mail send failed (final): {e}")
+                    traceback.print_exc()
+                    return
+                time.sleep(0.75 * attempt)
+
+# Cache for admin review sentiment so repeated visits don't recompute CPU-heavy word counts.
+# Keyed by (review_id, rating, hash(comment_text)).
+_REVIEW_SENTIMENT_CACHE = {}  # {cache_key: (loaded_at_monotonic, (sentiment, icon, color))}
+_REVIEW_SENTIMENT_CACHE_TTL_SECONDS = 600  # 10 minutes
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -43,6 +111,48 @@ def admin_required(f):
             return redirect(url_for('admin.admin_login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# ─── SYSTEM: DB INDEX CHECK ───────────────────────────
+@admin_bp.route('/system/db-indexes', methods=['GET'])
+@login_required
+@admin_required
+def system_db_indexes():
+    """Admin-only: verify expected indexes exist (Postgres only)."""
+    if current_user.role.upper() != 'ADMIN':
+        return jsonify({'success': False, 'message': 'Admin only.'}), 403
+
+    try:
+        dialect = db.engine.dialect.name
+    except Exception:
+        dialect = None
+    if dialect not in ("postgresql", "postgres"):
+        return jsonify({'success': True, 'dialect': dialect, 'indexes': [], 'missing': []}), 200
+
+    expected = [
+        "idx_reservation_date_status_booking_time",
+        "idx_reservation_user_date_status",
+        "idx_order_rider_delivery_status_id",
+        "idx_order_user_created_at",
+        "idx_review_status_created_at",
+        "idx_menu_item_category_name",
+        "idx_order_chat_order_id_created_at",
+        "idx_order_item_order_menuitem",
+        "idx_menu_item_ingredient_menuitem_ingredient",
+    ]
+
+    rows = db.session.execute(sql_text(
+        "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"
+    )).fetchall()
+    existing = sorted({r[0] for r in rows if r and r[0]})
+    missing = [x for x in expected if x not in set(existing)]
+
+    return jsonify({
+        'success': True,
+        'dialect': dialect,
+        'expected': expected,
+        'existing': existing,
+        'missing': missing,
+    }), 200
 
 # ─── AUTH ─────────────────────────────────────────────
 @admin_bp.route('/login', methods=['GET', 'POST'])
@@ -108,28 +218,35 @@ def overview():
     
     # Menu stats
     total_menu = MenuItem.query.count()
-    low_stock_items = MenuItem.query.filter_by(is_available=False).all()
+    low_stock_items = MenuItem.query.filter_by(is_available=False).limit(200).all()
     
     recent_reservations = Reservation.query.order_by(Reservation.created_at.desc()).limit(5).all()
 
     import json as _json
     today = date.today()
 
-    # 1) Revenue Trend
+    # 1) & 2) Revenue and Orders Trend (Combined optimization)
+    week_ago = today - timedelta(days=6)
+    trend_stats = db.session.query(
+        func.date(Order.created_at).label('d'),
+        func.count(Order.id).label('cnt'),
+        func.sum(Order.total_amount).label('rev')
+    ).filter(func.date(Order.created_at) >= week_ago).group_by('d').all()
+    
+    trend_map = {row.d: (int(row.cnt or 0), float(row.rev or 0)) for row in trend_stats}
+    
     revenue_trend_labels, revenue_trend_data = [], []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        revenue_trend_labels.append(d.strftime('%b %d'))
-        day_rev = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(func.date(Order.created_at) == d).scalar()
-        revenue_trend_data.append(float(day_rev))
-
-    # 2) Daily Orders
     daily_orders_labels, daily_orders_data = [], []
+    
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
-        daily_orders_labels.append(d.strftime('%b %d'))
-        cnt = db.session.query(func.count(Order.id)).filter(func.date(Order.created_at) == d).scalar()
-        daily_orders_data.append(int(cnt or 0))
+        lbl = d.strftime('%b %d')
+        revenue_trend_labels.append(lbl)
+        daily_orders_labels.append(lbl)
+        
+        stat = trend_map.get(d, (0, 0.0))
+        daily_orders_data.append(stat[0])
+        revenue_trend_data.append(stat[1])
 
     # 3) Busy Times
     busy_hours_raw = db.session.query(func.extract('hour', Order.created_at).label('hr'), func.count(Order.id)).group_by('hr').order_by('hr').all()
@@ -176,63 +293,147 @@ def staff_performance():
     # ── CASHIER STATS ──
     cashiers = User.query.filter(db.func.upper(User.role).in_(['CASHIER', 'STAFF'])).all()
     cashier_stats = []
+    cashier_ids = [c.id for c in cashiers]
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    cashier_agg = {}
+    cashier_today = {}
+    if cashier_ids:
+        rows = (
+            db.session.query(
+                Order.processed_by_id,
+                func.count(Order.id),
+                func.coalesce(func.sum(Order.total_amount), 0),
+            )
+            .filter(Order.processed_by_id.in_(cashier_ids))
+            .group_by(Order.processed_by_id)
+            .all()
+        )
+        cashier_agg = {pid: (int(cnt or 0), float(total or 0)) for pid, cnt, total in rows}
+
+        rows_today = (
+            db.session.query(Order.processed_by_id, func.count(Order.id))
+            .filter(Order.processed_by_id.in_(cashier_ids), Order.created_at >= today_start)
+            .group_by(Order.processed_by_id)
+            .all()
+        )
+        cashier_today = {pid: int(cnt or 0) for pid, cnt in rows_today}
+
     for c in cashiers:
-        orders_count = Order.query.filter(Order.processed_by_id == c.id).count()
-        total_sales = db.session.query(db.func.sum(Order.total_amount)).filter(Order.processed_by_id == c.id).scalar() or 0
-        avg_order_value = float(total_sales) / orders_count if orders_count > 0 else 0
-        # Today's activity
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_orders = Order.query.filter(Order.processed_by_id == c.id, Order.created_at >= today_start).count()
+        orders_count, total_sales = cashier_agg.get(c.id, (0, 0.0))
+        avg_order_value = (float(total_sales) / orders_count) if orders_count > 0 else 0.0
         cashier_stats.append({
             'name': f"{c.first_name} {c.last_name}",
             'count': orders_count,
             'sales': float(total_sales),
             'avg_order': round(avg_order_value, 2),
-            'today_orders': today_orders
+            'today_orders': cashier_today.get(c.id, 0),
         })
 
     # ── RIDER STATS ──
     riders = User.query.filter(db.func.upper(User.role) == 'RIDER').all()
     rider_stats = []
+    rider_ids = [r.id for r in riders]
+    rider_total = {}
+    rider_delivered = {}
+    rider_pending = {}
+    rider_earnings = {}
+    if rider_ids:
+        # total assigned
+        rows_total = (
+            db.session.query(Order.rider_id, func.count(Order.id))
+            .filter(Order.rider_id.in_(rider_ids))
+            .group_by(Order.rider_id)
+            .all()
+        )
+        rider_total = {rid: int(cnt or 0) for rid, cnt in rows_total}
+
+        # delivered count + earnings
+        rows_del = (
+            db.session.query(
+                Order.rider_id,
+                func.count(Order.id),
+                func.coalesce(func.sum(Order.delivery_fee), 0),
+            )
+            .filter(Order.rider_id.in_(rider_ids), Order.delivery_status == 'DELIVERED')
+            .group_by(Order.rider_id)
+            .all()
+        )
+        rider_delivered = {rid: int(cnt or 0) for rid, cnt, _ in rows_del}
+        rider_earnings = {rid: float(total or 0) for rid, _, total in rows_del}
+
+        # pending deliveries
+        rows_pending = (
+            db.session.query(Order.rider_id, func.count(Order.id))
+            .filter(
+                Order.rider_id.in_(rider_ids),
+                Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
+            )
+            .group_by(Order.rider_id)
+            .all()
+        )
+        rider_pending = {rid: int(cnt or 0) for rid, cnt in rows_pending}
+
     for r in riders:
-        delivered_count = Order.query.filter(Order.rider_id == r.id, Order.delivery_status == 'DELIVERED').count()
-        total_assigned = Order.query.filter(Order.rider_id == r.id).count()
-        # Calculate total delivery fees earned
-        delivery_earnings = db.session.query(db.func.sum(Order.delivery_fee)).filter(
-            Order.rider_id == r.id, Order.delivery_status == 'DELIVERED'
-        ).scalar() or 0
-        pending_deliveries = Order.query.filter(
-            Order.rider_id == r.id, 
-            Order.delivery_status.in_(['WAITING', 'PICKED_UP', 'ON_THE_WAY'])
-        ).count()
+        delivered_count = rider_delivered.get(r.id, 0)
+        total_assigned = rider_total.get(r.id, 0)
+        pending_deliveries = rider_pending.get(r.id, 0)
+        delivery_earnings = rider_earnings.get(r.id, 0.0)
         rider_stats.append({
             'name': f"{r.first_name} {r.last_name}",
             'count': delivered_count,
             'total_assigned': total_assigned,
             'earnings': float(delivery_earnings),
             'pending': pending_deliveries,
-            'success_rate': round((delivered_count / total_assigned * 100), 1) if total_assigned > 0 else 0
+            'success_rate': round((delivered_count / total_assigned * 100), 1) if total_assigned > 0 else 0,
         })
 
     # ── INVENTORY STAFF STATS ──
     inv_staff = User.query.filter(db.func.upper(User.role).in_(['INVENTORY_STAFF', 'INVENTORY'])).all()
     inventory_stats = []
+    inv_ids = [s.id for s in inv_staff]
+    inv_total = {}
+    inv_by_action = {}
+    inv_items_managed = {}
+    if inv_ids:
+        rows_total = (
+            db.session.query(InventoryLog.user_id, func.count(InventoryLog.id))
+            .filter(InventoryLog.user_id.in_(inv_ids))
+            .group_by(InventoryLog.user_id)
+            .all()
+        )
+        inv_total = {uid: int(cnt or 0) for uid, cnt in rows_total}
+
+        rows_actions = (
+            db.session.query(InventoryLog.user_id, InventoryLog.action, func.count(InventoryLog.id))
+            .filter(InventoryLog.user_id.in_(inv_ids))
+            .group_by(InventoryLog.user_id, InventoryLog.action)
+            .all()
+        )
+        inv_by_action = {}
+        for uid, action, cnt in rows_actions:
+            inv_by_action.setdefault(uid, {})[action] = int(cnt or 0)
+
+        rows_items = (
+            db.session.query(InventoryLog.user_id, func.count(func.distinct(InventoryLog.ingredient_id)))
+            .filter(InventoryLog.user_id.in_(inv_ids))
+            .group_by(InventoryLog.user_id)
+            .all()
+        )
+        inv_items_managed = {uid: int(cnt or 0) for uid, cnt in rows_items}
+
     for s in inv_staff:
-        total_actions = InventoryLog.query.filter(InventoryLog.user_id == s.id).count()
-        adds = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action == 'ADD').count()
-        deducts = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action == 'DEDUCT').count()
-        spoiled = InventoryLog.query.filter(InventoryLog.user_id == s.id, InventoryLog.action.in_(['EXPIRED', 'SPOILED'])).count()
-        # Items they manage (unique ingredients)
-        items_managed = db.session.query(db.func.count(db.func.distinct(InventoryLog.ingredient_id))).filter(
-            InventoryLog.user_id == s.id
-        ).scalar() or 0
+        by_action = inv_by_action.get(s.id, {})
+        adds = by_action.get('ADD', 0)
+        deducts = by_action.get('DEDUCT', 0)
+        spoiled = by_action.get('EXPIRED', 0) + by_action.get('SPOILED', 0)
         inventory_stats.append({
             'name': f"{s.first_name} {s.last_name}",
-            'total_actions': total_actions,
+            'total_actions': inv_total.get(s.id, 0),
             'adds': adds,
             'deducts': deducts,
             'spoiled': spoiled,
-            'items_managed': items_managed
+            'items_managed': inv_items_managed.get(s.id, 0),
         })
 
     # ── KITCHEN STAFF STATS ──
@@ -243,13 +444,19 @@ def staff_performance():
     kitchen_completed_today = Order.query.filter(Order.status == 'COMPLETED', Order.prep_end_at >= today_start).count()
     kitchen_preparing_now = Order.query.filter(Order.status == 'PREPARING').count()
 
-    completed_with_prep = Order.query.filter(
-        Order.status == 'COMPLETED', Order.prep_start_at.isnot(None), Order.prep_end_at.isnot(None)
-    ).all()
-    avg_prep_minutes = 0
-    if completed_with_prep:
-        total_secs = sum((o.prep_end_at - o.prep_start_at).total_seconds() for o in completed_with_prep)
-        avg_prep_minutes = round(total_secs / len(completed_with_prep) / 60, 1)
+    # Compute avg prep time in SQL (avoid loading all rows).
+    avg_secs = (
+        db.session.query(
+            func.avg(func.extract('epoch', Order.prep_end_at - Order.prep_start_at))
+        )
+        .filter(
+            Order.status == 'COMPLETED',
+            Order.prep_start_at.isnot(None),
+            Order.prep_end_at.isnot(None),
+        )
+        .scalar()
+    )
+    avg_prep_minutes = round((float(avg_secs or 0) / 60.0), 1) if avg_secs else 0
 
     for k in kitchen_staff:
         kitchen_stats.append({
@@ -319,7 +526,8 @@ def analytics():
     menu_by_category = db.session.query(MenuItem.category, func.count(MenuItem.id)).group_by(MenuItem.category).all()
     
     # ── CHART DATA (Moved from overview) ──────────────────
-    today = date.today()
+    # Get PH today date for consistency with stored records
+    today = get_ph_time().date()
 
     # 1) Revenue Trend (Last 7 Days) — Line chart
     revenue_trend_labels = []
@@ -489,8 +697,82 @@ MENU_CATEGORIES = [
 @login_required
 @admin_required
 def menu():
-    items = MenuItem.query.order_by(MenuItem.category, MenuItem.name).all()
-    return render_template('admin/menu.html', items=items, categories_list=MENU_CATEGORIES)
+    return render_template(
+        'admin/menu.html',
+        categories_list=MENU_CATEGORIES,
+    )
+
+@admin_bp.route('/menu/item/<int:item_id>', methods=['GET'])
+@login_required
+@admin_required
+def menu_item_json(item_id):
+    if current_user.role.upper() != 'ADMIN':
+        return jsonify({'success': False, 'message': 'Admin only.'}), 403
+
+    item = MenuItem.query.get_or_404(item_id)
+    return jsonify({
+        'id': item.id,
+        'name': item.name,
+        'description': item.description or '',
+        'price': float(item.price or 0),
+        'category': item.category,
+        'image_url': item.image_url or '',
+        'is_available': bool(item.is_available),
+    })
+
+@admin_bp.route('/menu/items', methods=['GET'])
+@login_required
+@admin_required
+def menu_items_json():
+    """Lazy-load menu items per category (keeps /admin/menu page fast)."""
+    category = (request.args.get('category') or '').strip()
+    if category not in MENU_CATEGORIES:
+        return jsonify({'success': False, 'message': 'Invalid category'}), 400
+
+    limit = request.args.get('limit', 200, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
+    fetch_limit = limit + 1  # one extra to detect "has_more" without COUNT(*)
+    items = (
+        MenuItem.query.options(
+            load_only(
+                MenuItem.id,
+                MenuItem.name,
+                MenuItem.description,
+                MenuItem.price,
+                MenuItem.category,
+                MenuItem.image_url,
+                MenuItem.is_available,
+            )
+        )
+        .filter(MenuItem.category == category)
+        .order_by(MenuItem.name.asc())
+        .offset(offset)
+        .limit(fetch_limit)
+        .all()
+    )
+
+    has_more = len(items) > limit
+    if has_more:
+        items = items[:limit]
+
+    return jsonify({
+        'success': True,
+        'offset': offset,
+        'limit': limit,
+        'has_more': has_more,
+        'items': [{
+            'id': i.id,
+            'name': i.name,
+            'description': i.description or '',
+            'price': float(i.price or 0),
+            'category': i.category,
+            'image_url': i.image_url or '',
+            'is_available': bool(i.is_available),
+        } for i in items],
+    })
 
 @admin_bp.route('/menu/add', methods=['POST'])
 @login_required
@@ -598,7 +880,7 @@ def menu_delete(item_id):
 @login_required
 @admin_required
 def approvals():
-    pending = User.query.filter_by(status='PENDING', role='USER', is_verified=True).all()
+    pending = User.query.filter_by(status='PENDING', role='USER', is_verified=True).limit(300).all()
     return render_template('admin/approvals.html', pending=pending)
 
 @admin_bp.route('/approve/<int:user_id>', methods=['POST'])
@@ -611,7 +893,6 @@ def approve_user(user_id):
     
     # Send approval email
     try:
-        mail = current_app.extensions['mail']
         msg = Message(
             subject='Le Maison Yelo Lane - Account Approved! 🎉',
             sender=current_app.config['MAIL_USERNAME'],
@@ -652,7 +933,12 @@ def approve_user(user_id):
             </div>
         </div>
         """
-        mail.send(msg)
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_flask_mail_worker,
+            args=(app_obj, msg),
+            daemon=True
+        ).start()
     except Exception as e:
         print(f"Approval email failed: {e}")
         traceback.print_exc()
@@ -684,11 +970,14 @@ def users():
         return redirect(url_for('admin.overview'))
 
     role_filter = request.args.get('role', 'ALL')
-    if role_filter == 'ALL':
-        all_users = User.query.order_by(User.id).all()
-    else:
-        all_users = User.query.filter(func.upper(User.role) == role_filter.upper()).order_by(User.id).all()
-    return render_template('admin/users.html', users=all_users, role_filter=role_filter)
+    page = request.args.get('page', 1, type=int)
+    
+    query = User.query
+    if role_filter != 'ALL':
+        query = query.filter(func.upper(User.role) == role_filter.upper())
+    
+    pagination = query.order_by(User.id).paginate(page=page, per_page=30, error_out=False)
+    return render_template('admin/users.html', users=pagination, role_filter=role_filter)
 
 @admin_bp.route('/users/update-role/<int:user_id>', methods=['POST'])
 @login_required
@@ -725,7 +1014,6 @@ def broadcast():
     
     if emails:
         try:
-            mail = current_app.extensions['mail']
             msg = Message(
                 subject='Le Maison Yelo Lane - Broadcast Message',
                 sender=current_app.config['MAIL_USERNAME'],
@@ -751,8 +1039,13 @@ def broadcast():
                 </div>
             </div>
             """
-            mail.send(msg)
-            flash(f"Broadcast sent successfully to {len(emails)} user(s).", "success")
+            app_obj = current_app._get_current_object()
+            threading.Thread(
+                target=_send_flask_mail_worker,
+                args=(app_obj, msg),
+                daemon=True
+            ).start()
+            flash(f"Broadcast queued to {len(emails)} user(s).", "success")
         except Exception as e:
             flash(f"Failed to send broadcast: {str(e)}", "danger")
     else:
@@ -786,11 +1079,14 @@ def api_user_details(user_id):
 @admin_required
 def reservations():
     status_filter = request.args.get('status', 'ALL')
-    if status_filter == 'ALL':
-        all_res = Reservation.query.order_by(Reservation.created_at.desc()).all()
-    else:
-        all_res = Reservation.query.filter_by(status=status_filter).order_by(Reservation.created_at.desc()).all()
-    return render_template('admin/reservations.html', reservations=all_res, status_filter=status_filter)
+    page = request.args.get('page', 1, type=int)
+    
+    query = Reservation.query
+    if status_filter != 'ALL':
+        query = query.filter_by(status=status_filter)
+    
+    pagination = query.order_by(Reservation.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
+    return render_template('admin/reservations.html', reservations=pagination, status_filter=status_filter)
 
 @admin_bp.route('/reservations/update/<int:res_id>', methods=['POST'])
 @login_required
@@ -823,35 +1119,51 @@ def update_reservation(res_id):
 @login_required
 @admin_required
 def inventory():
-    items = MenuItem.query.order_by(MenuItem.category).all()
-    total_items = len(items)
-    out_of_stock = sum(1 for i in items if not i.is_available)
-    all_ingredients = Ingredient.query.order_by(Ingredient.name).all()
-    all_suppliers = Supplier.query.order_by(Supplier.name).all()
-    low_stock_count = sum(1 for ing in all_ingredients if float(ing.stock_qty) <= float(ing.reorder_level))
+    page_items = request.args.get('page_items', 1, type=int)
+    page_ingredients = request.args.get('page_ingredients', 1, type=int)
     
-    # Expiration Tracking (within 7 days)
+    # Counts using SQL instead of Python loops
+    total_items = MenuItem.query.count()
+    out_of_stock = MenuItem.query.filter_by(is_available=False).count()
+    total_ingredients = Ingredient.query.count()
+    low_stock_count = db.session.query(func.count(Ingredient.id)).filter(Ingredient.stock_qty <= Ingredient.reorder_level).scalar()
+    
     today = date.today()
-    from datetime import timedelta
     seven_days_later = today + timedelta(days=7)
-    expiring_soon_count = sum(1 for ing in all_ingredients if ing.expiration_date and today <= ing.expiration_date <= seven_days_later)
+    expiring_soon_count = db.session.query(func.count(Ingredient.id)).filter(
+        Ingredient.expiration_date.between(today, seven_days_later)
+    ).scalar()
+    
+    # Paginated data
+    items_paginated = MenuItem.query.order_by(MenuItem.category, MenuItem.name).paginate(page=page_items, per_page=15)
+    ingredients_paginated = Ingredient.query.order_by(Ingredient.name).paginate(page=page_ingredients, per_page=20)
+    
+    all_suppliers = _get_suppliers_cached()
+    all_ingredients_raw = _get_all_ingredients_raw_cached()
     
     return render_template('admin/inventory.html', 
-        items=items, 
+        items=items_paginated, 
         total_items=total_items, 
         out_of_stock=out_of_stock, 
-        ingredients=all_ingredients, 
+        ingredients=ingredients_paginated, 
         suppliers=all_suppliers, 
         low_stock_count=low_stock_count,
         expiring_soon_count=expiring_soon_count,
+        total_ingredients=total_ingredients,
+        all_ingredients_raw=all_ingredients_raw,
         today=today)
 
 @admin_bp.route('/inventory/generate-po')
 @login_required
 @admin_required
 def generate_purchase_order():
-    all_ingredients = Ingredient.query.all()
-    low_stock = [ing for ing in all_ingredients if float(ing.stock_qty) <= float(ing.reorder_level)]
+    # Filter in SQL (fast) instead of loading all ingredients into Python
+    low_stock = (
+        Ingredient.query.options(selectinload(Ingredient.supplier))
+        .filter(Ingredient.stock_qty <= Ingredient.reorder_level)
+        .order_by(Ingredient.name.asc())
+        .all()
+    )
     
     if not low_stock:
         flash("No ingredients are currently low on stock.", "info")
@@ -938,16 +1250,23 @@ def toggle_stock(item_id):
 @admin_required
 def kitchen_view():
     status_filter = request.args.get('status', 'ACTIVE')
+    base = (
+        Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.reservation),
+            selectinload(Order.user),
+        )
+    )
     if status_filter == 'ACTIVE':
-        active_orders = Order.query.filter(
+        active_orders = base.filter(
             Order.status.in_(['PENDING', 'PREPARING'])
-        ).order_by(Order.created_at.asc()).all()
+        ).order_by(Order.created_at.asc()).limit(80).all()
     elif status_filter == 'COMPLETED':
-        active_orders = Order.query.filter_by(status='COMPLETED').order_by(Order.created_at.desc()).limit(20).all()
+        active_orders = base.filter_by(status='COMPLETED').order_by(Order.created_at.desc()).limit(40).all()
     elif status_filter == 'CANCELLED':
-        active_orders = Order.query.filter_by(status='CANCELLED').order_by(Order.created_at.desc()).limit(20).all()
+        active_orders = base.filter_by(status='CANCELLED').order_by(Order.created_at.desc()).limit(40).all()
     else:
-        active_orders = Order.query.filter_by(status=status_filter).order_by(Order.created_at.asc()).all()
+        active_orders = base.filter_by(status=status_filter).order_by(Order.created_at.asc()).limit(80).all()
     
     # Counts for badges
     pending_count = Order.query.filter_by(status='PENDING').count()
@@ -958,30 +1277,89 @@ def kitchen_view():
     # Calculate throughput metrics (Average Prep Time today)
     from sqlalchemy import func
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    completed_today = Order.query.filter(
-        Order.status == 'COMPLETED',
-        Order.prep_end_at >= today_start
-    ).all()
-    
+    # Compute avg prep time in SQL (avoid loading all rows)
     avg_prep_time = 0
-    if completed_today:
-        total_prep_seconds = 0
-        valid_count = 0
-        for o in completed_today:
-            if o.prep_start_at and o.prep_end_at:
-                total_prep_seconds += (o.prep_end_at - o.prep_start_at).total_seconds()
-                valid_count += 1
-        if valid_count > 0:
-            avg_prep_time = round((total_prep_seconds / valid_count) / 60, 1)
+    avg_seconds = db.session.query(
+        func.avg(func.extract('epoch', Order.prep_end_at - Order.prep_start_at))
+    ).filter(
+        Order.status == 'COMPLETED',
+        Order.prep_end_at >= today_start,
+        Order.prep_start_at.isnot(None),
+        Order.prep_end_at.isnot(None),
+    ).scalar()
+    if avg_seconds:
+        avg_prep_time = round((float(avg_seconds) / 60), 1)
+
+    ph_now = get_ph_time()
+
+    # 1. Separate Active Orders
+    asap_orders = []
+    for order in active_orders:
+        if not order.reservation:
+            asap_orders.append(order)
+        else:
+            # Check if reservation is within 1 hour
+            res = order.reservation
+            if res.date and res.time:
+                try:
+                    res_dt = datetime.combine(res.date, res.time)
+                    # Handle potential timezone mismatch
+                    if res_dt.tzinfo is not None: res_dt = res_dt.replace(tzinfo=None)
+                    
+                    diff = (res_dt - ph_now.replace(tzinfo=None)).total_seconds() / 60
+                    if diff <= 60:
+                        asap_orders.append(order)
+                except Exception:
+                    asap_orders.append(order) # Show anyway if comparison fails
+
+    # 2. Aggregation for Prep Summary
+    item_data = {}
+    for order in asap_orders:
+        for item in order.items:
+            if not item.menu_item: continue
+            key = item.menu_item.name
+            cat = item.menu_item.category or 'Other'
+            if key in item_data:
+                item_data[key].update({'qty': item_data[key]['qty'] + item.quantity})
+            else:
+                item_data[key] = {'qty': item.quantity, 'cat': cat}
+
+    # 3. Categorize into Stations
+    hot_kitchen, cold_kitchen, bar_station = [], [], []
+    for name, info in item_data.items():
+        cat_lower = info['cat'].lower()
+        station_item = {'name': name, 'qty': info['qty']}
+        
+        if any(kw in cat_lower for kw in ['drink', 'beverage', 'coffee', 'shake', 'juice', 'tea']):
+            bar_station.append(station_item)
+        elif any(kw in cat_lower for kw in ['dessert', 'cake', 'pastry', 'sweet', 'cheesecake', 'waffle']):
+            cold_kitchen.append(station_item)
+        else:
+            hot_kitchen.append(station_item)
+
+    # Handle partial request (for soft refresh)
+    if request.args.get('partial'):
+        return render_template('admin/kitchen_partial.html', 
+            orders=active_orders, hot_kitchen=hot_kitchen, cold_kitchen=cold_kitchen,
+            bar_station=bar_station, item_count=len(item_data), status_filter=status_filter,
+            pending_count=pending_count, preparing_count=preparing_count,
+            completed_count=completed_count, cancelled_count=cancelled_count,
+            avg_prep_time=avg_prep_time, ph_now=ph_now
+        )
 
     return render_template('admin/kitchen.html', 
-        orders=active_orders, 
+        orders=active_orders,
+        hot_kitchen=hot_kitchen,
+        cold_kitchen=cold_kitchen,
+        bar_station=bar_station,
+        item_count=len(item_data),
         status_filter=status_filter,
         pending_count=pending_count,
         preparing_count=preparing_count,
         completed_count=completed_count,
         cancelled_count=cancelled_count,
-        avg_prep_time=avg_prep_time
+        avg_prep_time=avg_prep_time,
+        ph_now=ph_now
     )
 
 @admin_bp.route('/kitchen/api/orders')
@@ -989,27 +1367,62 @@ def kitchen_view():
 @admin_required
 def kitchen_api_orders():
     """API endpoint for auto-refresh of kitchen orders"""
-    active_orders = Order.query.filter(
-        Order.status.in_(['PENDING', 'PREPARING'])
-    ).order_by(Order.created_at.asc()).all()
+    status_filter = request.args.get('status', 'ACTIVE')
+    ph_now = get_ph_time()
+    
+    # Base query
+    base = (
+        Order.query.options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.reservation),
+            selectinload(Order.user),
+        )
+    )
+    if status_filter == 'ACTIVE':
+        active_orders = base.filter(Order.status.in_(['PENDING', 'PREPARING']))
+    else:
+        active_orders = base.filter_by(status=status_filter)
+        
+    active_orders = active_orders.order_by(Order.created_at.asc()).limit(80).all()
+    
+    # Counts for badges
+    stats = {
+        'pending': Order.query.filter_by(status='PENDING').count(),
+        'preparing': Order.query.filter_by(status='PREPARING').count(),
+        'completed': Order.query.filter_by(status='COMPLETED').count(),
+        'cancelled': Order.query.filter_by(status='CANCELLED').count()
+    }
+    
+    # Station aggregation (Only for ACTIVE filter)
+    hot_kitchen, cold_kitchen, bar_station = [], [], []
+    item_data = {}
     
     orders_data = []
     for order in active_orders:
+        # Check ASAP logic for station summary
+        is_asap = True
+        if order.reservation and order.reservation.date and order.reservation.time:
+            try:
+                res_dt = datetime.combine(order.reservation.date, order.reservation.time)
+                diff = (res_dt - ph_now.replace(tzinfo=None)).total_seconds() / 60
+                if diff > 60: is_asap = False
+            except: pass
+            
         items_list = []
         for item in order.items:
-            items_list.append({
-                'name': item.menu_item.name,
-                'qty': item.quantity
-            })
+            items_list.append({'name': item.menu_item.name, 'qty': item.quantity})
+            
+            if is_asap and status_filter == 'ACTIVE':
+                name = item.menu_item.name
+                cat = (item.menu_item.category or 'Other').lower()
+                if name in item_data:
+                    item_data[name]['qty'] += item.quantity
+                else:
+                    item_data[name] = {'qty': item.quantity, 'cat': cat}
         
         customer = 'Walk-in'
-        if order.user:
-            customer = f"{order.user.first_name} {order.user.last_name}"
-        elif order.customer_name:
-            customer = order.customer_name
-        
-        elapsed = (get_ph_time() - order.created_at).total_seconds()
-        minutes = int(elapsed // 60)
+        if order.user: customer = f"{order.user.first_name} {order.user.last_name}"
+        elif order.customer_name: customer = order.customer_name
         
         orders_data.append({
             'id': order.id,
@@ -1018,11 +1431,35 @@ def kitchen_api_orders():
             'dining_option': order.dining_option,
             'notes': order.notes or '',
             'items': items_list,
-            'minutes_ago': minutes,
-            'created_at': order.created_at.strftime('%I:%M %p')
+            'is_reservation': bool(order.reservation),
+            'res_time': order.reservation.time.strftime('%I:%M %p') if (order.reservation and order.reservation.time) else None,
+            'guest_count': order.reservation.guest_count if order.reservation else None,
+            'table': order.reservation.table_number if order.reservation else None,
+            'created_at_utc': order.created_at.isoformat() + 'Z',
+            'created_at_str': order.created_at.strftime('%I:%M %p')
         })
-    
-    return jsonify(orders_data)
+
+    # Final station categorization
+    for name, info in item_data.items():
+        s_item = {'name': name, 'qty': info['qty']}
+        c = info['cat']
+        if any(kw in c for kw in ['drink', 'beverage', 'coffee', 'shake', 'juice', 'tea']):
+            bar_station.append(s_item)
+        elif any(kw in c for kw in ['dessert', 'cake', 'pastry', 'sweet', 'cheesecake', 'waffle']):
+            cold_kitchen.append(s_item)
+        else:
+            hot_kitchen.append(s_item)
+
+    return jsonify({
+        'orders': orders_data,
+        'stats': stats,
+        'stations': {
+            'hot': hot_kitchen,
+            'cold': cold_kitchen,
+            'bar': bar_station
+        },
+        'status_filter': status_filter
+    })
 
 @admin_bp.route('/kitchen/update/<int:order_id>', methods=['POST'])
 @login_required
@@ -1036,19 +1473,33 @@ def kitchen_update_order(order_id):
         # Auto-deduct ingredients when order moves to PREPARING
         if new_status == 'PREPARING' and order.status != 'PREPARING':
             order.prep_start_at = datetime.utcnow()
+            # Batch load recipes + ingredients to avoid N+1 queries
+            oi_by_menu_item_id = {}
+            menu_item_ids = []
             for oi in order.items:
-                recipe = MenuItemIngredient.query.filter_by(menu_item_id=oi.menu_item_id).all()
-                for r in recipe:
-                    ingredient = Ingredient.query.get(r.ingredient_id)
-                    if ingredient:
-                        prev = float(ingredient.stock_qty)
-                        deduction = float(r.quantity_needed) * oi.quantity
-                        log_inventory_change(ingredient.id, 'DEDUCT', deduction, prev, f"Used for Order #{order.id}")
-                        ingredient.stock_qty = max(0, prev - deduction)
-                        if float(ingredient.stock_qty) <= 0:
-                            for mi_link in ingredient.menu_items:
-                                mi = MenuItem.query.get(mi_link.menu_item_id)
-                                if mi: mi.is_available = False
+                oi_by_menu_item_id.setdefault(oi.menu_item_id, []).append(oi)
+                menu_item_ids.append(oi.menu_item_id)
+
+            recipe_rows = MenuItemIngredient.query.filter(MenuItemIngredient.menu_item_id.in_(menu_item_ids)).all()
+            ingredient_ids = list({r.ingredient_id for r in recipe_rows})
+            ingredients = Ingredient.query.filter(Ingredient.id.in_(ingredient_ids)).all() if ingredient_ids else []
+            ingredients_by_id = {ing.id: ing for ing in ingredients}
+
+            for r in recipe_rows:
+                ingredient = ingredients_by_id.get(r.ingredient_id)
+                if not ingredient:
+                    continue
+                for oi in oi_by_menu_item_id.get(r.menu_item_id, []):
+                    prev = float(ingredient.stock_qty)
+                    deduction = float(r.quantity_needed) * oi.quantity
+                    log_inventory_change(ingredient.id, 'DEDUCT', deduction, prev, f"Used for Order #{order.id}")
+                    ingredient.stock_qty = max(0, prev - deduction)
+
+                if float(ingredient.stock_qty) <= 0:
+                    for mi_link in ingredient.menu_items:
+                        mi = MenuItem.query.get(mi_link.menu_item_id)
+                        if mi:
+                            mi.is_available = False
         
         if new_status == 'COMPLETED':
             order.prep_end_at = datetime.utcnow()
@@ -1068,7 +1519,7 @@ def kitchen_update_order(order_id):
 @login_required
 @admin_required
 def walkin_order():
-    items = MenuItem.query.filter_by(is_available=True).order_by(MenuItem.category, MenuItem.name).all()
+    items = _get_walkin_items_cached()
     categories = sorted(set(i.category for i in items))
     return render_template('admin/walkin_order.html', items=items, categories=categories)
 
@@ -1210,14 +1661,17 @@ def walkin_order_submit():
 @admin_required
 def deliveries():
     status_filter = request.args.get('status', 'ALL')
+    page = request.args.get('page', 1, type=int)
+    
     query = Order.query.filter_by(dining_option='DELIVERY')
     if status_filter != 'ALL':
         if status_filter == 'WAITING':
             query = query.filter((Order.delivery_status == None) | (Order.delivery_status == 'WAITING'))
         else:
             query = query.filter_by(delivery_status=status_filter)
-    all_orders = query.order_by(Order.created_at.desc()).all()
-    return render_template('admin/deliveries.html', orders=all_orders, status_filter=status_filter)
+            
+    pagination = query.order_by(Order.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
+    return render_template('admin/deliveries.html', orders=pagination, status_filter=status_filter)
 
 # ─── ORDERS ──────────────────────────────────────────
 @admin_bp.route('/orders')
@@ -1225,25 +1679,45 @@ def deliveries():
 @admin_required
 def orders():
     status_filter = request.args.get('status', 'ALL')
-    if status_filter == 'ALL':
-        all_orders = Order.query.order_by(Order.created_at.desc()).all()
-    else:
-        all_orders = Order.query.filter_by(status=status_filter).order_by(Order.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    
+    query = Order.query
+    if status_filter != 'ALL':
+        query = query.filter_by(status=status_filter)
         
-    # Stats Calculation
-    today = date.today()
-    today_orders = Order.query.filter(func.date(Order.created_at) == today).all()
+    pagination = query.order_by(Order.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
+        
+    # Optimized Stats Calculation via SQL Group By
+    today = get_ph_time().date()
+    # 1 query for all today's stats
+    today_stats_rows = db.session.query(
+        Order.status, 
+        Order.payment_status,
+        Order.payment_method,
+        func.count(Order.id),
+        func.sum(Order.total_amount)
+    ).filter(func.date(Order.created_at) == today).group_by(Order.status, Order.payment_status, Order.payment_method).all()
     
-    total_sales_today = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID')
-    pending_count = len([o for o in today_orders if o.status == 'PENDING'])
-    completed_count = len([o for o in today_orders if o.status == 'COMPLETED'])
+    total_sales_today = 0
+    pending_count = 0
+    completed_count = 0
+    cash_sales = 0
+    online_sales = 0
     
-    # Shift Report
-    cash_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'COUNTER')
-    online_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'ONLINE')
+    for s, ps, pm, cnt, total in today_stats_rows:
+        total = float(total or 0)
+        cnt = int(cnt or 0)
+        
+        if s == 'COMPLETED' and ps == 'PAID':
+            total_sales_today += total
+            if pm == 'COUNTER': cash_sales += total
+            if pm == 'ONLINE': online_sales += total
+            
+        if s == 'PENDING': pending_count += cnt
+        if s == 'COMPLETED': completed_count += cnt
 
     return render_template('admin/orders.html', 
-                           orders=all_orders, 
+                           orders=pagination, 
                            status_filter=status_filter,
                            total_sales_today=total_sales_today,
                            pending_count=pending_count,
@@ -1256,25 +1730,38 @@ def orders():
 @admin_required
 def billing():
     status_filter = request.args.get('status', 'UNPAID')
+    page = request.args.get('page', 1, type=int)
     
-    if status_filter == 'ALL':
-        billing_orders = Order.query.order_by(Order.created_at.desc()).all()
-    else:
-        billing_orders = Order.query.filter_by(payment_status=status_filter).order_by(Order.created_at.desc()).all()
+    query = Order.query
+    if status_filter != 'ALL':
+        query = query.filter_by(payment_status=status_filter)
         
-    # Stats Calculation
-    today = date.today()
-    today_orders = Order.query.filter(func.date(Order.created_at) == today).all()
+    pagination = query.order_by(Order.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
+        
+    # Stats Calculation optimized
+    today = get_ph_time().date()
+    stats = db.session.query(
+        Order.payment_status,
+        Order.payment_method,
+        func.count(Order.id),
+        func.sum(Order.total_amount)
+    ).filter(func.date(Order.created_at) == today).group_by(Order.payment_status, Order.payment_method).all()
     
-    total_sales_today = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID')
-    unpaid_count = len([o for o in today_orders if o.payment_status == 'UNPAID'])
+    total_sales_today = 0
+    unpaid_count = 0
+    cash_sales = 0
+    online_sales = 0
     
-    # Shift Report
-    cash_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'COUNTER')
-    online_sales = sum(o.total_amount for o in today_orders if o.status == 'COMPLETED' and o.payment_status == 'PAID' and o.payment_method == 'ONLINE')
-
+    for ps, pm, cnt, total in stats:
+        total_val = float(total or 0)
+        if ps == 'PAID': 
+            total_sales_today += total_val
+            if pm == 'COUNTER': cash_sales += total_val
+            if pm == 'ONLINE': online_sales += total_val
+        if ps == 'UNPAID': unpaid_count += int(cnt or 0)
+    
     return render_template('admin/billing.html', 
-                           orders=billing_orders, 
+                           orders=pagination, 
                            status_filter=status_filter,
                            total_sales_today=total_sales_today,
                            unpaid_count=unpaid_count,
@@ -1288,49 +1775,22 @@ def print_receipt(order_id):
     order = Order.query.get_or_404(order_id)
     return render_template('admin/receipt.html', order=order)
 
-@admin_bp.route('/orders/update/<int:order_id>', methods=['POST'])
-@login_required
-@admin_required
-def update_order(order_id):
-    order = Order.query.get_or_404(order_id)
-    new_status = request.form.get('status')
-    
-    # Auto-deduct ingredients when order moves to PREPARING
-    if new_status == 'PREPARING' and order.status != 'PREPARING':
-        for oi in order.items:
-            recipe = MenuItemIngredient.query.filter_by(menu_item_id=oi.menu_item_id).all()
-            for r in recipe:
-                ingredient = Ingredient.query.get(r.ingredient_id)
-                if ingredient:
-                    deduction = float(r.quantity_needed) * oi.quantity
-                    ingredient.stock_qty = max(0, float(ingredient.stock_qty) - deduction)
-                    # Auto-mark menu items out of stock if any ingredient is depleted
-                    if float(ingredient.stock_qty) <= 0:
-                        for mi_link in ingredient.menu_items:
-                            mi = MenuItem.query.get(mi_link.menu_item_id)
-                            if mi:
-                                mi.is_available = False
-    
-    order.status = new_status
-    db.session.commit()
-    
-    # Notify user about order status change
-    if order.user_id:
-        order_status_msgs = {
-            'PREPARING': f'Your order #{order.id} is now being prepared! 🍳',
-            'COMPLETED': f'Your order #{order.id} is ready! Total: ₱{float(order.total_amount):,.2f}',
-            'CANCELLED': f'Your order #{order.id} has been cancelled.',
-        }
-        if new_status in order_status_msgs:
-            _create_web_notification(order.user_id, f'Order {new_status.capitalize()}', order_status_msgs[new_status], 'ORDER')
-    
-    # Send receipt email when order is COMPLETED (skip walk-in orders)
-    if new_status == 'COMPLETED' and order.user:
+def _send_receipt_email_worker(app, order_id: int):
+    """Background worker to send COMPLETED receipt emails without blocking admin requests."""
+    with app.app_context():
         try:
-            mail = current_app.extensions['mail']
+            order = (
+                Order.query.options(
+                    selectinload(Order.items).selectinload(OrderItem.menu_item),
+                    selectinload(Order.user),
+                ).get(order_id)
+            )
+            if not order or not order.user:
+                return
+
             user = order.user
-            
-            # Build order items table rows
+
+            # Build order items table rows (HTML string construction is CPU-heavy).
             items_html = ""
             for item in order.items:
                 item_total = float(item.price_at_time) * item.quantity
@@ -1342,11 +1802,11 @@ def update_order(order_id):
                     <td style="padding: 10px 15px; border-bottom: 1px solid #f0e6d9; color: #333; text-align: right; font-weight: 600; font-size: 0.9rem;">₱{item_total:,.2f}</td>
                 </tr>
                 """
-            
+
             msg = Message(
                 subject=f'Le Maison Yelo Lane - Order #{order.id} Receipt',
-                sender=current_app.config['MAIL_USERNAME'],
-                recipients=[user.email]
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[user.email],
             )
             msg.html = f"""
             <div style="font-family: 'Georgia', serif; max-width: 550px; margin: 0 auto; padding: 40px 30px; background: #ffffff; border-radius: 12px; border: 1px solid #e0d5c7;">
@@ -1394,9 +1854,102 @@ def update_order(order_id):
                 <p style="color: #bbb; font-size: 0.75rem; text-align: center;">Le Maison Yelo Lane · Pagsanjan, Laguna</p>
             </div>
             """
+
+            mail = app.extensions['mail']
             mail.send(msg)
         except Exception as e:
-            print(f"Receipt email failed: {e}")
+            print(f"Receipt email async failed: {e}")
+            traceback.print_exc()
+
+@admin_bp.route('/orders/update/<int:order_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_order(order_id):
+    # Eager load to avoid extra queries during stock deduction + notification/email.
+    order = Order.query.options(selectinload(Order.items), selectinload(Order.user)).get_or_404(order_id)
+    new_status = request.form.get('status')
+    
+    # Auto-deduct ingredients when order moves to PREPARING
+    if new_status == 'PREPARING' and order.status != 'PREPARING':
+        # Batch fetch all recipe rows for items in this order.
+        from collections import defaultdict
+
+        order_items = list(order.items)
+        menu_item_ids = list({oi.menu_item_id for oi in order_items if oi.menu_item_id})
+        if menu_item_ids:
+            recipe_rows = MenuItemIngredient.query.filter(MenuItemIngredient.menu_item_id.in_(menu_item_ids)).all()
+
+            recipes_by_menu_item_id = defaultdict(list)
+            ingredient_ids = set()
+            for rr in recipe_rows:
+                recipes_by_menu_item_id[rr.menu_item_id].append(rr)
+                ingredient_ids.add(rr.ingredient_id)
+
+            # Compute total deductions per ingredient across the whole order.
+            deduction_by_ingredient_id = defaultdict(float)
+            for oi in order_items:
+                for rr in recipes_by_menu_item_id.get(oi.menu_item_id, []):
+                    deduction_by_ingredient_id[rr.ingredient_id] += float(rr.quantity_needed) * oi.quantity
+
+            # Fetch ingredients once.
+            ingredients = (
+                Ingredient.query.filter(Ingredient.id.in_(ingredient_ids))
+                .all()
+            )
+            ingredients_by_id = {ing.id: ing for ing in ingredients}
+
+            new_stock_by_ingredient_id = {}
+            for ing_id, deduction in deduction_by_ingredient_id.items():
+                ing = ingredients_by_id.get(ing_id)
+                if not ing:
+                    continue
+                new_stock = max(0.0, float(ing.stock_qty) - float(deduction))
+                ing.stock_qty = new_stock
+                new_stock_by_ingredient_id[ing_id] = new_stock
+
+            # Disable menu items that now lack required ingredients (using final stock values).
+            if new_stock_by_ingredient_id:
+                links = MenuItemIngredient.query.filter(
+                    MenuItemIngredient.ingredient_id.in_(list(new_stock_by_ingredient_id.keys()))
+                ).all()
+                menu_item_ids_to_disable = set()
+                for link in links:
+                    new_stock = new_stock_by_ingredient_id.get(link.ingredient_id)
+                    if new_stock is None:
+                        continue
+                    if new_stock < float(link.quantity_needed):
+                        menu_item_ids_to_disable.add(link.menu_item_id)
+
+                if menu_item_ids_to_disable:
+                    MenuItem.query.filter(
+                        MenuItem.id.in_(menu_item_ids_to_disable),
+                        MenuItem.is_available == True,
+                    ).update({'is_available': False}, synchronize_session=False)
+    
+    order.status = new_status
+    db.session.commit()
+    
+    # Notify user about order status change
+    if order.user_id:
+        order_status_msgs = {
+            'PREPARING': f'Your order #{order.id} is now being prepared! 🍳',
+            'COMPLETED': f'Your order #{order.id} is ready! Total: ₱{float(order.total_amount):,.2f}',
+            'CANCELLED': f'Your order #{order.id} has been cancelled.',
+        }
+        if new_status in order_status_msgs:
+            _create_web_notification(order.user_id, f'Order {new_status.capitalize()}', order_status_msgs[new_status], 'ORDER')
+    
+    # Send receipt email when order is COMPLETED.
+    # This can be slow (SMTP + template rendering), so move it off the request thread.
+    if new_status == 'COMPLETED' and order.user:
+        try:
+            app_obj = current_app._get_current_object()
+            threading.Thread(
+                target=lambda: _send_receipt_email_worker(app_obj, order_id),
+                daemon=True
+            ).start()
+        except Exception as e:
+            print(f"Failed to start receipt email thread: {e}")
             traceback.print_exc()
     
     flash(f"Order #{order.id} status updated to {new_status}.", "success")
@@ -1488,53 +2041,93 @@ def split_order(order_id):
 @admin_required
 def reviews():
     status_filter = request.args.get('status', 'PENDING')
+    limit = request.args.get('limit', 250, type=int)
+    limit = max(1, min(limit, 500))
     if status_filter == 'ALL':
-        all_reviews = Review.query.order_by(Review.created_at.desc()).all()
+        all_reviews = Review.query.options(selectinload(Review.user)).order_by(Review.created_at.desc()).limit(limit).all()
     else:
-        all_reviews = Review.query.filter_by(status=status_filter).order_by(Review.created_at.desc()).all()
+        all_reviews = Review.query.options(selectinload(Review.user)).filter_by(status=status_filter).order_by(Review.created_at.desc()).limit(limit).all()
         
     # AI Sentiment Analysis (Dynamic Calculation to avoid DB Migrations)
     positive_words = ['good', 'great', 'excellent', 'amazing', 'best', 'delicious', 'love', 'perfect', 'nice', 'awesome', 'sarap', 'mabilis', 'ayos', 'sulit', 'outstanding', 'fantastic', 'superb', 'yummy', 'tasty']
     negative_words = ['bad', 'terrible', 'awful', 'worst', 'horrible', 'poor', 'slow', 'cold', 'disappointing', 'hate', 'pangit', 'panget', 'mabagal', 'matagal', 'bland', 'salty', 'late', 'matabang', 'maalat']
 
+    # Prevent unbounded growth in long-running deployments.
+    if len(_REVIEW_SENTIMENT_CACHE) > 2500:
+        _REVIEW_SENTIMENT_CACHE.clear()
+
+    # Speed optimization: compute sentiment for missing reviews in background thread.
+    # This prevents /admin/reviews from timing out when there are many new/unique comments.
+    now_mono = time.monotonic()
+
+    def _compute_sentiment(text: str, rating: int):
+        t = (text or '').lower()
+        if not t:
+            return ("NEUTRAL", "😐", "secondary")
+        pos_count = sum(t.count(word) for word in positive_words)
+        neg_count = sum(t.count(word) for word in negative_words)
+
+        # Adjust weight based on star rating
+        if rating >= 4:
+            pos_count += 2
+        elif rating <= 2:
+            neg_count += 2
+
+        if pos_count > neg_count:
+            return ("POSITIVE", "😊", "success")
+        if neg_count > pos_count:
+            return ("NEGATIVE", "😠", "danger")
+        # Tie-break with rating
+        if rating >= 4:
+            return ("POSITIVE", "😊", "success")
+        if rating <= 2:
+            return ("NEGATIVE", "😠", "danger")
+        return ("NEUTRAL", "😐", "secondary")
+
+    # Protect cache dict in case multiple requests compute at once.
+    import threading as _threading
+    if not hasattr(reviews, "_sentiment_lock"):
+        reviews._sentiment_lock = _threading.Lock()
+
+    jobs = []  # (cache_key, comment_text, rating)
     for review in all_reviews:
-        text = str(review.comment or '').lower()
-        if not text:
+        comment_text = str(review.comment or '')
+        if not comment_text.strip():
             review.ai_sentiment = "NEUTRAL"
             review.ai_sentiment_icon = "😐"
             review.ai_sentiment_color = "secondary"
             continue
-            
-        pos_count = sum(text.count(word) for word in positive_words)
-        neg_count = sum(text.count(word) for word in negative_words)
-        
-        # Adjust weight based on star rating
-        if review.rating >= 4:
-            pos_count += 2
-        elif review.rating <= 2:
-            neg_count += 2
-            
-        if pos_count > neg_count:
-            review.ai_sentiment = "POSITIVE"
-            review.ai_sentiment_icon = "😊"
-            review.ai_sentiment_color = "success"
-        elif neg_count > pos_count:
-            review.ai_sentiment = "NEGATIVE"
-            review.ai_sentiment_icon = "😠"
-            review.ai_sentiment_color = "danger"
+
+        comment_key = hash(comment_text)
+        cache_key = (review.id, review.rating, comment_key)
+        cached = _REVIEW_SENTIMENT_CACHE.get(cache_key)
+        if cached and (now_mono - cached[0]) < _REVIEW_SENTIMENT_CACHE_TTL_SECONDS:
+            sentiment, icon, color = cached[1]
+            review.ai_sentiment = sentiment
+            review.ai_sentiment_icon = icon
+            review.ai_sentiment_color = color
         else:
-            if review.rating >= 4:
-                review.ai_sentiment = "POSITIVE"
-                review.ai_sentiment_icon = "😊"
-                review.ai_sentiment_color = "success"
-            elif review.rating <= 2:
-                review.ai_sentiment = "NEGATIVE"
-                review.ai_sentiment_icon = "😠"
-                review.ai_sentiment_color = "danger"
-            else:
-                review.ai_sentiment = "NEUTRAL"
-                review.ai_sentiment_icon = "😐"
-                review.ai_sentiment_color = "secondary"
+            # Default fast placeholder; background thread will fill the cache.
+            review.ai_sentiment = "NEUTRAL"
+            review.ai_sentiment_icon = "😐"
+            review.ai_sentiment_color = "secondary"
+            jobs.append((cache_key, comment_text, review.rating))
+
+    if jobs:
+        # Copy jobs to avoid accidental mutation.
+        jobs_copy = list(jobs)
+
+        def _worker(jobs_local):
+            mono = time.monotonic()
+            try:
+                for cache_key, comment_text, rating in jobs_local:
+                    sentiment, icon, color = _compute_sentiment(comment_text, rating)
+                    with reviews._sentiment_lock:
+                        _REVIEW_SENTIMENT_CACHE[cache_key] = (mono, (sentiment, icon, color))
+            except Exception as e:
+                print(f"Sentiment background worker failed: {e}")
+
+        threading.Thread(target=_worker, args=(jobs_copy,), daemon=True).start()
 
     return render_template('admin/reviews.html', reviews=all_reviews, status_filter=status_filter)
 
@@ -1592,22 +2185,70 @@ def settings():
 @admin_bp.route('/settings/profile', methods=['POST'])
 @login_required
 def update_profile():
-    first_name = request.form.get('first_name')
-    last_name = request.form.get('last_name')
-    email = request.form.get('email')
-    password = request.form.get('password')
+    first_name = request.form.get('admin_first_name', '').strip()
+    middle_name = request.form.get('admin_middle_name', '').strip()
+    last_name = request.form.get('admin_last_name', '').strip()
+    username = request.form.get('admin_username', '').strip()
+    email = request.form.get('admin_email', '').strip()
+    phone_number = request.form.get('admin_phone_number', '').strip()
+    
+    current_password = request.form.get('admin_current_password', '')
+    new_password = request.form.get('admin_new_password', '')
+    confirm_new_password = request.form.get('admin_confirm_password', '')
 
-    if first_name and last_name and email:
-        current_user.first_name = first_name
-        current_user.last_name = last_name
-        current_user.email = email
-        if password:
-            current_user.set_password(password)
-        db.session.commit()
-        flash('Profile updated successfully!', 'success')
-    else:
-        flash('Missing required fields.', 'danger')
+    # --- VALIDATIONS ---
+    if not all([first_name, last_name, username, email, phone_number]):
+        flash("All profile fields are required.", "danger")
+        return redirect(url_for('admin.settings'))
+    
+    # Validate Names
+    for name, label in [(first_name, 'First Name'), (last_name, 'Last Name')]:
+        err = validate_name(name, label)
+        if err: flash(err, "danger"); return redirect(url_for('admin.settings'))
+    if middle_name:
+        err = validate_name(middle_name, 'Middle Name')
+        if err: flash(err, "danger"); return redirect(url_for('admin.settings'))
+
+    # Validate Email
+    err = validate_email(email)
+    if err: flash(err, "danger"); return redirect(url_for('admin.settings'))
+
+    # Validate Username
+    err = validate_username(username, first_name, last_name)
+    if err: flash(err, "danger"); return redirect(url_for('admin.settings'))
+
+    # Conflicts
+    if email != current_user.email and User.query.filter_by(email=email).first():
+        flash("Email already registered.", "danger")
+        return redirect(url_for('admin.settings'))
+    if username != current_user.username and User.query.filter_by(username=username).first():
+        flash("Username already taken.", "danger")
+        return redirect(url_for('admin.settings'))
+    
+    # Password Change
+    if new_password:
+        if not current_password:
+            flash("Current password is required to change password.", "danger")
+            return redirect(url_for('admin.settings'))
+        if not current_user.check_password(current_password):
+            flash("Incorrect current password.", "danger")
+            return redirect(url_for('admin.settings'))
         
+        err = validate_password(new_password, confirm_new_password)
+        if err: flash(err, "danger"); return redirect(url_for('admin.settings'))
+        
+        current_user.set_password(new_password)
+    
+    # Update Fields
+    current_user.first_name = first_name
+    current_user.middle_name = middle_name
+    current_user.last_name = last_name
+    current_user.username = username
+    current_user.email = email
+    current_user.phone_number = phone_number
+    
+    db.session.commit()
+    flash('Staff profile updated successfully!', 'success')
     return redirect(url_for('admin.settings'))
 
 # ─── ADMIN NOTIFICATIONS API ─────────────────────────
@@ -1822,19 +2463,21 @@ def restock_ingredient(ing_id):
         log_inventory_change(ing.id, 'ADD', add_qty, prev, reason)
         ing.stock_qty = prev + add_qty
         db.session.commit()
-        # Re-enable menu items whose ingredients are now in stock
-        for mi_link in ing.menu_items:
-            mi = MenuItem.query.get(mi_link.menu_item_id)
+
+        # Re-enable menu items that use this ingredient AND have all other ingredients in stock
+        menu_items_using_ing = MenuItemIngredient.query.filter_by(ingredient_id=ing.id).all()
+        for mi_ing in menu_items_using_ing:
+            mi = MenuItem.query.get(mi_ing.menu_item_id)
             if mi and not mi.is_available:
-                all_in_stock = True
-                for recipe in mi.ingredients:
-                    ri = Ingredient.query.get(recipe.ingredient_id)
-                    if ri and float(ri.stock_qty) <= 0:
-                        all_in_stock = False
+                can_enable = True
+                for other in mi.ingredients:
+                    if float(other.ingredient.stock_qty) < float(other.quantity_needed):
+                        can_enable = False
                         break
-                if all_in_stock:
+                if can_enable:
                     mi.is_available = True
-        db.session.commit()
+                    db.session.commit()
+
         flash(f'Restocked {add_qty} {ing.unit} of "{ing.name}".', 'success')
     return redirect(url_for('admin.inventory', tab='ingredients'))
 
@@ -1851,14 +2494,17 @@ def waste_ingredient(ing_id):
         prev = float(ing.stock_qty)
         log_inventory_change(ing.id, action, qty, prev, reason)
         ing.stock_qty = prev - qty
-        
-        # If stock empty, disable menu items
-        if ing.stock_qty <= 0:
-            for mi_link in ing.menu_items:
-                mi = MenuItem.query.get(mi_link.menu_item_id)
-                if mi: mi.is_available = False
-        
         db.session.commit()
+
+        # Disable menu items if this ingredient falls below required levels
+        menu_items_using_ing = MenuItemIngredient.query.filter_by(ingredient_id=ing.id).all()
+        for mi_ing in menu_items_using_ing:
+            if float(ing.stock_qty) < float(mi_ing.quantity_needed):
+                mi = MenuItem.query.get(mi_ing.menu_item_id)
+                if mi and mi.is_available:
+                    mi.is_available = False
+                    db.session.commit()
+
         flash(f'Recorded {qty} {ing.unit} as {action}.', 'warning')
     else:
         flash('Invalid quantity.', 'danger')
@@ -1868,9 +2514,10 @@ def waste_ingredient(ing_id):
 @login_required
 @admin_required
 def inventory_audit_logs():
+    page = request.args.get('page', 1, type=int)
     from models import InventoryLog
-    logs = InventoryLog.query.order_by(InventoryLog.created_at.desc()).limit(100).all()
-    return render_template('admin/inventory_logs.html', logs=logs)
+    pagination = InventoryLog.query.order_by(InventoryLog.created_at.desc()).paginate(page=page, per_page=50)
+    return render_template('admin/inventory_logs.html', pagination=pagination)
 
 # ─── RECIPE (MENU ITEM INGREDIENTS) ──────────────────
 @admin_bp.route('/recipe/<int:item_id>', methods=['GET'])
@@ -1878,11 +2525,25 @@ def inventory_audit_logs():
 @admin_required
 def get_recipe(item_id):
     links = MenuItemIngredient.query.filter_by(menu_item_id=item_id).all()
+    ingredient_ids = [l.ingredient_id for l in links]
+    if not ingredient_ids:
+        return jsonify([])
+
+    ingredients = Ingredient.query.filter(Ingredient.id.in_(ingredient_ids)).all()
+    ingredients_by_id = {ing.id: ing for ing in ingredients}
+
     result = []
     for l in links:
-        ing = Ingredient.query.get(l.ingredient_id)
-        if ing:
-            result.append({'id': l.id, 'ingredient_id': ing.id, 'name': ing.name, 'unit': ing.unit, 'quantity_needed': float(l.quantity_needed)})
+        ing = ingredients_by_id.get(l.ingredient_id)
+        if not ing:
+            continue
+        result.append({
+            'id': l.id,
+            'ingredient_id': ing.id,
+            'name': ing.name,
+            'unit': ing.unit,
+            'quantity_needed': float(l.quantity_needed),
+        })
     return jsonify(result)
 
 @admin_bp.route('/recipe/<int:item_id>/add', methods=['POST'])
@@ -1986,8 +2647,9 @@ def bulk_delete_suppliers():
 @login_required
 @admin_required
 def waste_records():
-    records = WasteRecord.query.order_by(WasteRecord.created_at.desc()).all()
-    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    # Cap payload for speed (older records may be hidden; UI remains functional).
+    records = WasteRecord.query.order_by(WasteRecord.created_at.desc()).limit(200).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).limit(500).all()
     total_lost = sum(float(r.cost_lost or 0) for r in records)
     return render_template('admin/waste.html', records=records, ingredients=ingredients, total_lost=total_lost)
 
@@ -2024,11 +2686,14 @@ def add_waste_record():
 @login_required
 @admin_required
 def ingredient_batches():
-    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).limit(500).all()
     today = date.today()
-    batches = IngredientBatch.query.filter_by(is_exhausted=False).order_by(
-        IngredientBatch.purchase_date.asc()
-    ).all()
+    batches = (
+        IngredientBatch.query.filter_by(is_exhausted=False)
+        .order_by(IngredientBatch.purchase_date.asc())
+        .limit(300)
+        .all()
+    )
     return render_template('admin/batches.html', batches=batches, ingredients=ingredients, today=today)
 
 @admin_bp.route('/inventory/batches/add', methods=['POST'])
@@ -2075,7 +2740,7 @@ def inventory_audit():
     if action_filter:
         query = query.filter_by(action=action_filter)
     logs = query.order_by(InventoryLog.created_at.desc()).limit(200).all()
-    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).limit(500).all()
     return render_template('admin/inventory_audit.html', logs=logs, ingredients=ingredients,
                            ing_filter=ing_filter, action_filter=action_filter)
 
@@ -2087,14 +2752,21 @@ def stock_requests():
     role_upper = current_user.role.upper() if current_user.role else ''
     if role_upper == 'KITCHEN':
         # Kitchen sees its own requests
-        requests_list = StockRequest.query.filter_by(
-            requested_by_id=current_user.id
-        ).order_by(StockRequest.created_at.desc()).all()
+        requests_list = (
+            StockRequest.query.filter_by(requested_by_id=current_user.id)
+            .order_by(StockRequest.created_at.desc())
+            .limit(200)
+            .all()
+        )
     else:
         # Inventory / Admin sees all requests
-        requests_list = StockRequest.query.order_by(StockRequest.created_at.desc()).all()
+        requests_list = (
+            StockRequest.query.order_by(StockRequest.created_at.desc())
+            .limit(200)
+            .all()
+        )
         
-    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    ingredients = Ingredient.query.order_by(Ingredient.name).limit(500).all()
     pending_count = StockRequest.query.filter_by(status='PENDING').count()
     return render_template('admin/stock_requests.html',
                            requests=requests_list, ingredients=ingredients,
@@ -2170,7 +2842,7 @@ def chats():
     
     chat_users = db.session.query(User, subquery.c.last_msg_at)\
         .join(subquery, User.id == subquery.c.user_id)\
-        .order_by(subquery.c.last_msg_at.desc()).all()
+        .order_by(subquery.c.last_msg_at.desc()).limit(200).all()
         
     return render_template('admin/chats.html', chat_users=chat_users)
 
@@ -2180,7 +2852,14 @@ def chats():
 def chat_with_user(user_id):
     """View chat history and reply to a specific user"""
     user = User.query.get_or_404(user_id)
-    messages = ChatMessage.query.filter_by(user_id=user_id).order_by(ChatMessage.created_at.asc()).all()
+    # Cap payload for speed. Keep chronological order for UI.
+    messages_desc = (
+        ChatMessage.query.filter_by(user_id=user_id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(300)
+        .all()
+    )
+    messages = list(reversed(messages_desc))
     
     # Mark messages as read by admin
     ChatMessage.query.filter_by(user_id=user_id, sender='USER', is_read=False).update({'is_read': True})
@@ -2244,7 +2923,9 @@ def audit_logs():
 @admin_required
 def inventory_alerts_api():
     """Get low-stock ingredient alerts"""
-    low_stock = Ingredient.query.filter(Ingredient.stock_qty <= Ingredient.reorder_level).all()
+    low_stock = Ingredient.query.filter(
+        Ingredient.stock_qty <= Ingredient.reorder_level
+    ).order_by(Ingredient.stock_qty.asc()).limit(300).all()
     alerts = []
     for ing in low_stock:
         alerts.append({
@@ -2310,7 +2991,7 @@ def advanced_analytics_api():
 @admin_required
 def vouchers():
     """List all vouchers"""
-    all_vouchers = Voucher.query.order_by(Voucher.created_at.desc()).all()
+    all_vouchers = Voucher.query.order_by(Voucher.created_at.desc()).limit(200).all()
     return render_template('admin/vouchers.html', vouchers=all_vouchers)
 
 @admin_bp.route('/vouchers/add', methods=['POST'])

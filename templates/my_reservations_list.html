@@ -3,98 +3,144 @@
 
 {% block content %}
 <style>
-    .reslist-page { max-width: 820px; margin: 5rem auto 4rem; padding: 0 1.25rem; }
+    :root {
+        --res-gold: #D4A862;
+        --res-brown: #5D4037;
+        --res-dark: #3E2723;
+        --res-sage: #4E6E5D;
+        --res-tan: #BCAAA4;
+        --res-accent: #8D6E63;
+    }
 
-    .page-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; }
-    .page-header h2 { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 1.6rem; color: #3E2723; margin: 0; }
-    .page-header p { color: #888; font-size: 0.82rem; margin: 0; }
+    .reslist-page { max-width: 1000px; margin: 3rem auto 6rem; padding: 0 1.5rem; }
+
+    .page-header { margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.5rem; }
+    .page-header h2 { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 2.4rem; color: var(--res-dark); margin: 0; }
+    .page-header p { color: #888; font-size: 1rem; margin-top: 5px; }
+    
     .btn-new-booking {
-        background: linear-gradient(135deg, #5D4037, #795548);
+        background: linear-gradient(135deg, var(--res-brown), var(--res-accent));
         color: #fff; border: none; border-radius: 50px;
-        padding: 0.5rem 1.25rem; font-size: 0.78rem; font-weight: 700;
-        text-decoration: none; transition: all 0.2s;
-        box-shadow: 0 3px 12px rgba(93,64,55,0.2);
+        padding: 0.8rem 2rem; font-size: 0.95rem; font-weight: 700;
+        text-decoration: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 5px 20px rgba(93, 64, 55, 0.25);
+        display: inline-flex; align-items: center; gap: 10px;
     }
-    .btn-new-booking:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(93,64,55,0.3); color: #fff; }
+    .btn-new-booking:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(93, 64, 55, 0.35); color: #fff; }
 
-    /* Scrollable reservation list */
-    .res-scroll-container {
-        max-height: 70vh;
-        overflow-y: auto;
-        padding-right: 6px;
+    /* Centered larger grid */
+    .res-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+        gap: 2rem;
     }
-    .res-scroll-container::-webkit-scrollbar { width: 3px; }
-    .res-scroll-container::-webkit-scrollbar-thumb { background: #8D6E63; border-radius: 10px; }
 
     .res-card {
         background: #fff;
-        border: 1px solid rgba(93,64,55,0.08);
-        border-radius: 16px;
-        padding: 1.25rem 1.5rem;
-        margin-bottom: 0.75rem;
-        transition: box-shadow 0.2s;
+        border: 2px solid rgba(93, 64, 55, 0.08); /* More subtle border */
+        border-radius: 24px;
+        padding: 2.2rem;
+        transition: all 0.35s ease;
         position: relative;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 270px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.02);
     }
-    .res-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
-    .res-card::before {
-        content: '';
-        position: absolute;
-        left: 0; top: 12px; bottom: 12px;
-        width: 3px; border-radius: 3px;
+    .res-card:hover { 
+        transform: translateY(-8px); 
+        box-shadow: 0 20px 50px rgba(93,64,55,0.1);
+        border-color: rgba(93,64,55,0.12);
     }
-    .res-card.status-PENDING::before { background: #FF9800; }
-    .res-card.status-CONFIRMED::before { background: #4CAF50; }
-    .res-card.status-REJECTED::before { background: #f44336; }
-    .res-card.status-COMPLETED::before { background: #2196F3; }
-    .res-card.status-CANCELLED::before { background: #9E9E9E; }
 
-    .res-meta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
-    .res-meta-item { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #555; }
-    .res-meta-item i { font-size: 0.7rem; color: #8D6E63; width: 13px; }
+    /* REMOVED: Status line at the top as requested */
 
     .status-badge {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 50px;
-        font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 16px; border-radius: 50px;
+        font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
     }
-    .badge-PENDING   { background: rgba(255,152,0,0.1); color: #E65100; }
-    .badge-CONFIRMED { background: rgba(76,175,80,0.1); color: #1B5E20; }
-    .badge-REJECTED  { background: rgba(244,67,54,0.1); color: #B71C1C; }
-    .badge-COMPLETED { background: rgba(33,150,243,0.1); color: #0D47A1; }
-    .badge-CANCELLED { background: rgba(158,158,158,0.1); color: #666; }
+    .badge-PENDING   { background: rgba(212, 168, 98, 0.1); color: #B48A4E; }
+    .badge-CONFIRMED { background: rgba(78, 110, 93, 0.1); color: #4E6E5D; }
+    .badge-REJECTED  { background: rgba(183, 28, 28, 0.1); color: #B71C1C; }
+    .badge-COMPLETED { background: rgba(93, 64, 55, 0.1); color: #5D4037; }
+    .badge-CANCELLED { background: rgba(188, 170, 164, 0.2); color: #795548; }
 
-    .btn-cancel-res {
-        background: transparent; border: 1px solid rgba(244,67,54,0.3);
-        color: #f44336; border-radius: 50px;
-        padding: 0.3rem 0.85rem; font-size: 0.7rem; font-weight: 700;
-        cursor: pointer; transition: all 0.2s;
+    .res-info { margin: 1.5rem 0; }
+    .res-date { font-family: 'Playfair Display', serif; font-weight: 800; font-size: 1.7rem; color: var(--res-dark); margin-bottom: 0.4rem; }
+    .res-time { color: var(--res-accent); font-weight: 700; font-size: 1.05rem; margin-bottom: 1.5rem; }
+    
+    .meta-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .meta-tag {
+        background: #fdfaf8; border: 1px solid rgba(0,0,0,0.03);
+        color: var(--res-brown); font-size: 0.82rem; font-weight: 700;
+        padding: 7px 16px; border-radius: 12px;
+        display: flex; align-items: center; gap: 8px;
     }
-    .btn-cancel-res:hover { background: #f44336; color: #fff; }
+    .meta-tag i { font-size: 0.75rem; color: var(--res-accent); }
 
     .excl-tag {
-        background: rgba(212,168,98,0.1); color: #8B634B;
-        border-radius: 50px; padding: 2px 8px; font-size: 0.65rem; font-weight: 700;
+        background: #fdfaf8; color: var(--res-brown);
+        border: 1px solid rgba(0,0,0,0.05);
+        border-radius: 50px; padding: 5px 14px; font-size: 0.72rem; font-weight: 800;
     }
 
-    .empty-state { text-align: center; padding: 3.5rem 2rem; }
-    .empty-state i { font-size: 2.5rem; opacity: 0.12; color: #5D4037; margin-bottom: 0.75rem; }
+    .card-footer {
+        display: flex; justify-content: space-between; align-items: center;
+        padding-top: 1.5rem; border-top: 2px solid #fafafa;
+        margin-top: 1rem;
+    }
+    .booked-at { font-size: 0.75rem; color: #bbb; font-weight: 500; }
 
-    /* Cancel Modal */
-    .modal-content { border-radius: 18px; border: none; }
-    .modal-header { background: linear-gradient(135deg, #5D4037, #795548); color: #fff; border: none; padding: 1rem 1.25rem; }
+    .btn-action-group { display: flex; gap: 0.75rem; }
+    .btn-action {
+        width: 44px; height: 44px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        border: none; background: #fafafa; color: var(--res-brown);
+        transition: all 0.3s ease; cursor: pointer;
+        font-size: 1.1rem;
+    }
+    .btn-action:hover { background: var(--res-brown); color: #fff; transform: scale(1.08); }
+    .btn-cancel-action { color: #f44336; background: rgba(244,67,54,0.04); }
+    .btn-cancel-action:hover { background: #f44336; color: #fff; }
+
+    /* Empty State */
+    .empty-state {
+        grid-column: 1 / -1;
+        text-align: center; padding: 6rem 3rem;
+        background: #fff; border-radius: 32px;
+        border: 2px dashed rgba(93,64,55,0.12);
+    }
+    .empty-state i { font-size: 5rem; color: var(--res-brown); opacity: 0.08; margin-bottom: 2rem; }
+
+    /* Modals */
+    .modal-content { border-radius: 28px; border: none; overflow: hidden; box-shadow: 0 30px 70px -10px rgba(0,0,0,0.3); }
+    .modal-header { background: var(--res-brown); color: #fff; border: none; padding: 1.75rem 2rem; }
+    .modal-body { padding: 2.5rem; }
+    
+    .detail-row { display: flex; justify-content: space-between; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1.5px solid #f5f2f0; }
+    .detail-label { color: #999; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; }
+    .detail-value { color: var(--res-dark); font-weight: 800; font-size: 1.15rem; }
+
+    .preorder-section {
+        background: #fdfaf8; border-radius: 20px; padding: 1.75rem;
+        margin-top: 2rem; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .preorder-title { font-weight: 800; font-size: 1.1rem; color: var(--res-brown); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; }
+    .preorder-item { display: flex; justify-content: space-between; align-items: center; font-size: 1rem; margin-bottom: 0.9rem; }
+    
     .reason-option {
-        display: flex; align-items: center; gap: 8px;
-        padding: 0.6rem 0.85rem; border: 1.5px solid #f0ece9;
-        border-radius: 10px; cursor: pointer; transition: all 0.2s;
-        margin-bottom: 0.4rem; font-size: 0.82rem;
+        display: flex; align-items: center; gap: 10px;
+        padding: 1rem; border: 2px solid #f0ece9;
+        border-radius: 12px; cursor: pointer; transition: all 0.2s;
+        margin-bottom: 0.8rem; font-size: 0.95rem; font-weight: 600; color: var(--res-brown);
     }
-    .reason-option:hover, .reason-option.selected { border-color: #5D4037; background: rgba(93,64,55,0.03); }
-    .reason-option input { accent-color: #5D4037; }
+    .reason-option:hover, .reason-option.selected { border-color: var(--res-brown); background: rgba(93,64,55,0.04); }
 
-    @media (max-width: 600px) {
-        .res-meta-row { gap: 0.5rem; }
-        .reslist-page { padding: 0 1rem; }
-        .res-card { padding: 1rem 1.25rem; }
+    @media (max-width: 960px) {
+        .res-grid { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -102,99 +148,178 @@
     <div class="page-header">
         <div>
             <h2>My Reservations</h2>
-            <p>Track and manage your table bookings</p>
+            <p>Track your table bookings and menu pre-orders</p>
         </div>
         <a href="{{ url_for('main.reserve') }}" class="btn-new-booking">
-            <i class="fas fa-plus me-1"></i> New Booking
+            <i class="fas fa-calendar-plus"></i> New Booking
         </a>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
-        <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' }} rounded-3 mb-3 small py-2">
-            <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'exclamation-circle' }} me-2"></i>{{ msg }}
+        <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' }} rounded-4 mb-5 border-0 shadow-sm animate__animated animate__fadeInDown">
+            <div class="d-flex align-items-center py-2 px-1">
+                <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'exclamation-circle' }} me-3 fa-lg"></i>
+                <span class="small fw-bold">{{ msg }}</span>
+            </div>
         </div>
         {% endfor %}
     {% endwith %}
 
-    {% if reservations %}
-    <div class="res-scroll-container">
-        {% for r in reservations %}
-        <div class="res-card status-{{ r.status }}">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="status-badge badge-{{ r.status }}">
-                        <i class="fas fa-circle" style="font-size:0.35rem;"></i>
-                        {% if r.status == 'PENDING' %}Pending
-                        {% elif r.status == 'CONFIRMED' %}Confirmed
-                        {% elif r.status == 'REJECTED' %}Rejected
-                        {% elif r.status == 'COMPLETED' %}Completed
-                        {% elif r.status == 'CANCELLED' %}Cancelled
-                        {% else %}{{ r.status }}{% endif %}
-                    </span>
-                    {% if r.booking_type == 'EXCLUSIVE' %}
-                    <span class="excl-tag"><i class="fas fa-crown me-1"></i>Exclusive</span>
-                    {% endif %}
+    <div class="res-grid">
+        {% if reservations %}
+            {% for r in reservations %}
+            {% set res_data = {
+                'id': r.id,
+                'status': r.status,
+                'date': r.date.strftime('%B %d, %Y'),
+                'time': r.time.strftime('%I:%M %p'),
+                'guests': r.guest_count,
+                'type': r.booking_type,
+                'duration': r.duration or 2,
+                'occasion': r.occasion or '',
+                'table': r.table_number or '',
+                'booked_at': r.created_at.strftime('%b %d, %Y') if r.created_at else '',
+                'preorder': r.preorder_data|safe if r.preorder_data else 'null',
+                'cancel_reason': r.cancel_reason or ''
+            } %}
+            <div class="res-card" onclick='viewDetails({{ res_data | tojson | safe }})'>
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="status-badge badge-{{ r.status }}">
+                            <i class="fas fa-circle" style="font-size:0.45rem;"></i>
+                            {% if r.status == 'PENDING' %}Pending Approval
+                            {% elif r.status == 'CONFIRMED' %}Confirmed
+                            {% elif r.status == 'REJECTED' %}Rejected
+                            {% elif r.status == 'COMPLETED' %}Completed
+                            {% elif r.status == 'CANCELLED' %}Cancelled
+                            {% else %}{{ r.status }}{% endif %}
+                        </span>
+                        {% if r.booking_type == 'EXCLUSIVE' %}
+                        <span class="excl-tag"><i class="fas fa-crown me-2"></i>Exclusive Event</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="res-info">
+                        <div class="res-date">{{ r.date.strftime('%B %d, %Y') }}</div>
+                        <div class="res-time"><i class="far fa-clock me-2"></i>{{ r.time.strftime('%I:%M %p') }}</div>
+                        
+                        <div class="meta-tags">
+                            <div class="meta-tag"><i class="fas fa-user-friends"></i>{{ r.guest_count }} guests</div>
+                            <div class="meta-tag"><i class="fas fa-hourglass-half"></i>{{ r.duration or 2 }} hours</div>
+                            {% if r.table_number %}
+                            <div class="meta-tag"><i class="fas fa-chair"></i>Table {{ r.table_number }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div class="text-muted" style="font-size:0.68rem;">
-                    Booked {{ r.created_at.strftime('%b %d, %Y') if r.created_at else '' }}
+
+                <div class="card-footer">
+                    <div class="booked-at">Reserved on {{ r.created_at.strftime('%b %d, %Y') if r.created_at else '' }}</div>
+                    <div class="btn-action-group">
+                        {% if r.status == 'PENDING' %}
+                        <button class="btn-action btn-cancel-action" onclick="event.stopPropagation(); openCancelModal({{ r.id }})" title="Cancel Reservation">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        {% endif %}
+                        <!-- Added explicit onclick to Ensure arrow functions -->
+                        <button class="btn-action" onclick='event.stopPropagation(); viewDetails({{ res_data | tojson | safe }})' title="View Reservation Details">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <div class="res-meta-row mb-2">
-                <div class="res-meta-item"><i class="fas fa-calendar"></i>{{ r.date.strftime('%B %d, %Y') }}</div>
-                <div class="res-meta-item"><i class="fas fa-clock"></i>{{ r.time.strftime('%I:%M %p') }}</div>
-                <div class="res-meta-item"><i class="fas fa-hourglass-half"></i>{{ r.duration or 2 }} hrs</div>
-                <div class="res-meta-item"><i class="fas fa-users"></i>{{ r.guest_count }} guests</div>
-                {% if r.table_number %}
-                <div class="res-meta-item"><i class="fas fa-chair"></i>Table {{ r.table_number }}</div>
-                {% endif %}
-                {% if r.occasion %}
-                <div class="res-meta-item"><i class="fas fa-star"></i>{{ r.occasion }}</div>
-                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-alt"></i>
+                <h3 class="fw-bold mb-3">No Active Reservations</h3>
+                <p class="text-muted mb-4 opacity-75">You haven't scheduled any tables yet.</p>
+                <a href="{{ url_for('main.reserve') }}" class="btn-new-booking">Book a Table</a>
             </div>
+        {% endif %}
+    </div>
+</div>
 
-            {% if r.cancel_reason %}
-            <div class="small px-2 py-1 rounded-2 mb-2" style="background:rgba(158,158,158,0.06);color:#999;border-left:2px solid #ddd;font-size:0.75rem;">
-                <i class="fas fa-comment-slash me-1 opacity-50"></i><em>{{ r.cancel_reason }}</em>
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title fw-bold"><i class="fas fa-receipt me-3"></i>Reservation Details</h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            {% endif %}
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="detail-row">
+                            <span class="detail-label">Status</span>
+                            <span id="det-status" class="detail-value text-uppercase"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Booking Type</span>
+                            <span id="det-type" class="detail-value"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Date</span>
+                            <span id="det-date" class="detail-value"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-row">
+                            <span class="detail-label">Time</span>
+                            <span id="det-time" class="detail-value"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Guest Count</span>
+                            <span id="det-guests" class="detail-value"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Duration</span>
+                            <span id="det-duration" class="detail-value"></span>
+                        </div>
+                    </div>
+                </div>
 
-            {% if r.status == 'PENDING' %}
-            <button class="btn-cancel-res" onclick="openCancelModal({{ r.id }})">
-                <i class="fas fa-times me-1"></i>Cancel
-            </button>
-            {% elif r.status == 'CONFIRMED' %}
-            <div class="small text-muted opacity-50" style="font-size:0.72rem;">
-                <i class="fas fa-lock me-1"></i>Confirmed — contact us to make changes
+                <div id="occasion-row" class="detail-row mt-2" style="display:none;">
+                    <span class="detail-label">Occasion</span>
+                    <span id="det-occasion" class="detail-value"></span>
+                </div>
+                
+                <div id="preorderContent" class="preorder-section" style="display:none;">
+                    <div class="preorder-title"><i class="fas fa-utensils"></i> Your Menu Pre-order</div>
+                    <div id="preorderList"></div>
+                    <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-muted small">TOTAL CONSUMABLE</span>
+                        <span id="preorderTotal" class="fw-bold fs-4" style="color:var(--res-brown);">₱0.00</span>
+                    </div>
+                </div>
+
+                <div id="cancelReasonBox" class="mt-4 p-4 rounded-4" style="background: #fdf2f2; border: 1.5px solid #fee2e2; display:none;">
+                    <div class="fw-bold text-danger small mb-2 text-uppercase font-serif">Cancellation Reason</div>
+                    <div id="cancelReasonText" class="italic" style="color:var(--res-brown); font-size: 1.05rem;"></div>
+                </div>
             </div>
-            {% endif %}
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-5 fw-bold w-100 py-3" data-bs-dismiss="modal" style="background:#f5f2f0; color:var(--res-brown);">Close</button>
+            </div>
         </div>
-        {% endfor %}
     </div>
-    {% else %}
-    <div class="res-card empty-state">
-        <i class="fas fa-calendar-times d-block"></i>
-        <h6 class="fw-bold" style="color:#3E2723;">No Reservations Yet</h6>
-        <p class="text-muted small mb-3">Book a table and start your dining experience!</p>
-        <a href="{{ url_for('main.reserve') }}" class="btn-new-booking"><i class="fas fa-calendar-plus me-1"></i>Book a Table</a>
-    </div>
-    {% endif %}
 </div>
 
 <!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
         <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title fw-bold small"><i class="fas fa-calendar-times me-2"></i>Cancel Booking</h6>
-                <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+            <div class="modal-header" style="background:#B71C1C;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-calendar-times me-3"></i>Cancel Reservation</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body px-4 py-3">
-                <p class="small text-muted mb-3">Why are you cancelling?</p>
+            <div class="modal-body px-4">
+                <p class="text-muted mb-4 fw-bold">Please select a reason for cancelling:</p>
                 <form id="cancelForm" method="POST">
                     <div class="reason-option" onclick="selectReason(this,'Change of plans')">
-                        <input type="radio" name="cancel_reason" value="Change of plans"> Change of plans
+                        <input type="radio" name="cancel_reason" value="Change of plans" required> Change of plans
                     </div>
                     <div class="reason-option" onclick="selectReason(this,'Emergency')">
                         <input type="radio" name="cancel_reason" value="Emergency"> Emergency
@@ -206,16 +331,15 @@
                         <input type="radio" name="cancel_reason" value="Date conflict"> Date conflict
                     </div>
                     <div class="reason-option" id="otherOption" onclick="selectReason(this,'Other')">
-                        <input type="radio" name="cancel_reason" value="Other"> Other
+                        <input type="radio" name="cancel_reason" value="Other"> Other Reason
                     </div>
-                    <div id="otherBox" style="display:none;" class="mt-2">
-                        <textarea name="other_reason" class="form-control rounded-3" rows="2" placeholder="Brief reason..." style="font-size:0.78rem;border:1.5px solid rgba(93,64,55,0.12);"></textarea>
+                    <div id="otherBox" style="display:none;" class="mt-3">
+                        <textarea name="other_reason" class="form-control rounded-4 border-2" rows="2" placeholder="Tell us more..."></textarea>
                     </div>
-                    <div class="d-flex gap-2 mt-3">
-                        <button type="button" class="btn btn-light rounded-pill small fw-bold flex-grow-1 py-2" data-bs-dismiss="modal" style="font-size:0.8rem;">Keep</button>
-                        <button type="submit" class="btn rounded-pill small fw-bold flex-grow-1 py-2" style="background:#f44336;color:#fff;font-size:0.8rem;">
-                            <i class="fas fa-times me-1"></i>Cancel It
-                        </button>
+                    
+                    <div class="d-flex gap-2 mt-5">
+                        <button type="button" class="btn btn-light rounded-pill flex-grow-1 fw-bold py-3" data-bs-dismiss="modal">Keep Slot</button>
+                        <button type="submit" class="btn btn-danger rounded-pill flex-grow-1 fw-bold py-3">Confirm Cancel</button>
                     </div>
                 </form>
             </div>
@@ -224,13 +348,95 @@
 </div>
 
 <script>
-    function openCancelModal(resId) {
-        document.getElementById('cancelForm').action = `/cancel-reservation/${resId}`;
-        document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
-        document.querySelectorAll('input[name="cancel_reason"]').forEach(r => r.checked = false);
-        document.getElementById('otherBox').style.display = 'none';
-        new bootstrap.Modal(document.getElementById('cancelModal')).show();
+    document.addEventListener('DOMContentLoaded', function() {
+        const detailsModalEl = document.getElementById('detailsModal');
+        const cancelModalEl = document.getElementById('cancelModal');
+        
+        if (!detailsModalEl || !cancelModalEl) return;
+        
+        const detailsModalInstance = new bootstrap.Modal(detailsModalEl);
+        const cancelModalInstance = new bootstrap.Modal(cancelModalEl);
+
+        window.viewDetails = function(data) {
+            // Fill static fields
+            document.getElementById('det-status').innerText = data.status;
+            document.getElementById('det-status').className = 'detail-value text-uppercase text-' + getStatusColor(data.status);
+            document.getElementById('det-type').innerText = data.type;
+            document.getElementById('det-date').innerText = data.date;
+            document.getElementById('det-time').innerText = data.time;
+            document.getElementById('det-guests').innerText = data.guests + ' Persons';
+            document.getElementById('det-duration').innerText = data.duration + ' Hours';
+
+            const occRow = document.getElementById('occasion-row');
+            if (data.occasion) {
+                occRow.style.display = 'flex';
+                document.getElementById('det-occasion').innerText = data.occasion;
+            } else {
+                occRow.style.display = 'none';
+            }
+
+            // Pre-order handling
+            const preorderBox = document.getElementById('preorderContent');
+            const preorderList = document.getElementById('preorderList');
+            const preorderTotal = document.getElementById('preorderTotal');
+            
+            let preorderData = data.preorder;
+            if (preorderData && typeof preorderData === 'string') {
+                try { preorderData = JSON.parse(preorderData); } catch(e) { preorderData = null; }
+            }
+            
+            if (preorderData && Object.keys(preorderData).length > 0) {
+                preorderBox.style.display = 'block';
+                let listHtml = '';
+                let total = 0;
+                Object.values(preorderData).forEach(item => {
+                    const subtotal = item.qty * item.price;
+                    total += subtotal;
+                    listHtml += `
+                        <div class="preorder-item">
+                            <span><strong>${item.name}</strong> <span class="text-muted small">×${item.qty}</span></span>
+                            <span class="fw-bold">₱${subtotal.toLocaleString('en-PH', {minimumFractionDigits:2})}</span>
+                        </div>
+                    `;
+                });
+                preorderList.innerHTML = listHtml;
+                preorderTotal.innerText = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
+            } else {
+                preorderBox.style.display = 'none';
+            }
+
+            // Cancellation Reason
+            const reasonBox = document.getElementById('cancelReasonBox');
+            if (data.status === 'CANCELLED' && data.cancel_reason) {
+                reasonBox.style.display = 'block';
+                document.getElementById('cancelReasonText').innerText = '"' + data.cancel_reason + '"';
+            } else {
+                reasonBox.style.display = 'none';
+            }
+
+            detailsModalInstance.show();
+        };
+
+        window.openCancelModal = function(resId) {
+            document.getElementById('cancelForm').action = '/cancel-reservation/' + resId;
+            document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
+            document.querySelectorAll('input[name="cancel_reason"]').forEach(r => r.checked = false);
+            document.getElementById('otherBox').style.display = 'none';
+            cancelModalInstance.show();
+        };
+    });
+
+    function getStatusColor(status) {
+        switch(status) {
+            case 'PENDING': return 'warning';
+            case 'CONFIRMED': return 'success';
+            case 'COMPLETED': return 'primary';
+            case 'REJECTED': return 'danger';
+            case 'CANCELLED': return 'secondary';
+            default: return 'dark';
+        }
     }
+
     function selectReason(el, val) {
         document.querySelectorAll('.reason-option').forEach(o => o.classList.remove('selected'));
         el.classList.add('selected');

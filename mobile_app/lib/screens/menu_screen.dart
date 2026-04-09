@@ -121,17 +121,17 @@ class _MenuScreenState extends State<MenuScreen> {
               style: AppTextStyles.muted.copyWith(fontSize: 13),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadMenu,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
+            SizedBox(
+              width: 160,
+              child: GradientButton(
+                label: 'Try Again',
+                icon: Icons.refresh_rounded,
+                onPressed: _loadMenu,
+                height: 48,
+                radius: 12,
               ),
             ),
+
           ],
         ),
       ),
@@ -152,11 +152,17 @@ class _MenuScreenState extends State<MenuScreen> {
             const SizedBox(height: 16),
             Text('No menu categories found', style: AppTextStyles.muted),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _loadMenu,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+            SizedBox(
+              width: 140,
+              child: GradientButton(
+                label: 'Refresh',
+                icon: Icons.refresh_rounded,
+                onPressed: _loadMenu,
+                height: 44,
+                radius: 12,
+              ),
             ),
+
           ],
         ),
       );
@@ -310,7 +316,7 @@ class _MenuScreenState extends State<MenuScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Browse Selection',
+                  'See More',
                   style: AppTextStyles.muted.copyWith(
                     fontSize: 10,
                     color: AppColors.primary,
@@ -432,41 +438,79 @@ class _MenuScreenState extends State<MenuScreen> {
       child: Row(
         children: [
           // Image
-          ClipRRect(
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(14),
-            ),
-            child: item['image_url'] != null
-                ? Image.network(
-                    item['image_url'],
-                    width: 110,
-                    height: 110,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 110,
-                      height: 110,
-                      color: AppColors.primary.withOpacity(0.1),
-                      child: const Icon(
-                        Icons.restaurant,
-                        color: AppColors.primary,
-                        size: 30,
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(14),
+                ),
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    item['is_out_of_stock'] == true ? Colors.grey : Colors.transparent,
+                    BlendMode.saturation,
+                  ),
+                  child: item['image_url'] != null
+                      ? Image.network(
+                          item['image_url'],
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 110,
+                            height: 110,
+                            color: AppColors.primary.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                              size: 30,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 110,
+                          height: 110,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryLight],
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.restaurant,
+                            color: Colors.white54,
+                            size: 30,
+                          ),
+                        ),
+                ),
+              ),
+              if (item['is_out_of_stock'] == true)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(14),
                       ),
                     ),
-                  )
-                : Container(
-                    width: 110,
-                    height: 110,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryLight],
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'OUT OF STOCK',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Icon(
-                      Icons.restaurant,
-                      color: Colors.white54,
-                      size: 30,
                     ),
                   ),
+                ),
+            ],
           ),
           // Details
           Expanded(
@@ -506,17 +550,60 @@ class _MenuScreenState extends State<MenuScreen> {
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(
-                        height: 32,
-                        child: ElevatedButton(
-                          onPressed: () => _addToCart(item),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            textStyle: const TextStyle(fontSize: 11),
+                      // Add to Cart button
+                      GestureDetector(
+                        onTap: item['is_out_of_stock'] == true ? null : () => _addToCart(item),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: item['is_out_of_stock'] == true
+                                ? null
+                                : AppColors.buttonGradient,
+                            color: item['is_out_of_stock'] == true ? Colors.grey[200] : null,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: item['is_out_of_stock'] == true ? [] : [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              )
+                            ],
                           ),
-                          child: const Text('Add to Cart'),
+                          child: SizedBox(
+                            height: 34,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      item['is_out_of_stock'] == true
+                                          ? Icons.block
+                                          : Icons.add_shopping_cart_rounded,
+                                      color: item['is_out_of_stock'] == true
+                                          ? Colors.grey[500]
+                                          : Colors.white,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      item['is_out_of_stock'] == true ? 'Unavailable' : 'Add to Cart',
+                                      style: TextStyle(
+                                        color: item['is_out_of_stock'] == true
+                                            ? Colors.grey[500]
+                                            : Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
+
                     ],
                   ),
                 ],
@@ -541,3 +628,5 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 }
+
+

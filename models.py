@@ -46,7 +46,7 @@ class Reservation(db.Model):
     
     status = db.Column(db.String(20), default='PENDING') # PENDING, CONFIRMED, REJECTED, COMPLETED
     table_number = db.Column(db.String(20), nullable=True) # Assigned by admin
-    cancel_reason = db.Column(db.String(255), nullable=True) # Reason for cancellation
+    cancellation_reason = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=get_ph_time)
 
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
@@ -60,6 +60,17 @@ class MenuItem(db.Model):
     image_url = db.Column(db.String(255), nullable=True)
     is_available = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=get_ph_time)
+    
+    @property
+    def is_out_of_stock(self):
+        """Checks if ingredients for this menu item are sufficient"""
+        if not self.ingredients:
+            # If no recipe is defined, we assume it's in stock unless manually disabled
+            return False
+        for mi_ingredient in self.ingredients:
+            if mi_ingredient.ingredient.stock_qty < mi_ingredient.quantity_needed:
+                return True
+        return False
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -86,10 +97,12 @@ class Order(db.Model):
     estimated_cost = db.Column(db.Numeric(10, 2), default=0) # Total cost of ingredients
     created_at = db.Column(db.DateTime, default=get_ph_time)
     processed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Cashier who processed
+    reservation_id = db.Column(db.Integer, db.ForeignKey('reservation.id'), nullable=True) # Linked reservation (if any)
     
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('orders', lazy=True))
     rider = db.relationship('User', foreign_keys=[rider_id], backref=db.backref('deliveries', lazy=True))
     processed_by = db.relationship('User', foreign_keys=[processed_by_id], backref=db.backref('handled_orders', lazy=True))
+    reservation = db.relationship('Reservation', foreign_keys=[reservation_id], backref=db.backref('linked_order', uselist=False, lazy=True))
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
 
 class OrderItem(db.Model):
