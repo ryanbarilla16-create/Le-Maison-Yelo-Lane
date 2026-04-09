@@ -128,6 +128,16 @@
     }
     .navDropdown .dropdown-item:hover { background: rgba(93,64,55,0.04); }
     .navDropdown .dropdown-item i { width: 20px; text-align: center; }
+
+    /* Fix the profile dropdown toggle arrow and hover */
+    #profileDropdown::after { display: none !important; }
+    #profileDropdown { 
+        padding-left: 12px !important;
+        padding-right: 8px !important;
+        border-radius: 14px;
+        transition: all 0.2s ease;
+    }
+    #profileDropdown:hover { background: rgba(93,64,55,0.05); }
 </style>
 
 <nav class="navbar main-nav fixed-top navbar-expand-md">
@@ -209,26 +219,31 @@
             <li style="width: 1px; height: 24px; background: rgba(93,64,55,0.1); margin: 0 4px;"></li>
 
             <li class="nav-item dropdown d-flex align-items-center ms-3">
-                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle px-1"
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle"
                     id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false"
                     style="color: var(--text-main); border: none; background: none;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="text-end d-md-block d-none">
-                            <div class="fw-bold" style="font-size: 0.85rem; line-height: 1.1; color: #333;">{{ current_user.first_name }} {{ current_user.last_name[:1] }}.</div>
-                            <small class="text-muted" style="font-size: 0.72rem; font-weight: 500;">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="text-end d-md-block d-none me-2">
+                            <div class="fw-bold" style="font-size: 0.85rem; line-height: 1; color: #3E2723; margin-bottom: 2px;">{{ current_user.first_name }} {{ current_user.last_name[:1] }}.</div>
+                            <small class="text-muted" style="font-size: 0.7rem; font-weight: 500; display: block; opacity: 0.8;">
                                 {{ current_user.role|replace('_', ' ')|title if current_user.role else 'Customer' }}
                             </small>
                         </div>
-                        {% if current_user.profile_picture_url %}
-                        <img src="{{ current_user.profile_picture_url }}" alt="Profile" class="navProfile shadow-sm"
-                            style="width: 42px; height: 42px; object-fit: cover; border-radius: 12px; border: 2px solid #fff;">
-                        {% else %}
-                        <div class="navProfile shadow-sm"
-                            style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #5D4037, #8D6E63); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border: 2px solid #fff;">
-                            {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
+                        
+                        <div class="position-relative">
+                            {% if current_user.profile_picture_url %}
+                            <img src="{{ current_user.profile_picture_url }}" alt="Profile" class="navProfile shadow-sm"
+                                style="width: 40px; height: 40px; object-fit: cover; border-radius: 10px; border: 2px solid #fff;">
+                            {% else %}
+                            <div class="navProfile shadow-sm"
+                                style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #5D4037, #8D6E63); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; border: 2px solid #fff;">
+                                {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
+                            </div>
+                            {% endif %}
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: #4CAF50; border: 2px solid #fff;"></div>
                         </div>
-                        {% endif %}
-                        <i class="fas fa-chevron-down ms-1 d-md-block d-none" style="font-size: 0.7rem; color: #aaa;"></i>
+                        
+                        <i class="fas fa-chevron-down ms-1 d-md-block d-none" style="font-size: 0.65rem; color: #aaa;"></i>
                     </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end navDropdown mt-3" aria-labelledby="profileDropdown"
