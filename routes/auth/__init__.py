@@ -277,22 +277,16 @@ def social_auth():
             user.profile_picture_url = picture_url
             db.session.commit()
             
-        if user.status != 'ACTIVE' and user.role not in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF']:
+        if user.role and user.role.upper() in ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']:
+            flash("Staff accounts cannot use social login on the main page. Please use the staff portal.", "danger")
+            return jsonify({"success": True, "redirect": url_for('main.login')})
+            
+        if user.status != 'ACTIVE':
             flash(f"Your {provider} login was successful, but your account is pending admin approval.", "warning")
             return jsonify({"success": True, "redirect": url_for('main.login')})
             
         login_user(user)
-        
-        if user.role == 'CASHIER':
-            redir_url = url_for('admin.orders')
-        elif user.role == 'INVENTORY_STAFF':
-            redir_url = url_for('admin.inventory')
-        elif user.role == 'ADMIN':
-            redir_url = url_for('admin.overview')
-        else:
-            redir_url = url_for('main.index')
-            
-        return jsonify({"success": True, "redirect": redir_url})
+        return jsonify({"success": True, "redirect": url_for('main.index')})
     
     # Auto-create user since they used social login
     base_username = (first_name + last_name).lower().replace(' ', '')
@@ -335,27 +329,23 @@ def login():
                 flash("Please complete your OTP verification first.", "warning")
                 return redirect(url_for('main.verify_otp', user_id=user.id))
             
-            role_upper = user.role.upper() if user.role else ''
+            role_upper = user.role.upper() if user.role else 'USER'
             staff_roles = ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']
             
-            if user.status != 'ACTIVE' and role_upper not in staff_roles:
+            # --- STRICT ROLE CHECK ---
+            # Main Login is ONLY for USER/CUSTOMER roles
+            if role_upper in staff_roles:
+                flash("This login is for customers only. Please use the staff portal.", "danger")
+                return redirect(url_for('main.login'))
+            
+            if user.status != 'ACTIVE':
                 flash("Your account is pending admin approval.", "warning")
                 return redirect(url_for('main.login'))
             
             login_user(user)
-            # Redirect admins/staff to their specific dashboards, regular users to homepage
-            if role_upper == 'ADMIN':
-                return redirect(url_for('admin.overview'))
-            elif role_upper in ['CASHIER', 'STAFF']:
-                return redirect(url_for('admin.orders'))
-            elif role_upper in ['INVENTORY_STAFF', 'INVENTORY']:
-                return redirect(url_for('admin.inventory'))
-            elif role_upper == 'KITCHEN':
-                return redirect(url_for('admin.kitchen_view'))
-            elif role_upper == 'RIDER':
-                return redirect(url_for('admin.deliveries'))
-                
+            # Regular users always go to site index or dashboard
             return redirect(url_for('main.index'))
+            
         flash("Invalid email or password.", "danger")
     return render_template('auth/login.html')
 

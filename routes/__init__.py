@@ -10,7 +10,16 @@ def restrict_admin_from_public():
     if current_user.is_authenticated and current_user.role not in ['USER', 'CUSTOMER']:
         allowed_endpoints = ['main.login', 'main.signup', 'main.profile', 'main.logout', 'admin.admin_login', 'admin.admin_logout']
         if request.endpoint and request.endpoint not in allowed_endpoints and not request.endpoint.startswith('static') and not request.endpoint.startswith('admin.'):
-            return redirect(url_for('admin.admin_login'))
+            role_upper = current_user.role.upper()
+            if role_upper == 'CASHIER':
+                return redirect(url_for('admin.orders'))
+            elif role_upper in ['INVENTORY_STAFF', 'INVENTORY']:
+                return redirect(url_for('admin.inventory'))
+            elif role_upper == 'KITCHEN':
+                return redirect(url_for('admin.kitchen_view'))
+            elif role_upper == 'RIDER':
+                return redirect(url_for('admin.deliveries'))
+            return redirect(url_for('admin.overview'))
 
 # Import the routes from the decoupled files to register them with the blueprint
 # These must be imported AFTER main_bp is instantiated to avoid circular imports.

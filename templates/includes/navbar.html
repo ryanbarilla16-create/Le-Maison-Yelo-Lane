@@ -132,9 +132,11 @@
 
 <nav class="navbar main-nav fixed-top navbar-expand-md">
     <div class="container-fluid px-md-5">
-        <a class="navbar-brand text-dark" href="{{ url_for('main.index') }}"
+        <a class="navbar-brand text-dark d-flex align-items-center" href="{{ url_for('main.index') }}"
             style="font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 1.15rem; letter-spacing: -0.3px;">
-            <i class="fas fa-coffee" style="color: var(--primary-color); font-size: 0.9rem;"></i> Le maison yelo Lane
+            <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Logo" 
+                style="height: 38px; width: 38px; object-fit: cover; border-radius: 8px; margin-right: 12px; border: 1.5px solid rgba(93,64,55,0.1);"> 
+            Le maison yelo Lane
         </a>
 
         <ul class="nav nav-left me-auto d-md-flex d-none align-items-center ms-4">

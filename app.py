@@ -26,6 +26,13 @@ Compress(app)
 app.config['COMPRESS_REGISTER'] = True
 app.config['COMPRESS_ALGORITHM'] = ['gzip', 'br', 'deflate']
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000 # Cache static resources for 1 year
+app.config['TEMPLATES_AUTO_RELOAD'] = os.environ.get('FLASK_ENV') != 'production'
+
+# Jinja Template Compilation Optimization
+from jinja2 import FileSystemBytecodeCache
+import tempfile
+app.jinja_env.bytecode_cache = FileSystemBytecodeCache(tempfile.gettempdir())
+app.jinja_env.cache = {}
 
 socketio.init_app(app, async_mode='eventlet')
 # Tell Flask it is behind a proxy (like LocalTunnel) so redirects use the correct url
@@ -77,13 +84,7 @@ app.register_blueprint(admin_bp)
 from routes.api import api_bp
 app.register_blueprint(api_bp)
 
-try:
-    from routes.portals import cashier_bp, kitchen_bp, inventory_bp
-    app.register_blueprint(cashier_bp)
-    app.register_blueprint(kitchen_bp)
-    app.register_blueprint(inventory_bp)
-except Exception as e:
-    print(f"Failed to register portals blueprints: {e}")
+# Portals registered via admin blueprint now
 
 @app.before_request
 def init_session():
