@@ -111,6 +111,70 @@
 
     .qty-num { padding: 0 12px; font-weight: 800; min-width: 35px; text-align: center; }
 
+    /* Custom Checkboxes */
+    .custom-chk {
+        width: 20px; height: 20px;
+        appearance: none;
+        border: 2px solid var(--glass-border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+    .custom-chk:checked {
+        background: var(--caramel);
+        border-color: var(--caramel);
+    }
+    .custom-chk:checked::after {
+        content: '\f00c';
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 900;
+        color: white;
+        font-size: 10px;
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    /* Delete Button Polish */
+    .trash-btn {
+        width: 38px; height: 38px;
+        border-radius: 12px;
+        border: none;
+        background: rgba(220, 53, 69, 0.05);
+        color: #dc3545;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .trash-btn:hover {
+        background: #dc3545;
+        color: #fff;
+        transform: scale(1.1);
+    }
+
+    /* Sidebar Refinement */
+    .logistics-label {
+        font-size: 0.75rem; font-weight: 800; 
+        text-transform: uppercase; letter-spacing: 1.5px;
+        color: var(--espresso); opacity: 0.6;
+        margin-bottom: 1.25rem; display: block;
+    }
+
+    .service-btn {
+        border-radius: 16px !important;
+        border: 2px solid rgba(139, 69, 19, 0.1) !important;
+        padding: 1rem 0 !important;
+        transition: all 0.3s !important;
+        color: var(--espresso) !important;
+    }
+    .btn-check:checked + .service-btn {
+        background: var(--caramel) !important;
+        border-color: var(--caramel) !important;
+        color: #fff !important;
+        box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2) !important;
+    }
+
     /* Summary Pane */
     .summary-pane {
         position: sticky;
@@ -168,25 +232,27 @@
 
 <div class="cart-wrapper">
     {% if cart_items %}
-    <div class="d-flex justify-content-between align-items-end mb-4 px-2">
-        <div>
-            <h1 class="font-serif fw-bold m-0" style="color: var(--espresso);">Your Selection</h1>
-            <p class="text-muted m-0"><i class="fas fa-shopping-bag me-2"></i>{{ cart_items|length }} delicious items in basket</p>
+    <div class="row align-items-center mb-5">
+        <div class="col">
+            <h1 class="font-serif fw-bold mb-1" style="color: var(--espresso); font-size: 3rem;">Your Selection</h1>
+            <p class="text-muted m-0"><i class="fas fa-shopping-basket me-2"></i>{{ cart_items|length }} Handpicked items in your basket</p>
         </div>
-        <button class="btn btn-outline-danger btn-sm rounded-pill px-4 fw-bold" id="deleteSelectedBtn">
-            <i class="fas fa-trash-alt me-2"></i>Remove Selected
-        </button>
+        <div class="col-auto">
+            <button class="btn btn-link text-decoration-none fw-bold text-danger px-4" id="deleteSelectedBtn" style="font-size: 0.85rem;">
+                <i class="fas fa-trash-can me-2"></i> REMOVE SELECTED
+            </button>
+        </div>
     </div>
 
-    <div class="row g-4 cart-grid" style="display: grid; grid-template-columns: 1fr 420px; gap: 2.5rem;">
+    <div class="row g-5 cart-grid" style="display: grid; grid-template-columns: 1fr 420px; gap: 3rem;">
         <!-- Left Column: Items -->
         <div class="item-list-container">
             <div class="glass-card overflow-hidden">
                 <div class="cart-header-row">
                     <div style="width: 50px;" class="text-center">
-                        <input type="checkbox" id="selectAllCheckbox" checked class="form-check-input">
+                        <input type="checkbox" id="selectAllCheckbox" checked class="custom-chk">
                     </div>
-                    <div style="width: 100px;">Photo</div>
+                    <div style="width: 100px;">PHOTO</div>
                     <div style="flex: 1;">Product Details</div>
                     <div style="width: 150px;">Quantity</div>
                     <div style="width: 120px;" class="text-end">Subtotal</div>
@@ -196,7 +262,7 @@
                 {% for c_item in cart_items %}
                 <div class="item-row" id="cart-row-{{ c_item.item.id }}">
                     <div class="item-chk-col text-center">
-                        <input type="checkbox" class="item-checkbox form-check-input" value="{{ c_item.item.id }}" checked>
+                        <input type="checkbox" class="item-checkbox custom-chk" value="{{ c_item.item.id }}" checked>
                     </div>
                     
                     <div class="item-img-col">
@@ -229,7 +295,7 @@
 
                     <div class="text-end">
                         <form action="{{ url_for('main.remove_from_cart', item_id=c_item.item.id) }}" method="POST" class="m-0">
-                            <button type="submit" class="btn text-danger p-2 opacity-50 hover-opacity-100"><i class="fas fa-times"></i></button>
+                            <button type="submit" class="trash-btn mx-auto"><i class="fas fa-trash-can"></i></button>
                         </form>
                     </div>
                 </div>
@@ -244,30 +310,31 @@
                 
                 <form action="{{ url_for('main.checkout') }}" method="POST" id="checkoutForm">
                     <!-- Dining Options -->
-                    <div class="mb-4">
-                        <label class="fw-bold small text-uppercase mb-3 d-block opacity-50">1. Service Type</label>
-                        <div class="row g-2">
+                    <div class="mb-5">
+                        <label class="logistics-label">1. Service Type</label>
+                        <div class="row g-3">
                             <div class="col-4">
                                 <input type="radio" class="btn-check" name="dining_option" id="dine_in" value="DINE_IN" checked>
-                                <label class="btn btn-outline-dark w-100 rounded-4 py-3 border-2" for="dine_in"><i class="fas fa-utensils d-block mb-1"></i><span class="small fw-bold">Dine In</span></label>
+                                <label class="btn service-btn w-100" for="dine_in"><i class="fas fa-utensils d-block mb-1"></i><span class="small fw-bold">Dine In</span></label>
                             </div>
                             <div class="col-4">
                                 <input type="radio" class="btn-check" name="dining_option" id="take_out" value="TAKE_OUT">
-                                <label class="btn btn-outline-dark w-100 rounded-4 py-3 border-2" for="take_out"><i class="fas fa-shopping-bag d-block mb-1"></i><span class="small fw-bold">Pick-up</span></label>
+                                <label class="btn service-btn w-100" for="take_out"><i class="fas fa-shopping-bag d-block mb-1"></i><span class="small fw-bold">Pick-up</span></label>
                             </div>
                             <div class="col-4">
                                 <input type="radio" class="btn-check" name="dining_option" id="delivery" value="DELIVERY">
-                                <label class="btn btn-outline-dark w-100 rounded-4 py-3 border-2" for="delivery"><i class="fas fa-motorcycle d-block mb-1"></i><span class="small fw-bold">Delivery</span></label>
+                                <label class="btn service-btn w-100" for="delivery"><i class="fas fa-motorcycle d-block mb-1"></i><span class="small fw-bold">Delivery</span></label>
                             </div>
                         </div>
                     </div>
 
                     <!-- Delivery Details (Hidden initially) -->
-                    <div id="delivery_fields" style="display:none;" class="mb-4">
+                    <div id="delivery_fields" style="display:none;" class="mb-5">
+                        <label class="logistics-label">Delivery Address</label>
                         <div class="bg-white p-4 rounded-4 border border-dashed mb-3">
                             <div class="row g-2 mb-3">
                                 <div class="col-6">
-                                    <select id="select_municipality" class="form-select border-0 bg-light rounded-pill">
+                                    <select id="select_municipality" class="form-select border-0 bg-light rounded-pill px-3">
                                         <option value="">Municipality</option>
                                         <option value="Santa Cruz">Santa Cruz</option>
                                         <option value="Pila">Pila</option>
@@ -277,32 +344,32 @@
                                     </select>
                                 </div>
                                 <div class="col-6">
-                                    <select id="select_barangay" class="form-select border-0 bg-light rounded-pill" disabled>
+                                    <select id="select_barangay" class="form-select border-0 bg-light rounded-pill px-3" disabled>
                                         <option value="">Barangay</option>
                                     </select>
                                 </div>
                             </div>
                             <input type="text" id="street_address" class="form-control border-0 bg-light rounded-pill mb-3 px-3" placeholder="Exact Street/Landmark">
-                            <div id="delivery_map" style="height: 150px; border-radius: 15px; overflow: hidden;" class="mb-2"></div>
+                            <div id="delivery_map" style="height: 180px; border-radius: 20px; overflow: hidden;" class="mb-2"></div>
                             <textarea name="delivery_address" id="delivery_address" style="display:none;"></textarea>
                             <input type="hidden" name="delivery_area" id="delivery_area_hidden">
                         </div>
                     </div>
 
                     <!-- Payment Options -->
-                    <div class="mb-4">
-                        <label class="fw-bold small text-uppercase mb-3 d-block opacity-50">2. Payment Method</label>
-                        <div class="form-check p-3 border rounded-4 bg-white mb-2 cursor-pointer transition-all hover-border-brown">
-                            <input class="form-check-input ms-0 me-3" type="radio" name="payment_method" id="pay_counter" value="COUNTER" checked>
-                            <label class="form-check-label flex-grow-1" for="pay_counter">
-                                <div class="fw-bold" id="label_pay_counter">Pay at Counter</div>
+                    <div class="mb-5">
+                        <label class="logistics-label">2. Payment Method</label>
+                        <div class="form-check p-3 border rounded-4 bg-white mb-2 cursor-pointer transition-all hover-border-brown position-relative">
+                            <input class="form-check-input ms-0 me-3 custom-chk" type="radio" name="payment_method" id="pay_counter" value="COUNTER" checked>
+                            <label class="form-check-label flex-grow-1 ps-5" for="pay_counter">
+                                <div class="fw-bold" id="label_pay_counter" style="color: var(--espresso);">Pay at Counter</div>
                                 <div class="small text-muted" id="desc_pay_counter">Confirm now, pay physically in-store.</div>
                             </label>
                         </div>
-                        <div class="form-check p-3 border rounded-4 bg-white cursor-pointer transition-all hover-border-brown">
-                            <input class="form-check-input ms-0 me-3" type="radio" name="payment_method" id="pay_online" value="ONLINE">
-                            <label class="form-check-label flex-grow-1" for="pay_online">
-                                <div class="fw-bold">Gcash / Online Pay</div>
+                        <div class="form-check p-3 border rounded-4 bg-white cursor-pointer transition-all hover-border-brown position-relative">
+                            <input class="form-check-input ms-0 me-3 custom-chk" type="radio" name="payment_method" id="pay_online" value="ONLINE">
+                            <label class="form-check-label flex-grow-1 ps-5" for="pay_online">
+                                <div class="fw-bold" style="color: var(--espresso);">Gcash / Online Pay</div>
                                 <div class="small text-muted">Instant payment for zero-contact dining.</div>
                             </label>
                         </div>
