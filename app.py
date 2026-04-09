@@ -16,7 +16,7 @@ from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 from extensions import socketio
 from flasgger import Swagger
-import _json
+import json
 from flask_compress import Compress
 
 app = Flask(__name__)
@@ -118,13 +118,25 @@ def inject_config():
     )
 
 if __name__ == '__main__':
+    # Monkey patch for Eventlet support in development
+    try:
+        import eventlet
+        eventlet.monkey_patch()
+    except Exception as e:
+        print(f"Eventlet warning: {e}")
+
+    # Ensure database tables exist
     with app.app_context():
         db.create_all()
-    
+        
     # Get local IP address
     import socket
     hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
+    local_ip = '127.0.0.1'
+    try:
+        local_ip = socket.gethostbyname(hostname)
+    except:
+        pass
     
     # Print accessible URLs
     print("\n" + "="*60)
