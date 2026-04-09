@@ -5,6 +5,7 @@ from models import User
 cashier_bp = Blueprint('cashier_portal', __name__, url_prefix='/cashier')
 kitchen_bp = Blueprint('kitchen_portal', __name__, url_prefix='/kitchen')
 inventory_bp = Blueprint('inventory_portal', __name__, url_prefix='/inventory')
+rider_bp = Blueprint('rider_portal', __name__, url_prefix='/rider')
 
 def _authenticate_portal(email, password, allowed_roles):
     user = User.query.filter_by(email=email).first()
@@ -76,4 +77,26 @@ def inventory_dashboard():
 
 @inventory_bp.route('/logout')
 def inventory_logout():
+    return redirect(url_for('admin.admin_logout'))
+
+# ── Rider Portal ────────────────────────────────────────────────
+@rider_bp.route('/login', methods=['GET', 'POST'])
+def rider_login():
+    if current_user.is_authenticated and current_user.role in ['RIDER', 'ADMIN', 'CASHIER', 'STAFF']:
+        return redirect(url_for('admin.deliveries'))
+        
+    if request.method == 'POST':
+        user = _authenticate_portal(request.form.get('email'), request.form.get('password'), ['RIDER', 'ADMIN', 'CASHIER', 'STAFF'])
+        if user:
+            login_user(user)
+            return redirect(url_for('admin.deliveries'))
+        flash('Invalid credentials or insufficient permissions for Rider Portal.', 'error')
+    return render_template('rider/login.html')
+
+@rider_bp.route('/dashboard')
+def rider_dashboard():
+    return redirect(url_for('admin.deliveries'))
+
+@rider_bp.route('/logout')
+def rider_logout():
     return redirect(url_for('admin.admin_logout'))

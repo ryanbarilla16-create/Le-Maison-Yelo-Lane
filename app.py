@@ -85,10 +85,11 @@ from routes.api import api_bp
 app.register_blueprint(api_bp)
 
 try:
-    from routes.portals import cashier_bp, kitchen_bp, inventory_bp
+    from routes.portals import cashier_bp, kitchen_bp, inventory_bp, rider_bp
     app.register_blueprint(cashier_bp)
     app.register_blueprint(kitchen_bp)
     app.register_blueprint(inventory_bp)
+    app.register_blueprint(rider_bp)
 except Exception as e:
     print(f"Failed to register portals blueprints: {e}")
 
