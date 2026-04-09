@@ -4,258 +4,253 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rider Login | Le Maison</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"></noscript>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Chill Brown Aesthetic */
+        :root {
+            --primary: #f57c00; /* Sunset Orange */
+            --primary-light: #ff9800;
+            --dark: #3e2723; /* Dark Brown */
+            --bg-color: #fff3e0;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #fdfbf9 0%, #e8dccb 100%);
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 1rem;
-            box-sizing: border-box;
+            /* Dynamic Speed/Sunset Gradient */
+            background: linear-gradient(135deg, #ffb74d 0%, #f57c00 100%);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
         }
 
-        .login-glass-card {
-            border-radius: 32px;
-            background: rgba(248, 241, 235, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 25px 50px -12px rgba(139, 90, 43, 0.15);
-            padding: 3.5rem 2.5rem;
-            text-align: center;
+        /* Abstract motion lines for rider theme */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            width: 100vw;
+            height: 10px;
+            background: rgba(255,255,255,0.2);
+            z-index: -1;
+            transform: skewY(-20deg);
+        }
+        body::before { top: 20%; left: -10%; width: 120%; }
+        body::after { bottom: 30%; right: -10%; width: 150%; height: 2px; }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(62, 39, 35, 0.3);
+            padding: 3.5rem 3rem;
             width: 100%;
             max-width: 440px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
+            text-align: center;
+            position: relative;
         }
 
-        .admin-icon {
-            color: #8b634b; /* Primary brown */
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
+        .icon-container {
+            width: 80px;
+            height: 80px;
+            background: var(--dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: var(--primary);
+            font-size: 2.2rem;
+            box-shadow: 0 10px 20px rgba(62, 39, 35, 0.2);
+            position: relative;
         }
+
+        .icon-container::after {
+            content: '';
+            position: absolute;
+            top: -5px; right: -5px; bottom: -5px; left: -5px;
+            border: 2px dashed rgba(245, 124, 0, 0.5);
+            border-radius: 50%;
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate { 100% { transform: rotate(360deg); } }
 
         .login-title {
-            font-family: 'Georgia', serif;
-            color: #4a3b32; /* Dark shade brown */
-            font-size: 2.25rem;
-            letter-spacing: -0.5px;
-            margin: 0 0 0.5rem 0;
+            color: var(--dark);
+            font-size: 2rem;
             font-weight: 700;
+            margin: 0 0 0.2rem 0;
+            letter-spacing: -0.5px;
         }
 
         .login-subtitle {
-            font-size: 1.05rem;
-            color: #8b634b; /* Primary brown */
-            margin: 0 0 2rem 0;
+            color: #d84315;
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin: 0 0 2.5rem 0;
         }
 
-        /* Inputs */
-        .input-group {
-            text-align: left;
-            margin-bottom: 1.5rem;
+        .input-wrapper {
             position: relative;
+            margin-bottom: 1.5rem;
+            text-align: left;
         }
 
-        .form-label-custom {
-            font-size: 0.85rem;
-            color: #5c3a21; /* Dark brown */
-            margin-left: 0.5rem;
-            font-weight: 600;
+        .input-label {
             display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--dark);
             margin-bottom: 0.5rem;
-        }
-
-        .glass-input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.6);
-            border: 1px solid rgba(139, 99, 75, 0.2);
-            border-radius: 16px;
-            padding: 1rem 1.25rem;
-            font-size: 1rem;
-            color: #4a3b32;
-            box-shadow: inset 0 2px 4px rgba(92, 58, 33, 0.02);
-            transition: all 0.3s ease;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .password-input {
-            padding-right: 3rem;
-        }
-
-        .glass-input:focus {
-            background: #ffffff;
-            border-color: rgba(139, 99, 75, 0.5);
-            box-shadow: 0 0 0 4px rgba(139, 99, 75, 0.15);
-            outline: none;
-        }
-
-        /* Password Eye Icon */
-        .toggle-password {
-            position: absolute;
-            right: 0.5rem;
-            top: 36px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            z-index: 10;
-            padding: 0.5rem;
-            border-radius: 50%;
-            transition: background 0.2s ease, color 0.2s ease;
-            color: #8b634b;
-        }
-
-        .toggle-password:hover {
-            background: rgba(139, 99, 75, 0.1);
-            color: #5c3a21;
-        }
-
-        /* Gradient Button */
-        .btn-primary-gradient {
-            width: 100%;
-            background: linear-gradient(135deg, #8b634b 0%, #5c3a21 100%);
-            color: #ffffff;
-            padding: 1rem;
-            border: none;
-            border-radius: 50px;
-            font-size: 1.05rem;
-            font-weight: 700;
+            text-transform: uppercase;
             letter-spacing: 0.5px;
+            margin-left: 0.2rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: #fff8e1;
+            border: 2px solid #ffe082;
+            border-radius: 12px;
+            padding: 1.1rem 1.25rem;
+            font-size: 1rem;
+            color: var(--dark);
+            box-sizing: border-box;
             transition: all 0.3s ease;
-            box-shadow: 0 10px 15px -3px rgba(92, 58, 33, 0.25);
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            background: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(245, 124, 0, 0.15);
+        }
+
+        .form-control::placeholder {
+            color: #ffca28;
+        }
+
+        .pwd-control { padding-right: 3rem; }
+
+        .toggle-pwd {
+            position: absolute;
+            right: 1.2rem;
+            top: 40px;
             cursor: pointer;
-            font-family: 'Inter', sans-serif;
+            color: #ffb300;
+            transition: color 0.2s;
+        }
+
+        .toggle-pwd:hover { color: var(--primary); }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--dark);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 1.2rem;
+            font-size: 1.05rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-top: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 2rem;
+            gap: 10px;
         }
 
-        .btn-primary-gradient:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 20px -3px rgba(92, 58, 33, 0.35);
+        .btn-submit:hover {
+            background: #2b1814;
+            transform: scale(1.02);
+            box-shadow: 0 8px 15px rgba(62, 39, 35, 0.4);
         }
 
-        .btn-primary-gradient i {
-            margin-right: 0.5rem;
-        }
-
-        /* Back Link */
-        .back-link-container {
-            margin-top: 2rem;
-            font-size: 0.95rem;
-        }
+        .btn-submit i { color: var(--primary); }
 
         .back-link {
-            color: #8b634b;
+            display: inline-block;
+            margin-top: 2rem;
             text-decoration: none;
-            font-weight: 600;
-            transition: color 0.2s ease;
-            position: relative;
-        }
-
-        .back-link:hover {
-            color: #5c3a21;
-        }
-
-        .back-link::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: #8b634b;
-            transform: scaleX(0);
-            transform-origin: right;
-            transition: transform 0.3s ease;
-        }
-
-        .back-link:hover::after {
-            transform: scaleX(1);
-            transform-origin: left;
-        }
-
-        .flash-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #b91c1c;
-            border-radius: 12px;
+            color: #a1887f;
             font-size: 0.9rem;
             font-weight: 500;
-            margin-bottom: 1.5rem;
-            padding: 0.8rem;
+            transition: color 0.2s;
         }
 
-        /* Chrome Autofill adjustment */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active{
-            -webkit-box-shadow: 0 0 0 30px #fdfbfa inset !important;
-            -webkit-text-fill-color: #4a3b32 !important;
-            border-radius: 16px;
-            border: 1px solid rgba(139, 99, 75, 0.2);
+        .back-link:hover { color: var(--dark); }
+
+        .flash-msg {
+            background: #fff3e0;
+            color: #d84315;
+            border-radius: 12px;
+            padding: 0.8rem;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border: 1px solid #ffe0b2;
         }
     </style>
 </head>
 <body>
-    <div class="login-glass-card">
-        <i class="fas fa-coffee admin-icon"></i>
-        <h2 class="login-title">Le Maison Rider</h2>
-        <p class="login-subtitle">Sign in to the Deliveries Portal</p>
+    <div class="login-card">
+        <div class="icon-container">
+            <i class="fas fa-motorcycle"></i>
+        </div>
+        <h2 class="login-title">Rider Fleet</h2>
+        <p class="login-subtitle">Connect and track your routes</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
-        <div class="flash-message">
-            <i class="fas fa-exclamation-circle" style="margin-right: 5px;"></i> {{ message }}
+        <div class="flash-msg">
+            <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i> {{ message }}
         </div>
         {% endfor %}
         {% endif %}
         {% endwith %}
 
         <form method="POST" action="{{ url_for('rider_portal.rider_login') }}">
-            <div class="input-group">
-                <label class="form-label-custom">EMAIL</label>
-                <input type="email" name="email" required placeholder="admin@gmail.com" class="glass-input">
+            <div class="input-wrapper">
+                <label class="input-label">Rider Email</label>
+                <input type="email" name="email" required placeholder="rider_one@le-maison.com" class="form-control">
             </div>
             
-            <div class="input-group">
-                <label class="form-label-custom">PASSWORD</label>
-                <input type="password" id="admin-password" name="password" required placeholder="••••••••" class="glass-input password-input">
-                <i class="fas fa-eye toggle-password" onclick="toggleAdminPassword()"></i>
+            <div class="input-wrapper">
+                <label class="input-label">Passcode</label>
+                <input type="password" id="user-pwd" name="password" required placeholder="••••••••" class="form-control pwd-control">
+                <i class="fas fa-eye toggle-pwd" onclick="togglePass()"></i>
             </div>
             
-            <button type="submit" class="btn-primary-gradient">
-                <i class="fas fa-lock"></i> Sign In
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-location-arrow"></i> Start Shift
             </button>
         </form>
-        
-        <div class="back-link-container">
-            <a href="{{ url_for('main.index') }}" class="back-link">
-                <i class="fas fa-arrow-left" style="font-size: 0.8rem; margin-right: 4px;"></i> Back to website
-            </a>
-        </div>
+
+        <a href="{{ url_for('main.index') }}" class="back-link">
+            <i class="fas fa-angle-left"></i> Return to Main Site
+        </a>
     </div>
+
     <script>
-        function toggleAdminPassword() {
-            const pwd = document.getElementById('admin-password');
+        function togglePass() {
+            const pwd = document.getElementById('user-pwd');
             const icon = event.currentTarget;
             if (pwd.type === 'password') {
                 pwd.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
             } else {
                 pwd.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
             }
         }
     </script>
