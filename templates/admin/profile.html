@@ -1,0 +1,137 @@
+{% extends "admin/base.html" %}
+
+{% block title %}My Profile — Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="fw-bold mb-0"><i class="fas fa-user-circle me-2 text-primary"></i>My Profile</h4>
+            <p class="text-muted small">Manage your personal information and security settings.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sidebar Profile Card -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm" style="border-radius: 20px;">
+                <div class="card-body text-center p-5">
+                    <div class="position-relative d-inline-block mb-4">
+                        {% if current_user.profile_picture_url %}
+                        <img id="profile-pic-preview" src="{{ current_user.profile_picture_url }}" 
+                             style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        {% else %}
+                        <div id="profile-pic-preview-div" 
+                             style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #5D4037, #8D6E63); color: white; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; border: 4px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 0 auto;">
+                            {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
+                        </div>
+                        <img id="profile-pic-preview" style="display: none; width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        {% endif %}
+                        <label for="profile_picture" class="btn btn-sm btn-light position-absolute bottom-0 end-0 rounded-circle shadow-sm" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-camera text-primary"></i>
+                        </label>
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ current_user.first_name }} {{ current_user.last_name }}</h5>
+                    <p class="text-muted small mb-0">{{ current_user.role|title }}</p>
+                    <div class="mt-3">
+                        <span class="badge bg-light text-primary px-3 py-2" style="border-radius: 10px; font-weight: 600;">{{ current_user.email }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Form -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm" style="border-radius: 20px;">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h6 class="fw-bold mb-0">Personal Information</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('admin.update_profile') }}" method="POST" enctype="multipart/form-data">
+                        <input type="file" id="profile_picture" name="profile_picture" class="d-none" accept="image/*" onchange="previewProfileImage(event)">
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">First Name</label>
+                                <input type="text" name="first_name" class="form-control" value="{{ current_user.first_name }}" required
+                                       style="border-radius: 12px; padding: 12px; background-color: #f8f9fa; border: 1px solid #e9ecef;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Last Name</label>
+                                <input type="text" name="last_name" class="form-control" value="{{ current_user.last_name }}" required
+                                       style="border-radius: 12px; padding: 12px; background-color: #f8f9fa; border: 1px solid #e9ecef;">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted">Email Address</label>
+                                <input type="email" name="email" class="form-control" value="{{ current_user.email }}" readonly
+                                       style="border-radius: 12px; padding: 12px; background-color: #e9ecef; border: 1px solid #dee2e6; cursor: not-allowed;">
+                                <div class="form-text mt-2" style="font-size: 0.75rem;">
+                                    <i class="fas fa-info-circle me-1"></i>Email address is fixed and linked to your staff account.
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="opacity-25 mb-4">
+                        
+                        <h6 class="fw-bold mb-3">Security</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted">Change Password (Leave blank to keep current)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0" style="border-top-left-radius: 12px; border-bottom-left-radius: 12px;">
+                                        <i class="fas fa-lock text-muted"></i>
+                                    </span>
+                                    <input type="password" name="password" class="form-control border-start-0" placeholder="Enter new password"
+                                           style="border-top-right-radius: 12px; border-bottom-right-radius: 12px; padding: 12px; background-color: #f8f9fa;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-primary px-4 py-2 fw-bold" style="border-radius: 12px;">
+                                <i class="fas fa-save me-2"></i>Update Profile
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewProfileImage(event) {
+    const input = event.target;
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('profile-pic-preview');
+            const div = document.getElementById('profile-pic-preview-div');
+            if (div) div.style.display = 'none';
+            img.src = e.target.result;
+            img.style.display = 'block';
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+
+<style>
+    .form-control:focus {
+        border-color: var(--admin-primary);
+        box-shadow: 0 0 0 0.25rem rgba(var(--admin-primary-rgb), 0.1);
+        background-color: #fff !important;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #5D4037, #795548);
+        border: none;
+        transition: all 0.3s;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(93, 64, 55, 0.3);
+        background: linear-gradient(135deg, #4E342E, #5D4037);
+    }
+</style>
+{% endblock %}

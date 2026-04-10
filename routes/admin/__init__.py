@@ -1589,6 +1589,12 @@ def settings():
 
     return render_template('admin/settings.html', site=site_settings)
 
+@admin_bp.route('/profile')
+@login_required
+@admin_required
+def profile():
+    return render_template('admin/profile.html')
+
 @admin_bp.route('/settings/profile', methods=['POST'])
 @login_required
 def update_profile():
