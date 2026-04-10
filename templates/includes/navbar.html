@@ -253,34 +253,21 @@
 
 <div class="collapse d-md-none p-3 fixed-top" id="mobileMenu"
     style="top: 56px; background: rgba(255, 255, 255, 0.98); z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 0 0 20px 20px; backdrop-filter: blur(20px);">
-    <ul class="navbar-nav" style="gap: 4px;">
-        <li class="nav-item py-2"><a class="nav-link fw-bold" href="{{ url_for('main.menu_page') }}"
-                style="color: var(--text-main); font-size: 0.9rem; letter-spacing: 1px;">MENU</a></li>
-        <li class="nav-item py-2"><a class="nav-link fw-bold" href="{{ url_for('main.about_page') }}"
-                style="color: var(--text-main); font-size: 0.9rem; letter-spacing: 1px;">ABOUT</a></li>
-        <li class="nav-item py-2" style="border-bottom: 1px solid var(--border-color);"><a class="nav-link fw-bold" href="{{ url_for('main.reviews_page') }}"
-                style="color: var(--text-main); font-size: 0.9rem; letter-spacing: 1px;">REVIEWS</a></li>
-        {% if current_user.is_authenticated %}
-        <li class="nav-item mt-2"><a href="{{ url_for('main.index') }}" class="btn navLink w-100 text-start"
-                style="padding: 0.65rem 1rem !important;"><i class="fas fa-home me-2" style="opacity: 0.5;"></i> Dashboard</a></li>
-        <li class="nav-item"><a href="{{ url_for('main.my_orders') }}" class="btn navLink w-100 text-start"
-                style="padding: 0.65rem 1rem !important;"><i class="fas fa-shopping-bag me-2" style="opacity: 0.5;"></i> My Orders</a></li>
-        <li class="nav-item"><a href="{{ url_for('main.view_cart') }}" class="btn navLink w-100 text-start"
-                style="padding: 0.65rem 1rem !important;"><i class="fas fa-shopping-cart me-2" style="opacity: 0.5;"></i> Cart</a></li>
-        <li class="nav-item"><a href="{{ url_for('main.profile') }}" class="btn navLink w-100 text-start"
-                style="padding: 0.65rem 1rem !important;"><i class="fas fa-user-edit me-2" style="opacity: 0.5;"></i> Edit Profile</a></li>
-        <li class="nav-item mt-2"><a href="{{ url_for('main.reserve') }}" class="btn navCta w-100">
-                <i class="fas fa-calendar-plus me-1"></i> Reserve Table</a></li>
-        <li class="nav-item mt-2"><a href="{{ url_for('main.logout') }}"
-                class="btn w-100" style="background: transparent; color: var(--danger); font-weight: 600; border: 1.5px solid rgba(150,75,75,0.2); border-radius: 50px; font-size: 0.88rem;">
-                <i class="fas fa-sign-out-alt me-1"></i> Sign Out</a></li>
+    <ul class="nav-links-container active" id="navbar-menu" style="list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 10px;">
+        <li id="mobile-background-icons"><a href="{{ url_for('main.index') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-home"></i> <span class="nav-text">Home</span></a></li>
+        <li id="mobile-background-icons"><a href="/rooms" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-bed"></i> <span class="nav-text">Rooms</span></a></li>
+        <li id="mobile-background-icons"><a href="/special-offers" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-tags"></i> <span class="nav-text">Promos</span></a></li>
+        <li id="mobile-background-icons"><a href="/contact" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-phone"></i> <span class="nav-text">Contact Us</span></a></li>
+        
+        {% if not current_user.is_authenticated %}
+            <li>
+                <a href="{{ url_for('main.login') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                    <i class="fas fa-sign-in-alt"></i> <span class="nav-text">Login</span>
+                </a>
+            </li>
         {% else %}
-        <li class="nav-item mt-3"><button
-                onclick="$('#mobileMenu').collapse('hide'); $('#termsModal').modal('show'); window.authIntent = 'login';"
-                class="btn navSignIn w-100">Sign in</button></li>
-        <li class="nav-item mt-2"><button
-                onclick="$('#mobileMenu').collapse('hide'); $('#termsModal').modal('show'); window.authIntent = 'signup';"
-                class="btn navJoin w-100">Join Now</button></li>
+            <li id="mobile-background-icons"><a href="{{ url_for('main.my_orders') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-shopping-bag"></i> <span class="nav-text">My Orders</span></a></li>
+            <li id="mobile-background-icons"><a href="{{ url_for('main.logout') }}" style="text-decoration: none; color: var(--danger); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-sign-out-alt"></i> <span class="nav-text">Sign Out</span></a></li>
         {% endif %}
     </ul>
 </div>

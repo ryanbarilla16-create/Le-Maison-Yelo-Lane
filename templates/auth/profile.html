@@ -100,7 +100,8 @@
                         </div>
                         <div class="profField">
                             <label for="email">Email Address</label>
-                            <input type="email" id="email" name="email" required value="{{ current_user.email }}">
+                            <input type="email" id="email" name="email" value="{{ current_user.email }}" readonly style="background: rgba(0,0,0,0.03); cursor: not-allowed;" title="Email cannot be changed">
+                            <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;"><i class="fas fa-lock me-1"></i>Email address cannot be changed</small>
                         </div>
                     </div>
                 </div>
