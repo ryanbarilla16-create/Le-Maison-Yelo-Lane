@@ -231,6 +231,9 @@
                 <label class="form-label-custom">PASSWORD</label>
                 <input type="password" id="admin-password" name="password" required placeholder="••••••••" class="glass-input password-input">
                 <i class="fas fa-eye toggle-password" onclick="toggleAdminPassword()"></i>
+                <div style="text-align: right; margin-top: 8px;">
+                    <a href="{{ url_for('admin.admin_forgot_password') }}" style="color: #8b634b; font-size: 0.8rem; font-weight: 600; text-decoration: none;">Forgot Password?</a>
+                </div>
             </div>
             
             <button type="submit" class="btn-primary-gradient">

@@ -11,6 +11,8 @@ import traceback
 import time
 import threading
 from sqlalchemy import text as sql_text
+import random
+from utils import get_ph_time, create_notification, validate_name, validate_email, validate_username, validate_password, safe_elapsed
 
 # Small TTL caches to make admin tabs feel snappy (especially on remote DBs)
 _ADMIN_CACHE = {
@@ -51,7 +53,7 @@ def _get_walkin_items_cached():
         10,
         lambda: MenuItem.query.options(
             load_only(MenuItem.id, MenuItem.name, MenuItem.price, MenuItem.category, MenuItem.image_url, MenuItem.is_available)
-        ).filter_by(is_available=True).order_by(MenuItem.category, MenuItem.name).all(),
+        ).filter_by(is_available=True, is_deleted=False).order_by(MenuItem.category, MenuItem.name).all(),
     )
 
 def _create_web_notification(user_id, title, message, notif_type='SYSTEM'):
@@ -197,6 +199,147 @@ def admin_login():
 def admin_logout():
     logout_user()
     return redirect(url_for('admin.admin_login'))
+
+# ─── ADMIN FORGOT PASSWORD ──────────────────────────
+@admin_bp.route('/forgot-password', methods=['GET', 'POST'])
+def admin_forgot_password():
+    from flask import session
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip()
+        user = User.query.filter_by(email=email).first()
+        
+        # Security: Only allow staff roles to use this flow
+        allowed_roles = ['ADMIN', 'CASHIER', 'INVENTORY_STAFF', 'INVENTORY', 'KITCHEN', 'STAFF', 'RIDER']
+        if not user or not user.role or user.role.upper() not in allowed_roles:
+            flash(f"If an account exists for {email}, a reset code has been sent.", "info")
+            return redirect(url_for('admin.admin_login'))
+            
+        if user.otp_created_at:
+            elapsed = safe_elapsed(user.otp_created_at)
+            if elapsed < 60:
+                flash(f"Please wait {int(60 - elapsed)}s before requesting a new code.", "warning")
+                return redirect(url_for('admin.admin_verify_reset_otp', user_id=user.id))
+        
+        otp = f"{random.randint(100000, 999999)}"
+        user.otp_code = otp
+        user.otp_created_at = get_ph_time()
+        db.session.commit()
+        
+        print(f"--- ADMIN FORGOT PASSWORD OTP FOR {email} IS: {otp} ---")
+        
+        html_msg = f"""
+        <div style="background-color: #fcfaf8; padding: 40px 20px; font-family: 'Helvetica Neue', Arial, sans-serif;">
+            <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid #eee; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                <div style="background: #8b634b; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 300;">Le Maison Admin</h1>
+                </div>
+                <div style="padding: 40px; color: #4a3b32; line-height: 1.6;">
+                    <h2 style="margin-top: 0; font-size: 18px;">Staff Access Reset</h2>
+                    <p>Hello <strong>{user.first_name}</strong>,</p>
+                    <p>A password reset was requested for your staff account. Use the code below to proceed:</p>
+                    <div style="text-align: center; margin: 30px 0; background: #fdfbf9; border: 1px dashed #8b634b; padding: 20px; border-radius: 12px;">
+                        <span style="font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #8b634b;">{otp}</span>
+                    </div>
+                    <p style="font-size: 13px; color: #8d6e63; text-align: center;">This code will expire in 5 minutes.</p>
+                </div>
+            </div>
+        </div>
+        """
+        
+        app_obj = current_app._get_current_object()
+        threading.Thread(
+            target=_send_flask_mail_worker,
+            args=(app_obj, Message('Staff Password Reset - Le Maison', recipients=[email], html=html_msg)),
+            daemon=True,
+        ).start()
+        
+        session['admin_reset_user_id'] = user.id
+        return redirect(url_for('admin.admin_verify_reset_otp', user_id=user.id))
+        
+    return render_template('admin/forgot_password.html')
+
+@admin_bp.route('/verify-reset-otp/<int:user_id>', methods=['GET', 'POST'])
+def admin_verify_reset_otp(user_id):
+    from flask import session
+    if session.get('admin_reset_user_id') != user_id:
+        flash("Invalid session.", "danger")
+        return redirect(url_for('admin.admin_forgot_password'))
+        
+    user = User.query.get_or_404(user_id)
+    if request.method == 'POST':
+        otp_input = request.form.get('otp', '').strip()
+        if user.otp_created_at and safe_elapsed(user.otp_created_at) > 300:
+            flash("Code expired. Please request a new one.", "danger")
+            return redirect(url_for('admin.admin_forgot_password'))
+                
+        if user.otp_code == otp_input:
+            session['admin_reset_verified_id'] = user.id
+            flash("Code verified. Set your new password.", "success")
+            return redirect(url_for('admin.admin_reset_password'))
+        else:
+            flash("Invalid code.", "danger")
+            
+    cooldown = 0
+    if user.otp_created_at:
+        cooldown = max(0, int(60 - safe_elapsed(user.otp_created_at)))
+        
+    return render_template('admin/verify_reset_otp.html', user=user, cooldown_remaining=cooldown)
+
+@admin_bp.route('/resend-reset-otp/<int:user_id>', methods=['POST'])
+def admin_resend_reset_otp(user_id):
+    from flask import session
+    if session.get('admin_reset_user_id') != user_id:
+        return redirect(url_for('admin.admin_forgot_password'))
+    
+    user = User.query.get_or_404(user_id)
+    if user.otp_created_at and safe_elapsed(user.otp_created_at) < 60:
+        return redirect(url_for('admin.admin_verify_reset_otp', user_id=user.id))
+        
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_created_at = get_ph_time()
+    db.session.commit()
+    
+    html_msg = f"<p>Your new staff reset code is: <strong>{otp}</strong></p>"
+    app_obj = current_app._get_current_object()
+    threading.Thread(
+        target=_send_flask_mail_worker,
+        args=(app_obj, Message('New Staff Reset Code', recipients=[user.email], html=html_msg)),
+        daemon=True,
+    ).start()
+    
+    flash("New code sent.", "success")
+    return redirect(url_for('admin.admin_verify_reset_otp', user_id=user.id))
+
+@admin_bp.route('/reset-password', methods=['GET', 'POST'])
+def admin_reset_password():
+    from flask import session
+    user_id = session.get('admin_reset_verified_id')
+    if not user_id:
+        return redirect(url_for('admin.admin_forgot_password'))
+        
+    user = User.query.get_or_404(user_id)
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        err = validate_password(new_password, confirm_password)
+        if err:
+            flash(err, "danger")
+            return render_template('admin/reset_password.html')
+            
+        user.set_password(new_password)
+        user.otp_code = None
+        user.otp_created_at = None
+        db.session.commit()
+        
+        session.pop('admin_reset_user_id', None)
+        session.pop('admin_reset_verified_id', None)
+        
+        flash("Password updated successfully. Please log in.", "success")
+        return redirect(url_for('admin.admin_login'))
+        
+    return render_template('admin/reset_password.html')
 
 # ─── MAIN: OVERVIEW ─────────────────────────────────
 @admin_bp.route('/')
@@ -523,7 +666,11 @@ def analytics():
     # Existing metrics
     total_customers = User.query.filter_by(role='USER').count()
     total_menu_items = MenuItem.query.count()
-    menu_by_category = db.session.query(MenuItem.category, func.count(MenuItem.id)).group_by(MenuItem.category).all()
+    
+    # Reservation counts by type
+    exclusive_count = Reservation.query.filter_by(booking_type='EXCLUSIVE').count()
+    regular_count = Reservation.query.filter_by(booking_type='REGULAR').count()
+    total_reservations = Reservation.query.count()
     
     # ── CHART DATA (Moved from overview) ──────────────────
     # Get PH today date for consistency with stored records
@@ -648,7 +795,9 @@ def analytics():
     return render_template('admin/analytics.html',
         total_customers=total_customers,
         total_menu_items=total_menu_items,
-        menu_by_category=menu_by_category,
+        exclusive_count=exclusive_count,
+        regular_count=regular_count,
+        total_reservations=total_reservations,
         total_revenue=float(total_revenue_val),
         total_cogs=total_cogs,
         net_profit=net_profit,
@@ -697,9 +846,29 @@ MENU_CATEGORIES = [
 @login_required
 @admin_required
 def menu():
+    # Fetch all items counts per category (excluding deleted)
+    raw_counts = db.session.query(MenuItem.category, func.count(MenuItem.id))\
+        .filter(MenuItem.is_deleted == False)\
+        .group_by(MenuItem.category).all()
+    counts_map = {cat: count for cat, count in raw_counts}
+    
+    # Fetch out of stock counts (excluding deleted)
+    oos_raw = db.session.query(MenuItem.category, func.count(MenuItem.id))\
+        .filter(MenuItem.is_available == False, MenuItem.is_deleted == False)\
+        .group_by(MenuItem.category).all()
+    oos_map = {cat: count for cat, count in oos_raw}
+    
+    enriched_categories = []
+    for cat_name in MENU_CATEGORIES:
+        enriched_categories.append({
+            'name': cat_name,
+            'item_count': counts_map.get(cat_name, 0),
+            'oos_count': oos_map.get(cat_name, 0)
+        })
+
     return render_template(
         'admin/menu.html',
-        categories_list=MENU_CATEGORIES,
+        categories_list=enriched_categories,
     )
 
 @admin_bp.route('/menu/item/<int:item_id>', methods=['GET'])
@@ -747,7 +916,7 @@ def menu_items_json():
                 MenuItem.is_available,
             )
         )
-        .filter(MenuItem.category == category)
+        .filter(MenuItem.category == category, MenuItem.is_deleted == False)
         .order_by(MenuItem.name.asc())
         .offset(offset)
         .limit(fetch_limit)
@@ -869,11 +1038,35 @@ def menu_delete(item_id):
 
     item = MenuItem.query.get_or_404(item_id)
     category = item.category
-    db.session.delete(item)
+    item.is_deleted = True
     db.session.commit()
-    log_audit('DELETE', 'MenuItem', item_id, f'Deleted menu item: {item.name}')
-    flash("Menu item deleted.", "success")
+    log_audit('DELETE', 'MenuItem', item_id, f'Trashed menu item: {item.name}')
+    flash("Menu item moved to trash.", "success")
     return redirect(url_for('admin.menu', category=category))
+
+@admin_bp.route('/menu/trash')
+@login_required
+@admin_required
+def menu_trash():
+    """View items that have been moved to trash."""
+    trashed_items = MenuItem.query.filter_by(is_deleted=True).order_by(MenuItem.created_at.desc()).all()
+    return render_template('admin/menu_trash.html', items=trashed_items)
+
+@admin_bp.route('/menu/restore/<int:item_id>', methods=['POST'])
+@login_required
+@admin_required
+def menu_restore(item_id):
+    """Restore a trashed menu item."""
+    if current_user.role.upper() != 'ADMIN':
+        flash("Access denied.", "danger")
+        return redirect(url_for('admin.menu_trash'))
+        
+    item = MenuItem.query.get_or_404(item_id)
+    item.is_deleted = False
+    db.session.commit()
+    log_audit('RESTORE', 'MenuItem', item_id, f'Restored menu item: {item.name}')
+    flash(f"Restored '{item.name}' successfully.", "success")
+    return redirect(url_for('admin.menu_trash'))
 
 # ─── MANAGEMENT: ACCOUNT APPROVALS ──────────────────
 @admin_bp.route('/approvals')
@@ -1527,132 +1720,111 @@ def walkin_order():
 @login_required
 @admin_required
 def walkin_order_submit():
-    # Allow Admin full control for POS now
+    try:
+        # Allow Admin full control for POS now
+        customer_name = (request.form.get('customer_name') or 'Walk-in Customer').strip()
+        dining_option = request.form.get('dining_option', 'DINE_IN')
+        notes = request.form.get('notes', '').strip()
+        payment_method = request.form.get('payment_method', 'COUNTER')
 
-    customer_name = (request.form.get('customer_name') or 'Walk-in Customer').strip()
-    dining_option = request.form.get('dining_option', 'DINE_IN')
-    notes = request.form.get('notes', '').strip()
-    payment_method = request.form.get('payment_method', 'COUNTER')
+        # Parse items from form
+        item_ids = request.form.getlist('item_id[]')
+        quantities = request.form.getlist('quantity[]')
 
-    # Parse items from form
-    item_ids = request.form.getlist('item_id[]')
-    quantities = request.form.getlist('quantity[]')
+        if not item_ids:
+            flash("Please add at least one item to the order.", "danger")
+            return redirect(url_for('admin.walkin_order'))
 
-    if not item_ids:
-        flash("Please add at least one item to the order.", "danger")
-        return redirect(url_for('admin.walkin_order'))
-
-    # --- ORDER VALIDATION LOGIC ---
-    items_data = [{'menu_item_id': int(id), 'quantity': int(qty)} for id, qty in zip(item_ids, quantities)]
-    is_valid, msg, status_override = validate_order(items_data, dining_option, payment_method, is_pos=True)
-    
-    if not is_valid:
-        flash(msg, "danger")
-        return redirect(url_for('admin.walkin_order'))
-    # ------------------------------
-
-    order_items = []
-    total = 0
-    for item_id, qty in zip(item_ids, quantities):
-        qty = int(qty)
-        if qty <= 0:
-            continue
-        menu_item = MenuItem.query.get(int(item_id))
-        if menu_item:
-            order_items.append(OrderItem(
-                menu_item_id=menu_item.id,
-                quantity=qty,
-                price_at_time=menu_item.price
-            ))
-            total += float(menu_item.price) * qty
-
-    if not order_items:
-        flash("No valid items in order.", "danger")
-        return redirect(url_for('admin.walkin_order'))
+        items_data = [{'menu_item_id': int(id), 'quantity': int(qty)} for id, qty in zip(item_ids, quantities)]
+        from routes.orders import validate_order
+        is_valid, msg, status_override = validate_order(items_data, dining_option, payment_method, is_pos=True)
         
-    amount_tendered = None
-    change_amount = None
-    if payment_method == 'COUNTER':
-        req_amount = request.form.get('amount_tendered')
-        if req_amount:
-            try:
-                amount_tendered = float(req_amount)
-                change_amount = amount_tendered - float(total)
-            except ValueError:
-                pass
+        if not is_valid:
+            flash(msg, "danger")
+            return redirect(url_for('admin.walkin_order'))
 
+        order_items = []
+        total = 0
+        for item_id, qty in zip(item_ids, quantities):
+            qty = int(qty)
+            if qty <= 0: continue
+            menu_item = MenuItem.query.get(int(item_id))
+            if menu_item:
+                order_items.append(OrderItem(
+                    menu_item_id=menu_item.id,
+                    quantity=qty,
+                    price_at_time=menu_item.price
+                ))
+                total += float(menu_item.price) * qty
 
-    order = Order(
-        user_id=None,
-        customer_name=customer_name,
-        total_amount=total,
-        status=status_override or 'PENDING',
-        payment_status='PAID' if payment_method == 'COUNTER' else 'UNPAID',
-        payment_method=payment_method,
-        amount_tendered=amount_tendered,
-        change_amount=change_amount,
-        dining_option=dining_option,
-        notes=notes,
-        items=order_items
-    )
-    db.session.add(order)
-    db.session.commit()
-    
-    # Real-time update for Kitchen
-    from extensions import socketio
-    socketio.emit('new_order', {
-        'id': order.id,
-        'customer': customer_name,
-        'dining_option': dining_option,
-        'total_amount': float(total)
-    }, namespace='/')
-    
-    if payment_method == 'ONLINE':
-        # Generate Xendit Invoice for Walk-in
-        import os, base64, requests
-        from datetime import datetime
-        xendit_secret_key = os.environ.get('XENDIT_SECRET_KEY')
-        if xendit_secret_key and xendit_secret_key != 'add_your_xendit_secret_key_here':
-            api_key_b64 = base64.b64encode(f"{xendit_secret_key}:".encode('utf-8')).decode('utf-8')
-            headers = {
-                'Authorization': f'Basic {api_key_b64}',
-                'Content-Type': 'application/json'
-            }
-            
-            success_url = url_for('admin.orders', _external=True)
-            failure_url = url_for('admin.orders', _external=True)
-            
-            payload = {
-                'external_id': f"order-walkin-{order.id}-{int(get_ph_time().timestamp())}",
-                'amount': float(total),
-                'payer_email': current_user.email, # Use the admin/cashier's email since walkin has no email
-                'description': f"Walk-in Order #{order.id} for {customer_name}",
-                'success_redirect_url': success_url,
-                'failure_redirect_url': failure_url,
-                'currency': 'PHP'
-            }
-            
-            try:
-                response = requests.post('https://api.xendit.co/v2/invoices', json=payload, headers=headers)
-                if response.status_code == 200:
-                    invoice_data = response.json()
-                    order.xendit_invoice_url = invoice_data.get('invoice_url')
-                    order.xendit_invoice_id = invoice_data.get('id')
-                    db.session.commit()
-                    
-                    flash(f"Walk-in Order #{order.id} created! Redirecting to GCash payment...", "success")
-                    return redirect(order.xendit_invoice_url)
-                else:
-                    flash(f"Walk-in Order created, but failed to generate GCash link: {response.json().get('message')}", "warning")
-            except Exception as e:
-                flash("Walk-in Order created. An error occurred with the payment gateway.", "warning")
-                print("Xendit Error (Walk-in):", e)
-        else:
-            flash("Walk-in Order created. Payment gateway not configured. Please collect payment manually.", "warning")
-            
-    else:
-        flash(f"Walk-in Order #{order.id} created for {customer_name}! Please collect ₱{total:,.2f} at the counter.", "success")
+        amount_tendered = None
+        change_amount = None
+        if payment_method == 'COUNTER':
+            req_amount = request.form.get('amount_tendered')
+            if req_amount:
+                try:
+                    amount_tendered = float(req_amount)
+                    change_amount = amount_tendered - float(total)
+                except ValueError: pass
+
+        order = Order(
+            user_id=None,
+            customer_name=customer_name,
+            total_amount=total,
+            status=status_override or 'PENDING',
+            payment_status='PAID' if payment_method == 'COUNTER' else 'UNPAID',
+            payment_method=payment_method,
+            amount_tendered=amount_tendered,
+            change_amount=change_amount,
+            dining_option=dining_option,
+            notes=notes,
+            items=order_items
+        )
+        db.session.add(order)
+        db.session.commit()
         
+        # Real-time update for Kitchen
+        from extensions import socketio
+        socketio.emit('new_order', {
+            'id': order.id,
+            'customer': customer_name,
+            'dining_option': dining_option,
+            'total_amount': float(total)
+        }, namespace='/')
+        
+        if payment_method == 'ONLINE':
+            import os, base64, requests
+            xendit_secret_key = os.environ.get('XENDIT_SECRET_KEY')
+            if xendit_secret_key and xendit_secret_key != 'add_your_xendit_secret_key_here':
+                api_key_b64 = base64.b64encode(f"{xendit_secret_key}:".encode('utf-8')).decode('utf-8')
+                headers = { 'Authorization': f'Basic {api_key_b64}', 'Content-Type': 'application/json' }
+                payload = {
+                    'external_id': f"order-walkin-{order.id}-{int(get_ph_time().timestamp())}",
+                    'amount': float(total),
+                    'payer_email': current_user.email,
+                    'description': f"Walk-in Order #{order.id} for {customer_name}",
+                    'success_redirect_url': url_for('admin.orders', _external=True),
+                    'failure_redirect_url': url_for('admin.orders', _external=True),
+                    'currency': 'PHP'
+                }
+                try:
+                    resp = requests.post('https://api.xendit.co/v2/invoices', json=payload, headers=headers)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        order.xendit_invoice_id = data.get('id')
+                        order.xendit_invoice_url = data.get('invoice_url')
+                        db.session.commit()
+                        flash("Walk-in order created. Please pay via Xendit invoice.", "success")
+                        return redirect(order.xendit_invoice_url)
+                except Exception as x: print(f"XENDIT ERROR: {str(x)}")
+        
+        flash("Walk-in order submitted successfully!", "success")
+        return redirect(url_for('admin.orders'))
+    except Exception as e:
+        db.session.rollback()
+        print(f"WALKIN SUBMIT ERROR: {str(e)}")
+        flash(f"System Error: {str(e)}", "danger")
+        return redirect(url_for('admin.walkin_order'))
     return redirect(url_for('admin.orders'))
 
 # ─── DELIVERIES ───────────────────────────────────────

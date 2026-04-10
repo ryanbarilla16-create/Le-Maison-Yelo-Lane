@@ -24,6 +24,7 @@ def _get_menu_items_for_menu_page():
         MenuItem.query.options(
             load_only(MenuItem.id, MenuItem.name, MenuItem.price, MenuItem.category, MenuItem.image_url, MenuItem.is_available)
         )
+        .filter(MenuItem.is_deleted == False)
         .order_by(MenuItem.category, MenuItem.name)
         .all()
     )
@@ -37,7 +38,7 @@ def _get_featured_items_cached():
     if _FEATURED_CACHE["items"] is not None and (now - _FEATURED_CACHE["loaded_at"]) < ttl_seconds:
         return _FEATURED_CACHE["items"]
 
-    total_available = MenuItem.query.filter_by(is_available=True).count()
+    total_available = MenuItem.query.filter_by(is_available=True, is_deleted=False).count()
     if total_available <= 0:
         _FEATURED_CACHE["items"] = []
         _FEATURED_CACHE["loaded_at"] = now
@@ -49,7 +50,7 @@ def _get_featured_items_cached():
         offset = random.randint(0, total_available - 6)
 
     items = (
-        MenuItem.query.filter_by(is_available=True)
+        MenuItem.query.filter_by(is_available=True, is_deleted=False)
         .order_by(MenuItem.id.asc())
         .offset(offset)
         .limit(6)
@@ -63,12 +64,12 @@ def _get_featured_items_cached():
 @main_bp.route('/')
 def index():
     site = load_site_settings()
-    menu_items = MenuItem.query.limit(4).all()
+    menu_items = MenuItem.query.filter_by(is_deleted=False).limit(4).all()
     categories = db.session.query(
         MenuItem.category,
         func.count(MenuItem.id).label('count'),
         func.min(MenuItem.image_url).label('sample_image')
-    ).group_by(MenuItem.category).all()
+    ).filter(MenuItem.is_deleted == False).group_by(MenuItem.category).all()
 
     if current_user.is_authenticated and current_user.role != 'ADMIN':
         # Optimized User Dashboard - Combined queries and added limits
@@ -93,7 +94,7 @@ def index():
 
         # Efficient Menu Fetching
         featured = _get_featured_items_cached()
-        bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True).limit(6).all()
+        bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(6).all()
 
         from models import Order, Review
         recent_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).limit(5).all()
@@ -112,7 +113,7 @@ def index():
 
     from models import Review
     approved_reviews = Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).limit(30).all()
-    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True).limit(8).all()
+    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(8).all()
 
     return render_template('index.html', menu_items=menu_items, site=site, categories=categories, approved_reviews=approved_reviews, bestsellers=bestsellers)
 
@@ -198,17 +199,17 @@ def about_page():
 @main_bp.route('/reviews')
 def reviews_page():
     site = load_site_settings()
-    menu_items = MenuItem.query.limit(4).all()
+    menu_items = MenuItem.query.filter_by(is_deleted=False).limit(4).all()
     categories = db.session.query(
         MenuItem.category,
         func.count(MenuItem.id).label('count'),
         func.min(MenuItem.image_url).label('sample_image')
-    ).group_by(MenuItem.category).all()
+    ).filter(MenuItem.is_deleted == False).group_by(MenuItem.category).all()
     
     from models import Review
     approved_reviews = Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).all()
 
-    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True).limit(8).all()
+    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(8).all()
     return render_template('index.html', title="Reviews", site=site, menu_items=menu_items, categories=categories, approved_reviews=approved_reviews, bestsellers=bestsellers)
 
 @main_bp.route('/pages/<page_name>')

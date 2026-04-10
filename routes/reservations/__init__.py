@@ -112,66 +112,66 @@ def reserve():
                 flash("Regular tables max at 20 guests.", "danger")
                 return redirect(url_for('main.reserve'))
 
-    current_res_start = datetime.combine(res_date, res_time)
-    current_res_end = current_res_start + timedelta(hours=duration)
+        current_res_start = datetime.combine(res_date, res_time)
+        current_res_end = current_res_start + timedelta(hours=duration)
 
-    # SQL overlap check (faster than loading all reservations and looping in Python).
-    dur_expr = func.coalesce(Reservation.duration, 2)
-    start_ts = func.make_timestamp(
-        func.cast(func.extract('year', Reservation.date), db.Integer),
-        func.cast(func.extract('month', Reservation.date), db.Integer),
-        func.cast(func.extract('day', Reservation.date), db.Integer),
-        func.cast(func.extract('hour', Reservation.time), db.Integer),
-        func.cast(func.extract('minute', Reservation.time), db.Integer),
-        func.cast(func.extract('second', Reservation.time), db.Integer),
-    )
-    end_ts = start_ts + (dur_expr * sql_text("interval '1 hour'"))
-
-    base = Reservation.query.filter(
-        Reservation.date == res_date,
-        Reservation.status.in_(['PENDING', 'CONFIRMED']),
-    )
-
-    if booking_type != 'EXCLUSIVE':
-        # REGULAR conflicts only with EXCLUSIVE bookings.
-        base = base.filter(Reservation.booking_type == 'EXCLUSIVE')
-
-    conflict = (
-        base.filter(
-            start_ts < current_res_end,
-            end_ts > current_res_start,
+        # SQL overlap check (faster than loading all reservations and looping in Python).
+        dur_expr = func.coalesce(Reservation.duration, 2)
+        start_ts = func.make_timestamp(
+            func.cast(func.extract('year', Reservation.date), db.Integer),
+            func.cast(func.extract('month', Reservation.date), db.Integer),
+            func.cast(func.extract('day', Reservation.date), db.Integer),
+            func.cast(func.extract('hour', Reservation.time), db.Integer),
+            func.cast(func.extract('minute', Reservation.time), db.Integer),
+            func.cast(func.extract('second', Reservation.time), db.Integer),
         )
-        .with_entities(Reservation.id)
-        .limit(1)
-        .first()
-    )
+        end_ts = start_ts + (dur_expr * sql_text("interval '1 hour'"))
 
-    if conflict:
-        flash(
-            "Cannot book this slot. It conflicts with an existing Exclusive booking or overlaps with another reservation.",
-            "danger",
+        base = Reservation.query.filter(
+            Reservation.date == res_date,
+            Reservation.status.in_(['PENDING', 'CONFIRMED']),
         )
-        return redirect(url_for('main.reserve'))
 
-    # Capacity guard for REGULAR only (sum overlapping NON-EXCLUSIVE guests).
-    if booking_type != 'EXCLUSIVE':
-        overlapping_guests = (
-            db.session.query(func.coalesce(func.sum(Reservation.guest_count), 0))
-            .filter(
-                Reservation.date == res_date,
-                Reservation.status.in_(['PENDING', 'CONFIRMED']),
-                Reservation.booking_type != 'EXCLUSIVE',
-            )
-            .filter(
+        if booking_type != 'EXCLUSIVE':
+            # REGULAR conflicts only with EXCLUSIVE bookings.
+            base = base.filter(Reservation.booking_type == 'EXCLUSIVE')
+
+        conflict = (
+            base.filter(
                 start_ts < current_res_end,
                 end_ts > current_res_start,
             )
-            .scalar()
-        ) or 0
+            .with_entities(Reservation.id)
+            .limit(1)
+            .first()
+        )
 
-        if overlapping_guests + guest_count > 50:
-            flash("Capacity Guard: Time slot is too full. Not enough seats.", "danger")
+        if conflict:
+            flash(
+                "Cannot book this slot. It conflicts with an existing Exclusive booking or overlaps with another reservation.",
+                "danger",
+            )
             return redirect(url_for('main.reserve'))
+
+        # Capacity guard for REGULAR only (sum overlapping NON-EXCLUSIVE guests).
+        if booking_type != 'EXCLUSIVE':
+            overlapping_guests = (
+                db.session.query(func.coalesce(func.sum(Reservation.guest_count), 0))
+                .filter(
+                    Reservation.date == res_date,
+                    Reservation.status.in_(['PENDING', 'CONFIRMED']),
+                    Reservation.booking_type != 'EXCLUSIVE',
+                )
+                .filter(
+                    start_ts < current_res_end,
+                    end_ts > current_res_start,
+                )
+                .scalar()
+            ) or 0
+
+            if overlapping_guests + guest_count > 50:
+                flash("Capacity Guard: Time slot is too full. Not enough seats.", "danger")
+                return redirect(url_for('main.reserve'))
 
         # ── Save reservation details in session, go to Step 2 (Menu) ──
         session['pending_reservation'] = {

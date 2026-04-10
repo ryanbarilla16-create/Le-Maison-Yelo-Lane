@@ -59,6 +59,7 @@ class MenuItem(db.Model):
     category = db.Column(db.String(50), nullable=False)
     image_url = db.Column(db.String(255), nullable=True)
     is_available = db.Column(db.Boolean, default=True)
+    is_deleted = db.Column(db.Boolean, default=False) # Soft delete
     created_at = db.Column(db.DateTime, default=get_ph_time)
     
     @property

@@ -30,14 +30,21 @@
 </div>
 
 <div class="stats-grid">
-    {% for cat, count in menu_by_category %}
-    <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(139,92,246,0.15); color: #8b5cf6;"><i class="fas fa-tag"></i>
-        </div>
-        <div class="stat-label">{{ cat }}</div>
-        <div class="stat-value">{{ count }}</div>
-    </div>
-    {% endfor %}
+    <a href="{{ url_for('admin.reservations') }}" class="stat-card" style="text-decoration: none; display: block; cursor: pointer; color: inherit;">
+        <div class="stat-icon" style="background: rgba(139, 99, 75, 0.12); color: #8d6e63;"><i class="fas fa-calendar-check"></i></div>
+        <div class="stat-label">Total Reservations</div>
+        <div class="stat-value">{{ total_reservations }}</div>
+    </a>
+    <a href="{{ url_for('admin.reservations', type='EXCLUSIVE') }}" class="stat-card" style="text-decoration: none; display: block; cursor: pointer; color: inherit;">
+        <div class="stat-icon" style="background: rgba(212, 168, 98, 0.15); color: #D4A862;"><i class="fas fa-crown"></i></div>
+        <div class="stat-label">Exclusive Bookings</div>
+        <div class="stat-value">{{ exclusive_count }}</div>
+    </a>
+    <a href="{{ url_for('admin.reservations', type='REGULAR') }}" class="stat-card" style="text-decoration: none; display: block; cursor: pointer; color: inherit;">
+        <div class="stat-icon" style="background: rgba(139, 99, 75, 0.1); color: #8B634B;"><i class="fas fa-users"></i></div>
+        <div class="stat-label">Standard Bookings</div>
+        <div class="stat-value">{{ regular_count }}</div>
+    </a>
 </div>
 
 <!-- ROW 1 : Revenue Trend + Order Status -->
@@ -99,16 +106,7 @@
 </div>
 
 <!-- ROW 5 : Existing Menu Analytics -->
-<div class="admin-cards-grid">
-    <div class="admin-card chart-card">
-        <h3><i class="fas fa-chart-pie me-2" style="color: var(--admin-accent);"></i> Revenue by Category</h3>
-        <div class="chart-container chart-container-sm"><canvas id="categoryChart"></canvas></div>
-    </div>
-    <div class="admin-card chart-card">
-        <h3><i class="fas fa-chart-bar me-2" style="color: var(--admin-blue);"></i> Menu Distribution</h3>
-        <div class="chart-container"><canvas id="menuChart"></canvas></div>
-    </div>
-</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -120,8 +118,6 @@
     data-top-dishes-data="{{ top_dishes_data | forceescape }}" data-monthly-rev-labels="{{ monthly_rev_labels | forceescape }}"
     data-monthly-rev-data="{{ monthly_rev_data | forceescape }}" data-loyalty-labels="{{ loyalty_labels | forceescape }}"
     data-loyalty-data="{{ loyalty_data | forceescape }}"
-    data-categories="{{ menu_by_category | map(attribute=0) | list | tojson | forceescape }}"
-    data-counts="{{ menu_by_category | map(attribute=1) | list | tojson | forceescape }}"
     data-forecast-labels="{{ forecast_labels | forceescape }}" data-forecast-data="{{ forecast_data | forceescape }}"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -212,8 +208,7 @@
         var monthlyRevData = JSON.parse(_cd.monthlyRevData);
         var loyaltyLabels = JSON.parse(_cd.loyaltyLabels);
         var loyaltyData = JSON.parse(_cd.loyaltyData);
-        const categories = JSON.parse(_cd.categories);
-        const counts = JSON.parse(_cd.counts);
+
 
         // ═══════════════════════════════════════════════════
         // 1) REVENUE TREND (Line — Last 7 Days)
@@ -428,19 +423,7 @@
         // ═══════════════════════════════════════════════════
         // EXISTING MENU CHARTS
         // ═══════════════════════════════════════════════════
-        (function () {
-            new Chart(document.getElementById('categoryChart'), {
-                type: 'doughnut',
-                data: { labels: categories, datasets: [{ data: counts, backgroundColor: defaultColors, borderWidth: 0, hoverOffset: 8 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom', labels: { padding: 14 } } } }
-            });
 
-            new Chart(document.getElementById('menuChart'), {
-                type: 'bar',
-                data: { labels: categories, datasets: [{ label: 'Items', data: counts, backgroundColor: defaultColors.map(c => c + '33'), borderColor: defaultColors, borderWidth: 2, borderRadius: 8 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { ...scaleX }, y: { ...scaleY } }, plugins: { legend: { display: false } } }
-            });
-        })();
         // ═══════════════════════════════════════════════════
         // 8) SALES FORECAST (Line — Dash/Future)
         // ═══════════════════════════════════════════════════
