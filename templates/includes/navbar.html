@@ -1,140 +1,140 @@
 <style>
     .main-nav {
-        background: rgba(255, 255, 255, 0.97) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        box-shadow: 0 1px 0 rgba(93,64,55,0.08) !important;
-        padding: 0.5rem 0 !important;
-        transition: box-shadow 0.3s;
+        background: rgba(245, 238, 230, 0.9) !important; /* Soft relaxing light brown/beige */
+        backdrop-filter: blur(20px) saturate(140%) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+        border-bottom: 1px solid rgba(139, 69, 19, 0.08) !important;
+        padding: 0.8rem 0 !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .main-nav:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important; }
+    .main-nav.scrolled {
+        padding: 0.5rem 0 !important;
+        background: rgba(245, 238, 230, 0.98) !important;
+        box-shadow: 0 4px 30px rgba(93, 64, 55, 0.1) !important;
+    }
 
     /* Nav text links */
     .navTxt {
-        color: var(--text-main) !important; font-weight: 600 !important;
-        font-size: 0.82rem !important; letter-spacing: 1.5px;
-        text-decoration: none; position: relative; padding: 0.5rem 0 !important;
-        transition: color 0.3s;
+        color: #5D4037 !important; /* Dark brown text */
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        text-decoration: none;
+        position: relative;
+        padding: 0.6rem 0.5rem !important;
+        transition: all 0.3s;
+        opacity: 0.85;
     }
     .navTxt::after {
-        content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-        height: 2px; background: var(--primary-color);
-        transform: scaleX(0); transition: transform 0.3s ease;
+        content: ''; position: absolute; bottom: 0; left: 50%; right: 50%;
+        height: 2px; background: #8B4513;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0;
     }
-    .navTxt:hover { color: var(--primary-color) !important; }
-    .navTxt:hover::after { transform: scaleX(1); }
+    .navTxt:hover { 
+        color: #8B4513 !important; 
+        opacity: 1;
+        transform: translateY(-1px);
+    }
+    .navTxt:hover::after { left: 0.5rem; right: 0.5rem; opacity: 1; }
 
     /* Icon circle buttons (cart, bell) */
     .navIcon {
-        width: 40px; height: 40px; border-radius: 12px;
+        width: 42px; height: 42px; border-radius: 14px;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(93,64,55,0.06) !important;
-        color: var(--primary-color) !important;
-        border: none !important; font-size: 1rem;
-        transition: all 0.3s ease; position: relative;
-        box-shadow: none !important;
+        background: #8D6E63 !important; /* Medium warm brown */
+        color: #fff !important;
+        border: none !important;
+        font-size: 1.05rem;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        box-shadow: 0 4px 10px rgba(93,64,55,0.15) !important;
     }
     .navIcon:hover {
-        background: rgba(93,64,55,0.12) !important;
-        transform: translateY(-2px);
-        color: var(--primary-color) !important;
+        background: #5D4037 !important; /* Darker brown on hover */
+        transform: translateY(-3px) rotate(5deg);
+        box-shadow: 0 8px 16px rgba(93,64,55,0.25) !important;
     }
 
-    /* Text nav buttons (Dashboard, My Orders) */
+    /* Text nav buttons (Home, My Orders) */
     .navLink {
-        color: var(--text-main) !important; font-weight: 600;
-        font-size: 0.85rem; padding: 0.5rem 1rem !important;
-        border-radius: 10px; text-decoration: none !important;
-        transition: all 0.3s ease;
-        background: transparent !important;
+        color: #fff !important; 
+        font-weight: 700;
+        font-size: 0.82rem; 
+        padding: 0.65rem 1.25rem !important;
+        border-radius: 12px; 
+        text-decoration: none !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #8D6E63 !important; /* Medium warm brown */
         border: none !important;
-        box-shadow: none !important;
+        box-shadow: 0 4px 10px rgba(93,64,55,0.15) !important;
     }
     .navLink:hover {
-        background: rgba(93,64,55,0.06) !important;
-        color: var(--primary-color) !important;
-        transform: translateY(-1px);
+        background: #5D4037 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(93,64,55,0.25) !important;
     }
-    .navLink i { font-size: 0.8rem; opacity: 0.6; }
+    .navLink i { font-size: 0.85rem; margin-right: 6px; }
 
     /* Primary CTA button */
     .navCta {
-        background: linear-gradient(135deg, #5D4037, #795548) !important;
-        color: #fff !important; font-weight: 700;
-        font-size: 0.82rem; padding: 0.55rem 1.25rem !important;
+        background: linear-gradient(135deg, #8B4513, #5D4037) !important; /* Rich brown gradient */
+        color: #fff !important; font-weight: 800;
+        font-size: 0.85rem; padding: 0.65rem 1.5rem !important;
         border-radius: 50px; text-decoration: none !important;
         border: none !important;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 14px rgba(93,64,55,0.25) !important;
-        letter-spacing: 0.3px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 6px 18px rgba(139,69,19,0.25) !important;
+        letter-spacing: 0.5px;
     }
     .navCta:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(93,64,55,0.35) !important;
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 10px 25px rgba(139,69,19,0.35) !important;
         color: #fff !important;
     }
 
     /* Profile ring */
     .navProfile {
-        width: 42px; height: 42px; border-radius: 50%;
-        border: 2px solid transparent !important;
-        background-clip: padding-box;
-        box-shadow: 0 0 0 2px rgba(93,64,55,0.12) !important;
-        transition: all 0.3s;
+        width: 44px; height: 44px; border-radius: 14px;
+        border: 2px solid #F5DEB3 !important; /* Wheat/light brown border */
+        box-shadow: 0 4px 12px rgba(93,64,55,0.1) !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .navProfile:hover { box-shadow: 0 0 0 3px rgba(93,64,55,0.2) !important; }
-
-    /* Sign in / Join buttons */
-    .navSignIn {
-        border: 1.5px solid rgba(93,64,55,0.2) !important;
-        color: var(--primary-color) !important;
-        background: transparent !important;
-        font-weight: 600; font-size: 0.85rem;
-        padding: 0.5rem 1.25rem !important;
-        border-radius: 50px; transition: all 0.3s;
-        box-shadow: none !important;
-    }
-    .navSignIn:hover {
-        background: rgba(93,64,55,0.05) !important;
-        border-color: var(--primary-color) !important;
-        transform: translateY(-1px);
-        color: var(--primary-color) !important;
-    }
-    .navJoin {
-        background: linear-gradient(135deg, #5D4037, #795548) !important;
-        color: #fff !important; font-weight: 700; font-size: 0.85rem;
-        padding: 0.55rem 1.5rem !important;
-        border-radius: 50px; border: none !important;
-        transition: all 0.3s;
-        box-shadow: 0 4px 14px rgba(93,64,55,0.25) !important;
-    }
-    .navJoin:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(93,64,55,0.35) !important;
-        color: #fff !important;
+    .navProfile:hover { 
+        transform: translateY(-2px) rotate(-3deg);
+        box-shadow: 0 8px 20px rgba(93,64,55,0.2) !important; 
     }
 
     /* Dropdown refinement */
     .navDropdown {
-        border-radius: 16px !important; border: 1px solid rgba(93,64,55,0.08) !important;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.1) !important;
-        padding: 0.5rem 0 !important; overflow: hidden;
-        animation: dropIn 0.2s ease-out;
+        border-radius: 18px !important; 
+        border: 1px solid rgba(139,69,19,0.08) !important;
+        background: #FFFDF9 !important; /* Very soft cream */
+        box-shadow: 0 15px 45px rgba(93,64,55,0.15) !important;
+        padding: 0.65rem !important; 
+        overflow: hidden;
+        margin-top: 10px !important;
     }
-    @keyframes dropIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
     .navDropdown .dropdown-item {
-        font-weight: 500; padding: 0.6rem 1.25rem !important;
-        font-size: 0.88rem; transition: all 0.2s;
+        font-weight: 600; padding: 0.75rem 1.4rem !important;
+        font-size: 0.9rem; border-radius: 10px;
+        color: #5D4037 !important;
+        transition: all 0.2s;
+        display: flex; align-items: center; gap: 10px;
     }
-    .navDropdown .dropdown-item:hover { background: rgba(93,64,55,0.04); }
-    .navDropdown .dropdown-item i { width: 20px; text-align: center; }
+    .navDropdown .dropdown-item:hover { 
+        background: rgba(139,69,19,0.08) !important; 
+        color: #8B4513 !important; 
+    }
 
     /* Mobile Grid Navbar Styles */
     @media (max-width: 767px) {
         #mobileMenu {
-            background: #8D6E63 !important; /* Light Brown */
+            background: #D7CCC8 !important; /* Relaxing light brown for mobile menu */
             padding: 15px !important;
             border-radius: 0 0 15px 15px !important;
+            border-bottom: 2px solid #8D6E63 !important;
         }
         #navbar-menu {
             display: grid !important;
@@ -170,12 +170,15 @@
             font-size: 0.62rem !important;
             font-weight: 600 !important;
             text-transform: capitalize;
-            color: #fff !important;
+            color: #5D4037 !important;
             text-align: center;
+        }
+        .mobile-nav-item i {
+            color: #5D4037 !important;
         }
         /* Active/Hover state */
         .mobile-nav-item:active {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.5);
             transform: scale(0.95);
         }
     }
@@ -241,17 +244,17 @@
 
             <li class="nav-item">
                 <a href="{{ url_for('main.index') }}" class="btn navLink">
-                    <i class="fas fa-home me-1"></i> Dashboard
+                    <i class="fas fa-home"></i> Home
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('main.my_orders') }}" class="btn navLink">
-                    <i class="fas fa-shopping-bag me-1"></i> My Orders
+                    <i class="fas fa-shopping-bag"></i> Orders
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('main.reserve') }}" class="btn navCta">
-                    <i class="fas fa-calendar-plus me-1"></i> Reserve
+                    <i class="fas fa-calendar-plus me-1"></i> Reserve Now
                 </a>
             </li>
 

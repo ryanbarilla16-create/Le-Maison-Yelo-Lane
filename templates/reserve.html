@@ -168,13 +168,72 @@
         transition: all 0.3s;
         box-shadow: 0 6px 20px rgba(93, 64, 55, 0.2);
         letter-spacing: 0.5px;
-        margin-top: 0.5rem;
     }
 
     .resSubmit:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 30px rgba(93, 64, 55, 0.3);
     }
+
+    .resSteps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+        padding: 0 1rem;
+    }
+    .resSteps::before {
+        content: '';
+        position: absolute;
+        top: 14px;
+        left: 40px;
+        right: 40px;
+        height: 2px;
+        background: rgba(139, 69, 19, 0.1);
+        z-index: 1;
+    }
+    .step {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-muted);
+    }
+    .step-num {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: #f0f0f0; display:flex; align-items:center; justify-content:center;
+        font-weight: 700; font-size: 0.85rem; transition: all 0.3s;
+    }
+    .step.active .step-num {
+        background: #8B4513; color: #fff; box-shadow: 0 4px 10px rgba(139,69,19,0.3);
+    }
+    .step-lbl { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
+    .step.active .step-lbl { color: #8B4513; }
+
+    .resNextBtn, .resBackBtn {
+        font-weight: 700; border-radius: 50px; padding: 0.85rem 2rem;
+        font-size: 0.95rem; cursor: pointer; transition: all 0.3s; border: none;
+    }
+    .resNextBtn {
+        background: linear-gradient(135deg, #5D4037, #795548); color: #fff;
+        box-shadow: 0 6px 20px rgba(93, 64, 55, 0.2); width: 100%;
+        margin-top: 0.5rem;
+    }
+    .resNextBtn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(93, 64, 55, 0.3); }
+    .resBackBtn {
+        background: rgba(93,64,55,0.08); color: #5D4037; margin-top: 0.5rem;
+    }
+    .resBackBtn:hover { background: rgba(93,64,55,0.15); }
+    
+    .resSummary {
+        background: rgba(139,69,19,0.03); border: 1.5px solid rgba(139,69,19,0.1); 
+        border-radius: 16px; padding: 1.5rem; margin-bottom: 0.5rem;
+    }
+    .resSummary li { margin-bottom: 0.5rem; display: flex; align-items: center;}
+    .resSummary li strong { color: #5D4037; font-size: 0.88rem; width: 100px; display: inline-block;}
+    .resSummary li span { color: #666; font-size: 0.88rem; font-weight: 600;}
 
     @media(max-width: 600px) {
         .resRow {
@@ -273,83 +332,115 @@
             </div>
         </div>
 
-        <form method="POST" action="{{ url_for('main.reserve') }}" class="resForm">
-            <div class="resRow">
-                <div class="resField">
-                    <label for="booking_type">Booking Type</label>
-                    <select id="booking_type" name="booking_type" onchange="updateBookingRules()" required>
-                        <option value="REGULAR" selected>Standard Booking</option>
-                        <option value="EXCLUSIVE">Exclusive (Rent Whole Restaurant)</option>
-                    </select>
-                </div>
-                <div class="resField">
-                    <label for="guest_count">Total Guests & Seating Preference</label>
-                    <input type="number" id="guest_count" name="guest_count" min="1" max="50" step="1" required
-                        placeholder="Total number of guests">
-                    <div id="guestHint"
-                        style="background: rgba(139, 69, 19, 0.05); border: 1px solid rgba(139, 69, 19, 0.1); border-radius: 8px; padding: 10px; margin-top: 0.5rem; font-size: 0.78rem; color: #5D4037; line-height: 1.5;">
-                        <i class="fas fa-chair me-2" style="color: #D4A862;"></i><strong>Seating Guide:</strong><br>
-                        • 1-4 Persons: 1 Standard Table<br>
-                        • 5-8 Persons: 2 Combined Tables<br>
-                        • 9+ Persons: Group Banquet Seating
+        <form method="POST" action="{{ url_for('main.reserve') }}" class="resForm" id="reservationForm">
+            <!-- Step Indicators -->
+            <div class="resSteps">
+                <div class="step active" id="stepInd1"><div class="step-num">1</div><div class="step-lbl">Details</div></div>
+                <div class="step" id="stepInd2"><div class="step-num">2</div><div class="step-lbl">Schedule</div></div>
+                <div class="step" id="stepInd3"><div class="step-num">3</div><div class="step-lbl">Confirm</div></div>
+            </div>
+
+            <!-- Step 1: Details -->
+            <div id="stepBox1" class="step-box active">
+                <div class="resRow">
+                    <div class="resField">
+                        <label for="booking_type">Booking Type</label>
+                        <select id="booking_type" name="booking_type" onchange="updateBookingRules()" required>
+                            <option value="REGULAR" selected>Standard Booking</option>
+                            <option value="EXCLUSIVE">Exclusive (Rent Whole Restaurant)</option>
+                        </select>
+                    </div>
+                    <div class="resField">
+                        <label for="guest_count">Total Guests</label>
+                        <input type="number" id="guest_count" name="guest_count" min="1" max="50" step="1" required placeholder="Total guests">
+                        <div id="guestHint"
+                            style="background: rgba(139, 69, 19, 0.05); border: 1px solid rgba(139, 69, 19, 0.1); border-radius: 8px; padding: 10px; margin-top: 0.5rem; font-size: 0.78rem; color: #5D4037; line-height: 1.5;">
+                            <i class="fas fa-chair me-2" style="color: #D4A862;"></i><strong>Seating Guide:</strong><br>
+                            • 1-4 Pax: 1 Table<br>
+                            • 5-8 Pax: Combined Tables<br>
+                            • 9+ Pax: Banquet Seating
+                        </div>
                     </div>
                 </div>
+                <div class="resRow mb-0">
+                    <div class="resField" style="grid-column: 1 / -1;">
+                        <label for="occasion">Occasion <span style="font-weight: 400; color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></label>
+                        <input type="text" id="occasion" name="occasion" maxlength="50" placeholder="e.g. Birthday, Anniversary">
+                    </div>
+                </div>
+                <button type="button" class="resNextBtn mt-3" onclick="goToStep(2)">Next: Schedule <i class="fas fa-arrow-right ms-2"></i></button>
             </div>
 
-            <div class="resRow">
-                <div class="resField">
-                    <label for="date">Date</label>
-                    <input type="date" id="date" name="date" required onchange="filterTimeSlots()">
+            <!-- Step 2: Schedule -->
+            <div id="stepBox2" class="step-box" style="display:none;">
+                <div class="resRow">
+                    <div class="resField">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" name="date" required onchange="filterTimeSlots()">
+                    </div>
+                    <div class="resField">
+                        <label for="time">Time</label>
+                        <select id="time" name="time" required>
+                            <option value="" disabled selected>Select a slot...</option>
+                            <option value="11:30">11:30 AM</option>
+                            <option value="12:00">12:00 PM</option>
+                            <option value="12:30">12:30 PM</option>
+                            <option value="13:00">1:00 PM</option>
+                            <option value="13:30">1:30 PM</option>
+                            <option value="14:00">2:00 PM</option>
+                            <option value="14:30">2:30 PM</option>
+                            <option value="15:00">3:00 PM</option>
+                            <option value="15:30">3:30 PM</option>
+                            <option value="16:00">4:00 PM</option>
+                            <option value="16:30">4:30 PM</option>
+                            <option value="17:00">5:00 PM</option>
+                            <option value="17:30">5:30 PM</option>
+                            <option value="18:00">6:00 PM</option>
+                            <option value="18:30">6:30 PM</option>
+                            <option value="19:00">7:00 PM</option>
+                            <option value="19:30">7:30 PM</option>
+                            <option value="20:00">8:00 PM</option>
+                            <option value="20:30">8:30 PM</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="resField">
-                    <label for="time">Time</label>
-                    <select id="time" name="time" required>
-                        <option value="" disabled selected>Select a slot...</option>
-                        <option value="11:30">11:30 AM</option>
-                        <option value="12:00">12:00 PM</option>
-                        <option value="12:30">12:30 PM</option>
-                        <option value="13:00">1:00 PM</option>
-                        <option value="13:30">1:30 PM</option>
-                        <option value="14:00">2:00 PM</option>
-                        <option value="14:30">2:30 PM</option>
-                        <option value="15:00">3:00 PM</option>
-                        <option value="15:30">3:30 PM</option>
-                        <option value="16:00">4:00 PM</option>
-                        <option value="16:30">4:30 PM</option>
-                        <option value="17:00">5:00 PM</option>
-                        <option value="17:30">5:30 PM</option>
-                        <option value="18:00">6:00 PM</option>
-                        <option value="18:30">6:30 PM</option>
-                        <option value="19:00">7:00 PM</option>
-                        <option value="19:30">7:30 PM</option>
-                        <option value="20:00">8:00 PM</option>
-                        <option value="20:30">8:30 PM</option>
-                    </select>
+                <div class="resRow">
+                    <div class="resField">
+                        <label for="duration">Duration</label>
+                        <select id="duration" name="duration" required>
+                            <option value="1">1 Hour</option>
+                            <option value="2" selected>2 Hours (Standard)</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="5">5 Hours</option>
+                            <option value="8">8 Hours (Full Day)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="resBackBtn" onclick="goToStep(1)"><i class="fas fa-arrow-left me-2"></i>Back</button>
+                    <button type="button" class="resNextBtn flex-grow-1" onclick="goToStep(3)">Review Details <i class="fas fa-arrow-right ms-2"></i></button>
                 </div>
             </div>
 
-            <div class="resRow">
-                <div class="resField">
-                    <label for="duration">Duration</label>
-                    <select id="duration" name="duration" required>
-                        <option value="1">1 Hour</option>
-                        <option value="2" selected>2 Hours (Standard)</option>
-                        <option value="3">3 Hours</option>
-                        <option value="4">4 Hours</option>
-                        <option value="5">5 Hours</option>
-                        <option value="8">8 Hours (Full Day)</option>
-                    </select>
+            <!-- Step 3: Confirm -->
+            <div id="stepBox3" class="step-box" style="display:none;">
+                <div class="resSummary">
+                    <h6 class="mb-3 fw-bold" style="color:#5D4037;"><i class="fas fa-clipboard-check me-2" style="color:var(--primary-color);"></i>Reservation Summary</h6>
+                    <ul style="list-style:none; padding:0; margin:0;">
+                        <li><strong>Type:</strong> <span id="sumType"></span></li>
+                        <li><strong>Guests:</strong> <span id="sumGuests"></span></li>
+                        <li><strong>Date:</strong> <span id="sumDate"></span></li>
+                        <li><strong>Time:</strong> <span id="sumTime"></span></li>
+                        <li><strong>Duration:</strong> <span id="sumDuration"></span> Hrs</li>
+                        <li id="sumOccasionLi" style="display:none;"><strong>Occasion:</strong> <span id="sumOccasion"></span></li>
+                    </ul>
                 </div>
-                <div class="resField">
-                    <label for="occasion">Occasion <span
-                            style="font-weight: 400; color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></label>
-                    <input type="text" id="occasion" name="occasion" maxlength="50"
-                        placeholder="e.g. Birthday, Anniversary">
+                <div class="d-flex gap-2 mt-4">
+                    <button type="button" class="resBackBtn" onclick="goToStep(2)"><i class="fas fa-arrow-left me-2"></i>Back</button>
+                    <button type="submit" class="resSubmit flex-grow-1" style="margin-top:0;"><i class="fas fa-calendar-check me-2"></i>Confirm & Reserve</button>
                 </div>
             </div>
-
-            <button type="submit" class="resSubmit"><i class="fas fa-calendar-check me-2"></i>Submit
-                Reservation</button>
         </form>
     </div>
 </div>
@@ -438,6 +529,58 @@
         // If current selected time is now disabled, reset
         if (timeSelect.selectedIndex > 0 && options[timeSelect.selectedIndex].disabled) {
             timeSelect.value = '';
+        }
+    }
+
+    function goToStep(stepNum) {
+        // Validate inputs before next step
+        if (stepNum === 2) {
+            if (!document.getElementById('guest_count').checkValidity()) {
+                document.getElementById('reservationForm').reportValidity();
+                return;
+            }
+        }
+        if (stepNum === 3) {
+            if (!document.getElementById('date').checkValidity() || !document.getElementById('time').checkValidity()) {
+                document.getElementById('reservationForm').reportValidity();
+                return;
+            }
+            populateSummary();
+        }
+
+        // Hide all steps
+        document.querySelectorAll('.step-box').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+
+        // Show target step
+        document.getElementById('stepBox' + stepNum).style.display = 'block';
+        
+        // Update indicators up to current step
+        for (let i = 1; i <= stepNum; i++) {
+            document.getElementById('stepInd' + i).classList.add('active');
+        }
+    }
+
+    function populateSummary() {
+        const typeSelect = document.getElementById('booking_type');
+        document.getElementById('sumType').innerText = typeSelect.options[typeSelect.selectedIndex].text;
+        
+        document.getElementById('sumGuests').innerText = document.getElementById('guest_count').value;
+        
+        const d = new Date(document.getElementById('date').value);
+        document.getElementById('sumDate').innerText = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        
+        const timeSelect = document.getElementById('time');
+        document.getElementById('sumTime').innerText = timeSelect.options[timeSelect.selectedIndex].text;
+        
+        document.getElementById('sumDuration').innerText = document.getElementById('duration').value;
+        
+        const occasion = document.getElementById('occasion').value;
+        if(occasion.trim() !== "") {
+            document.getElementById('sumOccasion').innerText = occasion;
+            document.getElementById('sumOccasionLi').style.display = 'flex';
+        } else {
+            document.getElementById('sumOccasionLi').style.display = 'none';
         }
     }
 
