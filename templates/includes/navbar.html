@@ -144,16 +144,16 @@
             margin: 0 !important;
             list-style: none !important;
         }
-        #mobile-background-icons, #navbar-menu li {
+        .mobile-nav-item {
             background: rgba(255, 255, 255, 0.2);
             border-radius: 8px;
-            padding: 12px 5px;
+            padding: 12px 2px;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
         }
-        #mobile-background-icons a, #navbar-menu li a {
+        .mobile-nav-item a {
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
@@ -162,24 +162,21 @@
             color: #fff !important;
             width: 100%;
         }
-        #mobile-background-icons i, #navbar-menu li i {
+        .mobile-nav-item i {
             font-size: 1.1rem !important;
             color: #fff !important;
         }
-        #mobile-background-icons .nav-text, #navbar-menu li .nav-text {
-            font-size: 0.65rem !important;
+        .mobile-nav-item .nav-text {
+            font-size: 0.62rem !important;
             font-weight: 600 !important;
             text-transform: capitalize;
             color: #fff !important;
+            text-align: center;
         }
         /* Active/Hover state */
-        #mobile-background-icons:active {
+        .mobile-nav-item:active {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(0.95);
-        }
-        /* Specific treatment for login if it spans multiple columns or differs */
-        #navbar-menu li:last-child {
-            /* If it needs to be different, but user snippet shows it as 5th item */
         }
     }
 </style>
@@ -308,38 +305,39 @@
 <div class="collapse d-md-none p-3 fixed-top" id="mobileMenu"
     style="top: 56px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
     <ul class="nav-links-container active" id="navbar-menu">
-        <li id="mobile-background-icons">
+        <li class="mobile-nav-item">
             <a href="{{ url_for('main.index') }}"><i class="fas fa-home"></i> <span class="nav-text">Home</span></a>
         </li>
-        <li id="mobile-background-icons">
+        <li class="mobile-nav-item">
             <a href="{{ url_for('main.menu_page') }}"><i class="fas fa-utensils"></i> <span class="nav-text">Menu</span></a>
         </li>
-        <li id="mobile-background-icons">
+        <li class="mobile-nav-item">
             <a href="{{ url_for('main.about_page') }}"><i class="fas fa-info-circle"></i> <span class="nav-text">About</span></a>
         </li>
-        <li id="mobile-background-icons">
+        <li class="mobile-nav-item">
             <a href="{{ url_for('main.reviews_page') }}"><i class="fas fa-star"></i> <span class="nav-text">Review</span></a>
         </li>
-        <li id="mobile-background-icons">
-            <a href="{{ url_for('main.view_cart') }}"><i class="fas fa-shopping-cart"></i> <span class="nav-text">Cart</span></a>
-        </li>
-        <li id="mobile-background-icons">
+        
+        <li class="mobile-nav-item">
             <a href="{{ url_for('main.reserve') }}"><i class="fas fa-calendar-plus"></i> <span class="nav-text">Reserve</span></a>
+        </li>
+        <li class="mobile-nav-item">
+            <a href="{{ url_for('main.view_cart') }}"><i class="fas fa-shopping-cart"></i> <span class="nav-text">Cart</span></a>
         </li>
         
         {% if not current_user.is_authenticated %}
-            <li>
+            <li class="mobile-nav-item">
                 <a href="{{ url_for('main.login') }}">
                     <i class="fas fa-sign-in-alt"></i> <span class="nav-text">Login</span>
                 </a>
             </li>
         {% else %}
-            <li>
+            <li class="mobile-nav-item">
                 <a href="{{ url_for('main.my_orders') }}">
                     <i class="fas fa-shopping-bag"></i> <span class="nav-text">Orders</span>
                 </a>
             </li>
-            <li>
+            <li class="mobile-nav-item">
                 <a href="{{ url_for('main.logout') }}">
                     <i class="fas fa-sign-out-alt"></i> <span class="nav-text">Logout</span>
                 </a>
