@@ -132,7 +132,7 @@
     /* Mobile Grid Navbar Styles */
     @media (max-width: 767px) {
         #mobileMenu {
-            background: #5D4037 !important; /* Premium Brown */
+            background: #8D6E63 !important; /* Light Brown */
             padding: 15px !important;
             border-radius: 0 0 15px 15px !important;
         }
@@ -322,6 +322,9 @@
         </li>
         <li id="mobile-background-icons">
             <a href="{{ url_for('main.view_cart') }}"><i class="fas fa-shopping-cart"></i> <span class="nav-text">Cart</span></a>
+        </li>
+        <li id="mobile-background-icons">
+            <a href="{{ url_for('main.reserve') }}"><i class="fas fa-calendar-plus"></i> <span class="nav-text">Reserve</span></a>
         </li>
         
         {% if not current_user.is_authenticated %}
