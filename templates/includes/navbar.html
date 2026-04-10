@@ -128,6 +128,60 @@
     }
     .navDropdown .dropdown-item:hover { background: rgba(93,64,55,0.04); }
     .navDropdown .dropdown-item i { width: 20px; text-align: center; }
+
+    /* Mobile Grid Navbar Styles */
+    @media (max-width: 767px) {
+        #mobileMenu {
+            background: #b2b489 !important; /* Matching the greenish-brown shade from screenshot */
+            padding: 15px !important;
+            border-radius: 0 0 15px 15px !important;
+        }
+        #navbar-menu {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            list-style: none !important;
+        }
+        #mobile-background-icons, #navbar-menu li {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        #mobile-background-icons a, #navbar-menu li a {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 4px !important;
+            text-decoration: none !important;
+            color: #fff !important;
+            width: 100%;
+        }
+        #mobile-background-icons i, #navbar-menu li i {
+            font-size: 1.1rem !important;
+            color: #fff !important;
+        }
+        #mobile-background-icons .nav-text, #navbar-menu li .nav-text {
+            font-size: 0.65rem !important;
+            font-weight: 600 !important;
+            text-transform: capitalize;
+            color: #fff !important;
+        }
+        /* Active/Hover state */
+        #mobile-background-icons:active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0.95);
+        }
+        /* Specific treatment for login if it spans multiple columns or differs */
+        #navbar-menu li:last-child {
+            /* If it needs to be different, but user snippet shows it as 5th item */
+        }
+    }
 </style>
 
 <nav class="navbar main-nav fixed-top navbar-expand-md">
@@ -252,22 +306,38 @@
 </nav>
 
 <div class="collapse d-md-none p-3 fixed-top" id="mobileMenu"
-    style="top: 56px; background: rgba(255, 255, 255, 0.98); z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 0 0 20px 20px; backdrop-filter: blur(20px);">
-    <ul class="nav-links-container active" id="navbar-menu" style="list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 10px;">
-        <li id="mobile-background-icons"><a href="{{ url_for('main.index') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-home"></i> <span class="nav-text">Home</span></a></li>
-        <li id="mobile-background-icons"><a href="/rooms" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-bed"></i> <span class="nav-text">Rooms</span></a></li>
-        <li id="mobile-background-icons"><a href="/special-offers" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-tags"></i> <span class="nav-text">Promos</span></a></li>
-        <li id="mobile-background-icons"><a href="/contact" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-phone"></i> <span class="nav-text">Contact Us</span></a></li>
+    style="top: 56px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.08);">
+    <ul class="nav-links-container active" id="navbar-menu">
+        <li id="mobile-background-icons">
+            <a href="{{ url_for('main.index') }}"><i class="fas fa-home"></i> <span class="nav-text">Home</span></a>
+        </li>
+        <li id="mobile-background-icons">
+            <a href="/rooms"><i class="fas fa-bed"></i> <span class="nav-text">Rooms</span></a>
+        </li>
+        <li id="mobile-background-icons">
+            <a href="/special-offers"><i class="fas fa-tags"></i> <span class="nav-text">Promos</span></a>
+        </li>
+        <li id="mobile-background-icons">
+            <a href="/contact"><i class="fas fa-phone"></i> <span class="nav-text">Contact Us</span></a>
+        </li>
         
         {% if not current_user.is_authenticated %}
             <li>
-                <a href="{{ url_for('main.login') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                <a href="{{ url_for('main.login') }}">
                     <i class="fas fa-sign-in-alt"></i> <span class="nav-text">Login</span>
                 </a>
             </li>
         {% else %}
-            <li id="mobile-background-icons"><a href="{{ url_for('main.my_orders') }}" style="text-decoration: none; color: var(--text-main); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-shopping-bag"></i> <span class="nav-text">My Orders</span></a></li>
-            <li id="mobile-background-icons"><a href="{{ url_for('main.logout') }}" style="text-decoration: none; color: var(--danger); display: flex; align-items: center; gap: 10px; font-weight: 600;"><i class="fas fa-sign-out-alt"></i> <span class="nav-text">Sign Out</span></a></li>
+            <li>
+                <a href="{{ url_for('main.my_orders') }}">
+                    <i class="fas fa-shopping-bag"></i> <span class="nav-text">Orders</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('main.logout') }}">
+                    <i class="fas fa-sign-out-alt"></i> <span class="nav-text">Logout</span>
+                </a>
+            </li>
         {% endif %}
     </ul>
 </div>
