@@ -123,16 +123,16 @@
 </div>
 
 <style>
-/* Reset Container Padding for Full Width */
+/* Reset Container Padding for Full Width & Remove Base Top Padding */
 .main-container {
+    padding-top: 0 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
 
 /* Base override to let splitting stretch */
 .login-split-layout {
-    min-height: 850px; /* Fixed height to match login perfectly */
-    margin-top: -56px; /* Offset the base template padding */
+    min-height: 100vh; /* Make it strictly full screen */
 }
 
 /* Left Image Section */
