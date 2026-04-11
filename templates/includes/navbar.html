@@ -139,7 +139,7 @@
     }
 </style>
 
-<nav class="navbar main-nav fixed-top navbar-expand-md navbar-transparent">
+<nav class="navbar main-nav fixed-top navbar-expand-md {{ 'navbar-transparent' if (request.endpoint == 'main.index' or request.path == '/') else 'nav-scrolled' }}">
     <div class="container-fluid px-md-5">
         <a class="navBrand" href="{{ url_for('main.index') }}">
             <i class="fas fa-coffee" style="color: #8B634B;"></i> 
