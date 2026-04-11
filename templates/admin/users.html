@@ -3,9 +3,37 @@
 {% block title %}User Management{% endblock %}
 
 {% block content %}
+<style>
+    /* User Profile Modal Styles */
+    .up-modal-content {
+        background: #FDFBF9 !important;
+        border-radius: 32px !important;
+        border: none !important;
+        box-shadow: 0 25px 80px rgba(139, 99, 75, 0.18) !important;
+    }
+    .badge-active { background: #E8F5E9 !important; color: #2E7D32 !important; }
+    .badge-inactive { background: #F5F5F5 !important; color: #757575 !important; }
+    
+    .up-initials {
+        width: 85px;
+        height: 85px;
+        border-radius: 50%;
+        background: #FAF3EF;
+        color: #8B634B;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 2.2rem;
+        border: 2px solid rgba(139, 99, 75, 0.12);
+        box-shadow: 0 12px 24px rgba(139, 99, 75, 0.08);
+        margin-bottom: 18px;
+    }
+</style>
+
 <div class="page-header">
     <h1>User Management</h1>
-    <p>Manage all registered accounts and assign roles.</p>
+    <p>Manage list of users and their roles.</p>
 </div>
 
 <div class="filter-tabs">
@@ -141,47 +169,95 @@
     }
 
     function viewUserProfile(userId) {
-        Swal.fire({
-            title: 'Loading...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-                fetch(`/admin/api/users/${userId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        Swal.close();
-                        Swal.fire({
-                            title: `User Profile`,
-                            html: `
-                            <div style="text-align: left; font-size: 0.95rem; line-height: 1.8;">
-                                <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 20px;">
-                                    <div style="width: 60px; height: 60px; border-radius: 50%; background: #e0d5c7; color: #8b634b; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.8rem;">
-                                        ${data.first_name[0]}${data.last_name[0]}
-                                    </div>
-                                    <div>
-                                        <h4 style="margin:0; color: #8b634b;">${data.first_name} ${data.last_name}</h4>
-                                        <div style="color: #666; font-size: 0.85rem;">@${data.username}</div>
-                                    </div>
-                                </div>
-                                <hr style="border-top:1px solid #eee; margin: 15px 0;">
-                                <div><strong>Email:</strong> ${data.email}</div>
-                                <div><strong>Phone Number:</strong> ${data.phone}</div>
-                                <div><strong>Role:</strong> ${data.role}</div>
-                                <div><strong>Status:</strong> <span class="badge ${data.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}">${data.status}</span></div>
-                            </div>
-                            `,
-                            confirmButtonColor: '#8b634b',
-                            confirmButtonText: 'Close'
-                        });
-                    })
-                    .catch(error => {
-                        Swal.fire('Error', 'Failed to fetch user details.', 'error');
-                    });
-            }
-        });
+        // Show loading state
+        const originalContent = document.querySelector(`button[onclick="viewUserProfile('${userId}')"]`).innerHTML;
+        const btn = document.querySelector(`button[onclick="viewUserProfile('${userId}')"]`);
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        fetch(`/admin/api/users/${userId}`)
+            .then(response => {
+                if (!response.ok) throw new Error('User not found');
+                return response.json();
+            })
+            .then(data => {
+                // Populate Modal
+                document.getElementById('up_initials').innerText = (data.first_name[0] || '') + (data.last_name[0] || '');
+                document.getElementById('up_name').innerText = `${data.first_name} ${data.last_name}`;
+                document.getElementById('up_username').innerText = `@${data.username}`;
+                document.getElementById('up_email').innerText = data.email;
+                document.getElementById('up_phone').innerText = data.phone || 'Not provided';
+                document.getElementById('up_role').innerText = data.role;
+                
+                const statusBadge = document.getElementById('up_status');
+                statusBadge.innerText = data.status;
+                statusBadge.className = 'badge-status ' + (data.status.toLowerCase() === 'active' ? 'badge-active' : 'badge-inactive');
+
+                // Show Modal
+                const profileModal = new bootstrap.Modal(document.getElementById('userProfileModal'));
+                profileModal.show();
+            })
+            .catch(error => {
+                console.error(error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to fetch user details.',
+                    confirmButtonColor: '#8b634b'
+                });
+            })
+            .finally(() => {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            });
     }
 </script>
+
+<!-- User Profile Modal -->
+<div class="modal fade" id="userProfileModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content up-modal-content">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title" style="font-family: 'Playfair Display', serif; font-weight: 800; color: #4E342E;">User Profile</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" style="font-size: 0.8rem;"></button>
+            </div>
+            <div class="modal-body px-4 pb-5 pt-0">
+                <div class="text-center mb-4">
+                    <div id="up_initials" class="up-initials">
+                        RB
+                    </div>
+                    <h3 id="up_name" style="font-family: 'Playfair Display', serif; font-weight: 800; color: #4E342E; margin-bottom: 2px;">Ryan Barilla</h3>
+                    <div id="up_username" style="color: #A1887F; font-weight: 600; font-size: 0.9rem;">@admin_ryan</div>
+                </div>
+
+                <div class="p-4" style="background: #FAF3EF; border-radius: 24px; border: 1px solid rgba(139, 99, 75, 0.05);">
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <span style="color: #A1887F; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Email Address</span>
+                        <span id="up_email" style="font-weight: 700; color: #4E342E; font-size: 0.95rem;">ryan@example.com</span>
+                    </div>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <span style="color: #A1887F; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Phone Number</span>
+                        <span id="up_phone" style="font-weight: 700; color: #4E342E; font-size: 0.95rem;">09123456789</span>
+                    </div>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <span style="color: #A1887F; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Assigned Role</span>
+                        <span id="up_role" class="badge" style="background: #8B634B; color: #fff; font-weight: 800; padding: 6px 14px; border-radius: 50px; font-size: 0.75rem;">ADMIN</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span style="color: #A1887F; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Account Status</span>
+                        <span id="up_status" class="badge-status badge-active">Active</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button class="btn w-100" data-bs-dismiss="modal" style="background: #8B634B; color: #fff; border-radius: 50px; padding: 12px; font-weight: 700; font-size: 0.9rem; transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(139, 99, 75, 0.25);">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 

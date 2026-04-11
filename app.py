@@ -205,11 +205,11 @@ if __name__ == '__main__':
     
     # Print accessible URLs
     print("\n" + "="*60)
-    print("🚀 Le Maison Flask App is Running!")
+    print("Le Maison Flask App is Running!")
     print("="*60)
-    print(f"📱 Local Access:        http://localhost:5000")
-    print(f"📱 Local IP Access:     http://127.0.0.1:5000")
-    print(f"🌐 Network Access:      http://{local_ip}:5000")
+    print(f"Local Access:        http://localhost:5000")
+    print(f"Local IP Access:     http://127.0.0.1:5000")
+    print(f"Network Access:      http://{local_ip}:5000")
     print("="*60 + "\n")
     
     # Run with debug=True for development only
