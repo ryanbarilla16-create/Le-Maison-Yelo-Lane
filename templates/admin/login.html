@@ -1,263 +1,231 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html class="h-100" lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Admin Login | Le Maison</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta content='width=device-width, initial-scale=1.0, shrink-to-fit=no' name='viewport' />
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon"/>
+
+    <!-- Fonts and icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
     <style>
-        /* Chill Brown Aesthetic */
+        .divider:after,
+        .divider:before {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #eee;
+        }
+        .h-custom {
+            height: calc(100vh - 30px);
+        }
+        @media (max-width: 450px) {
+            .h-custom {
+                height: 100vh;
+            }
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #fdfbf9 0%, #e8dccb 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 1rem;
-            box-sizing: border-box;
+            background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=2000');
+            background-position: center;
+            background-size: cover;
+            background-attachment: fixed;
+            font-family: 'Poppins', sans-serif;
         }
 
-        .login-glass-card {
-            border-radius: 32px;
-            background: rgba(248, 241, 235, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 25px 50px -12px rgba(139, 90, 43, 0.15);
-            padding: 3.5rem 2.5rem;
-            text-align: center;
-            width: 100%;
-            max-width: 440px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-        }
-
-        .admin-icon {
-            color: #8b634b; /* Primary brown */
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .login-title {
-            font-family: 'Georgia', serif;
-            color: #4a3b32; /* Dark shade brown */
-            font-size: 2.25rem;
-            letter-spacing: -0.5px;
-            margin: 0 0 0.5rem 0;
-            font-weight: 700;
-        }
-
-        .login-subtitle {
-            font-size: 1.05rem;
-            color: #8b634b; /* Primary brown */
-            margin: 0 0 2rem 0;
-        }
-
-        /* Inputs */
-        .input-group {
-            text-align: left;
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-
-        .form-label-custom {
-            font-size: 0.85rem;
-            color: #5c3a21; /* Dark brown */
-            margin-left: 0.5rem;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-
-        .glass-input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.6);
-            border: 1px solid rgba(139, 99, 75, 0.2);
-            border-radius: 16px;
-            padding: 1rem 1.25rem;
+        .faculty_input {
+            margin: 0 auto;
+            height: 3.3rem !important;
+            border-radius: 1rem;
             font-size: 1rem;
-            color: #4a3b32;
-            box-shadow: inset 0 2px 4px rgba(92, 58, 33, 0.02);
+            font-family: 'Poppins', sans-serif;
+            padding-left: 2.5rem !important;
+        }
+
+        .faculty_btn_login {
+            margin: 0 auto;
+            height: 3.3rem !important;
+            border-radius: 1rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            letter-spacing: 0.2rem;
+            font-weight: 500;
+            width: 94%;
+            background-color: #8B634B !important; /* Admin Color */
+            color: white !important;
             transition: all 0.3s ease;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .password-input {
-            padding-right: 3rem;
-        }
-
-        .glass-input:focus {
-            background: #ffffff;
-            border-color: rgba(139, 99, 75, 0.5);
-            box-shadow: 0 0 0 4px rgba(139, 99, 75, 0.15);
-            outline: none;
-        }
-
-        /* Password Eye Icon */
-        .toggle-password {
-            position: absolute;
-            right: 0.5rem;
-            top: 36px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            z-index: 10;
-            padding: 0.5rem;
-            border-radius: 50%;
-            transition: background 0.2s ease, color 0.2s ease;
-            color: #8b634b;
-        }
-
-        .toggle-password:hover {
-            background: rgba(139, 99, 75, 0.1);
-            color: #5c3a21;
-        }
-
-        /* Gradient Button */
-        .btn-primary-gradient {
-            width: 100%;
-            background: linear-gradient(135deg, #8b634b 0%, #5c3a21 100%);
-            color: #ffffff;
-            padding: 1rem;
             border: none;
-            border-radius: 50px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 15px -3px rgba(92, 58, 33, 0.25);
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 2rem;
         }
-
-        .btn-primary-gradient:hover {
+        .faculty_btn_login:hover {
+            background-color: #5D4037 !important;
             transform: translateY(-2px);
-            box-shadow: 0 15px 20px -3px rgba(92, 58, 33, 0.35);
+            box-shadow: 0 5px 15px rgba(139, 99, 75, 0.4);
         }
 
-        .btn-primary-gradient i {
-            margin-right: 0.5rem;
+        .lulms-card {
+            display: flex !important;
+            width: 100% !important;
+            justify-content: center !important;
+            align-items: center !important;
         }
 
-        /* Back Link */
-        .back-link-container {
-            margin-top: 2rem;
-            font-size: 0.95rem;
+        .lulms {
+            width: 80% !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 0.9rem !important;
+            word-wrap: break-word !important;
+            font-weight: 400 !important;
+            color: #666;
         }
 
-        .back-link {
-            color: #8b634b;
-            text-decoration: none;
+        .lu-welcome {
+            color: rgb(69, 69, 69) !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 1.8rem !important;
+            font-weight: 800 !important;
+        }
+
+        .lu-user_type {
+            color: #8B634B;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 0.2rem;
             font-weight: 600;
-            transition: color 0.2s ease;
+        }
+
+        .input-icon {
             position: relative;
         }
-
-        .back-link:hover {
-            color: #5c3a21;
-        }
-
-        .back-link::after {
-            content: '';
+        .input-icon-addon {
             position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: #8b634b;
-            transform: scaleX(0);
-            transform-origin: right;
-            transition: transform 0.3s ease;
-        }
-
-        .back-link:hover::after {
-            transform: scaleX(1);
-            transform-origin: left;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8B634B;
+            z-index: 10;
         }
 
         .flash-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #b91c1c;
+            background: #ffebee;
+            color: #c62828;
             border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
             padding: 0.8rem;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            font-size: 0.85rem;
+            border: 1px solid #ffcdd2;
         }
 
-        /* Chrome Autofill adjustment */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
-        input:-webkit-autofill:focus, 
-        input:-webkit-autofill:active{
-            -webkit-box-shadow: 0 0 0 30px #fdfbfa inset !important;
-            -webkit-text-fill-color: #4a3b32 !important;
-            border-radius: 16px;
-            border: 1px solid rgba(139, 99, 75, 0.2);
+        @media screen and (max-width: 400px) {
+            #login_form {
+               padding: 0 1rem 0 1rem !important;
+            }
+            .lulms { width: 100% !important; }
+            .lu-user_type { font-size: 1.2rem; }
         }
     </style>
 </head>
+
 <body>
-    <div class="login-glass-card">
-        <i class="fas fa-coffee admin-icon"></i>
-        <h2 class="login-title">Le Maison Admin</h2>
-        <p class="login-subtitle">Sign in to the Super Admin Dashboard</p>
+    <section class="h-100">
+        <div class="container-fluid h-custom">
+            <div class="row d-flex justify-content-center align-items-center h-100">
+                <div class="col-md-8 col-lg-5 col-xl-4 offset-xl-1 text-center order-lg-2 mb-5 mb-lg-0">
+                    <i class="fas fa-coffee text-white mb-3" style="font-size: 5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));"></i>
+                    <h1 class="display-3 text-white mb-1" style="font-weight: 800;"><b>Le Maison</b></h1>
+                    <h2 class="text-white mb-0" style="font-weight: 300; letter-spacing: 5px;">ADMINISTRATION</h2>
+                </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="flash-message">
-            <i class="fas fa-exclamation-circle" style="margin-right: 5px;"></i> {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
+                <div class="col-md-8 col-lg-5 col-xl-4 order-lg-1">
+                    <div class="card card-body shadow py-5 my-5" style="border-radius: 1.5rem; background: rgba(255, 255, 255, 0.95);">
+                        <div class="lulms-card">
+                            <div style="width:80%">
+                                <h3 class="lu-welcome mb-1">Welcome to <span style="color:#8B634B;">Le Maison</span></h3>
+                                <h6 class="lulms mb-5">
+                                    Administrative Control Terminal
+                                </h6>
+                            </div>
+                        </div>
+                        <hr class="my-1" style="width:80%; margin: 0 auto; opacity: 0.1;">
+                        <h2 class="text-center lu-user_type my-3">SUPER ADMIN</h2>
+                        <hr class="my-1" style="width:80%; margin: 0 auto; opacity: 0.1;">
 
-        <form method="POST" action="{{ url_for('admin.admin_login') }}">
-            <div class="input-group">
-                <label class="form-label-custom">EMAIL</label>
-                <input type="email" name="email" required placeholder="admin@gmail.com" class="glass-input">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                        <div class="mt-4 px-2">
+                            {% for category, message in messages %}
+                            <div class="flash-message text-center">
+                                <i class="fas fa-exclamation-circle me-2"></i> {{ message }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+
+                        <form method="POST" action="{{ url_for('admin.admin_login') }}" id="login_form" style="padding: 1rem 2rem 2rem 2rem;">
+                            <div class="form-group mt-4 mb-3">
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="fa fa-user"></i></span>
+                                    <input placeholder="Email Address" class="faculty_input form-control" type="email" name="email" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-3 position-relative">
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="fa fa-lock"></i></span>
+                                    <input placeholder="Password" class="faculty_input form-control" type="password" id="password" name="password" required>
+                                    <span id="togglePassword" style="position:absolute; right:20px; top:50%; transform:translateY(-50%); cursor:pointer; color: #8B634B; z-index: 10;">
+                                        <i class="fa fa-eye" id="passwordToggleIcon"></i>
+                                    </span>
+                                </div>
+                                <div class="text-end mt-2">
+                                    <a href="{{ url_for('admin.admin_forgot_password') }}" style="color: #8B634B; font-size: 0.8rem; text-decoration: none; font-weight: 500;">Forgot Password?</a>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button type="submit" class="faculty_btn_login btn" id="login_btn">
+                                    <i class="fa fa-sign-in-alt me-2"></i> LOGIN
+                                </button>
+                            </div>
+
+                            <div class="text-center mt-4 pt-2">
+                                <a href="{{ url_for('main.index') }}" style="color: #999; text-decoration: none; font-size: 0.85rem;">
+                                    <i class="fas fa-arrow-left me-1"></i> Back to Homepage
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-            
-            <div class="input-group">
-                <label class="form-label-custom">PASSWORD</label>
-                <input type="password" id="admin-password" name="password" required placeholder="••••••••" class="glass-input password-input">
-                <i class="fas fa-eye toggle-password" onclick="toggleAdminPassword()"></i>
-            </div>
-            
-            <button type="submit" class="btn-primary-gradient">
-                <i class="fas fa-lock"></i> Sign In
-            </button>
-        </form>
-        
-        <div class="back-link-container">
-            <a href="{{ url_for('main.index') }}" class="back-link">
-                <i class="fas fa-arrow-left" style="font-size: 0.8rem; margin-right: 4px;"></i> Back to website
-            </a>
         </div>
-    </div>
+    </section>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        function toggleAdminPassword() {
-            const pwd = document.getElementById('admin-password');
-            const icon = event.currentTarget;
-            if (pwd.type === 'password') {
-                pwd.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                pwd.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+        $(document).on('click', '#login_btn', function (e) {
+            const form = $('#login_form')[0];
+            if (form.checkValidity()) {
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i> LOADING');
+                form.submit();
             }
-        }
+        });
+
+        $('#togglePassword').click(function() {
+            var passwordInput = $('#password');
+            var passwordToggleIcon = $('#passwordToggleIcon');
+            if (passwordInput.attr('type') === 'password') {
+                passwordInput.attr('type', 'text');
+                passwordToggleIcon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                passwordInput.attr('type', 'password');
+                passwordToggleIcon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        });
     </script>
 </body>
 </html>

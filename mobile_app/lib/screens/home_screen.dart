@@ -11,6 +11,8 @@ import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'notifications_screen.dart';
 import 'chat_screen.dart';
+import 'my_reservations_screen.dart';
+import '../services/socket_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,22 +29,36 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   int _currentIndex = 0;
   int _unreadNotifCount = 0;
-  Timer? _notifTimer;
+  StreamSubscription? _socketSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _loadUnreadCount();
-    // Poll for new notifications every 15 seconds
-    _notifTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _loadUnreadCount();
+    
+    // Switch from Polling to Real-time WebSocket Listeners
+    _socketSubscription = SocketService.notifications.listen((data) {
+      if (mounted) {
+        _loadUnreadCount();
+        _loadData(); // Auto-refresh dashboard data on notification
+        
+        // Show non-intrusive snackbar for critical updates
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['title'] ?? 'New Notification'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     });
   }
 
   @override
   void dispose() {
-    _notifTimer?.cancel();
+    _socketSubscription?.cancel();
     super.dispose();
   }
 
@@ -70,6 +86,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final userId = _user!['id'];
+      
+      // Join private user room for targeted notifications
+      SocketService.joinUserRoom(userId);
+      
       final results = await Future.wait([
         ApiService.get('/api/user/$userId/dashboard'),
         ApiService.get('/api/menu/bestsellers'),
@@ -202,14 +222,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${_user?['first_name'] ?? 'Guest'}',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: -0.5,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  '${_user?['first_name'] ?? 'Guest'}',
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _loyaltyBadge(_dashboard?['loyalty_status'] ?? 'New', isHeader: true),
+                              ],
                             ),
                           ],
                         ),
@@ -319,10 +345,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 10),
                   _statCard(
-                    Icons.emoji_events,
+                    _loyaltyIcon(_dashboard?['loyalty_status'] ?? 'New'),
                     _dashboard?['loyalty_status'] ?? 'New',
                     'Loyalty',
-                    AppColors.accent,
+                    _loyaltyColor(_dashboard?['loyalty_status'] ?? 'New'),
                   ),
                 ],
               ),
@@ -337,6 +363,12 @@ class _HomeScreenState extends State<HomeScreen> {
               emptyText: 'No upcoming reservations',
               emptyCta: 'Book a Table',
               onCta: () => setState(() => _currentIndex = 3),
+              trailing: TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReservationsScreen()));
+                },
+                child: const Text('My Bookings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+              ),
               itemBuilder: (r) => _reservationTile(r),
             ),
             const SizedBox(height: 12),
@@ -463,9 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [color, color.withOpacity(0.7)],
-                  ),
+                  gradient: AppColors.buttonGradient,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: Colors.white, size: 20),
@@ -583,17 +613,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(emptyText, style: AppTextStyles.muted),
                     const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: onCta,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        textStyle: const TextStyle(fontSize: 13),
+                    SizedBox(
+                      width: 160,
+                      child: GradientButton(
+                        label: emptyCta,
+                        onPressed: onCta,
+                        height: 40,
+                        radius: 10,
+                        fontSize: 13,
                       ),
-                      child: Text(emptyCta),
                     ),
+
                   ],
                 ),
               ),
@@ -729,6 +759,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ═══ LOYALTY VISUAL HELPERS ═══
+
+  IconData _loyaltyIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'GOLD': return Icons.workspace_premium;
+      case 'SILVER': return Icons.stars;
+      case 'BRONZE': return Icons.military_tech;
+      default: return Icons.emoji_events;
+    }
+  }
+
+  Color _loyaltyColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'GOLD': return Colors.amber;
+      case 'SILVER': return Colors.blueGrey[300]!;
+      case 'BRONZE': return Colors.deepOrange[300]!;
+      default: return AppColors.accent;
+    }
+  }
+
+  Widget _loyaltyBadge(String status, {bool isHeader = false}) {
+    if (status.toUpperCase() == 'NEW') return const SizedBox.shrink();
+    
+    Color color = _loyaltyColor(status);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isHeader ? 8 : 6, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withOpacity(0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _loyaltyIcon(status),
+            color: Colors.white,
+            size: isHeader ? 14 : 10,
+          ),
+          if (isHeader) ...[
+            const SizedBox(width: 4),
+            Text(
+              status.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _sectionHeader(String subtitle, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -770,37 +866,71 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(14),
                 ),
-                child: item['image_url'] != null
-                    ? Image.network(
-                        item['image_url'],
-                        height: 120,
-                        width: 170,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    item['is_out_of_stock'] == true ? Colors.grey : Colors.transparent,
+                    BlendMode.saturation,
+                  ),
+                  child: item['image_url'] != null
+                      ? Image.network(
+                          item['image_url'],
                           height: 120,
                           width: 170,
-                          color: AppColors.primary.withOpacity(0.1),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 120,
+                            width: 170,
+                            color: AppColors.primary.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          height: 120,
+                          width: 170,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryLight],
+                            ),
+                          ),
                           child: const Icon(
                             Icons.restaurant,
-                            color: AppColors.primary,
+                            color: Colors.white54,
+                            size: 35,
                           ),
                         ),
-                      )
-                    : Container(
-                        height: 120,
-                        width: 170,
+                ),
+              ),
+              if (item['is_out_of_stock'] == true)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(14),
+                      ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.primary, AppColors.primaryLight],
-                          ),
+                          color: AppColors.danger,
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Icon(
-                          Icons.restaurant,
-                          color: Colors.white54,
-                          size: 35,
+                        child: const Text(
+                          'OUT OF STOCK',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-              ),
+                    ),
+                  ),
+                ),
               if (badge != null)
                 Positioned(
                   top: 6,
@@ -877,13 +1007,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    Text(
-                      '₱${item['price']?.toStringAsFixed(0) ?? ''}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                        fontSize: 14,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '₱${item['price']?.toStringAsFixed(0) ?? ''}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.accent,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (item['is_out_of_stock'] != true) ...[
+                          const SizedBox(width: 4),
+                          _addIcon(() => _addToCart(item)),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -933,4 +1071,33 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _addIcon(VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 16),
+      ),
+    );
+  }
+
+  void _addToCart(dynamic item) {
+    setState(() {
+      CartScreen.addItem(item);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item['name']} added to cart!'),
+        backgroundColor: AppColors.success,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
 }
+
+

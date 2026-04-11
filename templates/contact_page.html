@@ -1,0 +1,347 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<style>
+    .contactHero {
+        min-height: 100vh;
+        padding: 120px 0 80px;
+        background-color: #FAF9F6;
+        background-image: radial-gradient(circle at top right, rgba(139, 99, 75, 0.05), transparent),
+                          radial-gradient(circle at bottom left, rgba(212, 168, 98, 0.03), transparent);
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* Abstract shapes in background */
+    .contactHero::before {
+        content: '';
+        position: absolute;
+        width: 500px;
+        height: 500px;
+        background: rgba(139, 99, 75, 0.02);
+        border-radius: 50%;
+        top: -100px;
+        right: -100px;
+        z-index: 0;
+    }
+
+    .contactContainer {
+        position: relative;
+        z-index: 1;
+    }
+
+    .contactInfoCol {
+        padding-right: 4rem;
+    }
+
+    .contactTag {
+        display: inline-block;
+        padding: 0.5rem 1.2rem;
+        background: rgba(139, 99, 75, 0.08);
+        color: #8B634B;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 1.5rem;
+    }
+
+    .contactTitle {
+        font-family: 'Playfair Display', serif;
+        font-weight: 800;
+        font-size: 3.5rem;
+        color: #3E2723;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+    }
+
+    .contactTitle span {
+        color: #D4A862;
+    }
+
+    .contactDesc {
+        color: #6D4C41;
+        font-size: 1.1rem;
+        line-height: 1.7;
+        margin-bottom: 3rem;
+        max-width: 500px;
+    }
+
+    .contactDetailCard {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        transition: 0.3s;
+    }
+    .contactDetailCard:hover {
+        transform: translateX(10px);
+    }
+
+    .contactDetailIcon {
+        width: 60px;
+        height: 60px;
+        background: #fff;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        color: #8B634B;
+        box-shadow: 0 10px 30px rgba(139, 99, 75, 0.08);
+        border: 1px solid rgba(139, 99, 75, 0.05);
+    }
+
+    .contactDetailText h5 {
+        font-family: 'Playfair Display', serif;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #3E2723;
+        margin-bottom: 0.2rem;
+    }
+    .contactDetailText p {
+        color: #8D6E63;
+        font-size: 0.95rem;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    /* Form Side */
+    .contactFormCard {
+        background: #fff;
+        padding: 3rem;
+        border-radius: 40px;
+        box-shadow: 0 30px 100px rgba(62, 39, 35, 0.08);
+        border: 1px solid rgba(139, 99, 75, 0.05);
+        position: relative;
+    }
+
+    .contactFormCard::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 100px;
+        height: 100px;
+        background: url('{{ url_for("static", filename="images/logo.png") }}') no-repeat center;
+        background-size: contain;
+        opacity: 0.03;
+        pointer-events: none;
+    }
+
+    .floatingInputGroup {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .floatingInputGroup label {
+        display: block;
+        font-weight: 700;
+        font-size: 0.78rem;
+        color: #8D6E63;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.6rem;
+        margin-left: 0.5rem;
+    }
+
+    .modernInput {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: #F8F7F5;
+        border: 1.5px solid #F0EFEB;
+        border-radius: 18px;
+        font-size: 0.95rem;
+        color: #3E2723;
+        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 500;
+    }
+
+    .modernInput:focus {
+        background: #fff;
+        border-color: #D4A862;
+        box-shadow: 0 10px 25px rgba(212, 168, 98, 0.1);
+        outline: none;
+        transform: translateY(-2px);
+    }
+
+    .modernInput::placeholder {
+        color: #C0B7B1;
+        font-size: 0.9rem;
+    }
+
+    .sendBtn {
+        width: 100%;
+        padding: 1.1rem;
+        background: linear-gradient(135deg, #5D4037, #3E2723);
+        color: #fff;
+        border: none;
+        border-radius: 20px;
+        font-weight: 800;
+        font-size: 1rem;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: 0.4s;
+        box-shadow: 0 15px 35px rgba(62, 39, 35, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 1rem;
+    }
+
+    .sendBtn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 45px rgba(62, 39, 35, 0.3);
+        background: linear-gradient(135deg, #3E2723, #2D1B18);
+    }
+
+    .sendBtn i {
+        font-size: 1.1rem;
+        transition: 0.3s;
+    }
+    .sendBtn:hover i {
+        transform: translate(5px, -5px);
+    }
+
+    /* Social Icons */
+    .contactSocials {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .socialLink {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        background: rgba(139, 99, 75, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #8B634B;
+        text-decoration: none;
+        transition: 0.3s;
+        font-size: 1.1rem;
+    }
+    .socialLink:hover {
+        background: #8B634B;
+        color: #fff;
+        transform: rotate(10deg) scale(1.1);
+    }
+
+    @media (max-width: 991px) {
+        .contactHero { padding-top: 100px; }
+        .contactInfoCol { padding-right: 0; text-align: center; margin-bottom: 4rem; }
+        .contactInfoCol .contactDesc { margin-left: auto; margin-right: auto; }
+        .contactDetailCard { justify-content: center; text-align: left; }
+        .contactDetailIcon { flex-shrink: 0; }
+        .contactSocials { justify-content: center; }
+        .contactFormCard { padding: 2rem; }
+        .contactTitle { font-size: 2.8rem; }
+    }
+</style>
+
+<div class="contactHero">
+    <div class="container contactContainer">
+        <div class="row align-items-center">
+            <!-- Left Side: Info -->
+            <div class="col-lg-6 contactInfoCol">
+                <span class="contactTag">Get In Touch</span>
+                <h1 class="contactTitle">Have Questions? <span>Let's Talk!</span></h1>
+                <p class="contactDesc">
+                    Whether you're curious about our special brews, want to reserve for an exclusive event, 
+                    or just want to say hello—we're here to help.
+                </p>
+
+                <div class="contactDetailCard">
+                    <div class="contactDetailIcon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="contactDetailText">
+                        <h5>Visit Our Sanctuary</h5>
+                        <p>Yelo Lane, General Taino Street, Pagsanjan, Laguna</p>
+                    </div>
+                </div>
+
+                <div class="contactDetailCard">
+                    <div class="contactDetailIcon"><i class="fas fa-phone-alt"></i></div>
+                    <div class="contactDetailText">
+                        <h5>Call Us Directly</h5>
+                        <p>+63 (912) 345-6789</p>
+                    </div>
+                </div>
+
+                <div class="contactDetailCard">
+                    <div class="contactDetailIcon"><i class="fas fa-envelope-open-text"></i></div>
+                    <div class="contactDetailText">
+                        <h5>Send an Email</h5>
+                        <p>hello@lemaison.com</p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h6 class="detailLabel mb-3" style="color: #D4A862; font-weight: 800; font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase;">Follow Our Journey</h6>
+                    <div class="contactSocials">
+                        <a href="#" class="socialLink"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="socialLink"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="socialLink"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="socialLink"><i class="fab fa-tiktok"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Form -->
+            <div class="col-lg-6">
+                <div class="contactFormCard">
+                    <h3 class="mb-4" style="font-family: 'Playfair Display', serif; font-weight: 800; color: #3E2723;">Send Us a Message</h3>
+                    <form action="#" method="POST" id="contactForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="floatingInputGroup">
+                                    <label>First Name</label>
+                                    <input type="text" class="modernInput" name="first_name" placeholder="Juan" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="floatingInputGroup">
+                                    <label>Last Name</label>
+                                    <input type="text" class="modernInput" name="last_name" placeholder="Dela Cruz" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="floatingInputGroup">
+                            <label>Email Address</label>
+                            <input type="email" class="modernInput" name="email" placeholder="example@mail.com" required>
+                        </div>
+
+                        <div class="floatingInputGroup">
+                            <label>Phone Number</label>
+                            <input type="tel" class="modernInput" name="phone_number" placeholder="09XX XXX XXXX" required>
+                        </div>
+
+                        <div class="floatingInputGroup">
+                            <label>Your Message</label>
+                            <textarea class="modernInput" name="message" rows="4" placeholder="How can we help you today?" required style="resize: none;"></textarea>
+                        </div>
+
+                        <button type="submit" class="sendBtn">
+                            <span>Shoot Your Message</span>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('contactForm').addEventListener('submit', function(e) {
+        // e.preventDefault(); // Uncomment if you want to handle via AJAX
+        const btn = this.querySelector('.sendBtn');
+        btn.innerHTML = '<span>Sending...</span> <i class="fas fa-spinner fa-spin"></i>';
+    });
+</script>
+{% endblock %}

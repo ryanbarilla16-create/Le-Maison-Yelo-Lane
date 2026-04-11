@@ -52,7 +52,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final newMessages = List<Map<String, dynamic>>.from(
         res['messages'] ?? [],
       );
-      final hadNewMessage = newMessages.length != _messages.length;
+      // Avoid relying only on list length (we may limit history for speed).
+      final hadNewMessage = newMessages.isNotEmpty &&
+          (_messages.isEmpty || newMessages.last['id'] != _messages.last['id']);
       setState(() {
         _messages = newMessages;
         _loading = false;
@@ -640,3 +642,5 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 }
+
+

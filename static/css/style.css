@@ -1,11 +1,11 @@
 :root {
-    --primary-color: #8B4513;
-    --primary-hover: #A0522D;
+    --primary-color: #8b634b;
+    --primary-hover: #8b634b;
     --bg-dark: #F5E6D3;
     --bg-card: rgba(255, 255, 255, 0.85);
     --text-main: #3E2723;
-    --text-muted: #5D4037;
-    --border-color: rgba(139, 69, 19, 0.2);
+    --text-muted: #8b634b;
+    --border-color: rgba(139, 99, 75, 0.2);
     --danger: #d32f2f;
     --success: #388e3c;
     --warning: #f57c00;
@@ -80,7 +80,7 @@ body {
     font-weight: 700;
     margin-bottom: 0.5rem;
     text-align: center;
-    background: linear-gradient(to right, #8B4513, #D2691E);
+    background: linear-gradient(to right, #8b634b, #D2691E);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -130,7 +130,7 @@ input:focus,
 select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.2);
+    box-shadow: 0 0 0 3px rgba(139, 99, 75, 0.2);
 }
 
 .btn {
@@ -152,7 +152,7 @@ select:focus {
 .btn:hover {
     background: var(--primary-hover);
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(139, 69, 19, 0.3);
+    box-shadow: 0 10px 15px -3px rgba(139, 99, 75, 0.3);
 }
 
 .checkbox-group {
@@ -305,11 +305,100 @@ navbar {
     flex-grow: 1;
     max-width: 300px;
     border: none;
-    border-top: 1px solid rgba(139, 69, 19, 0.2);
+    border-top: 1px solid rgba(139, 99, 75, 0.2);
 }
 
-.divider-icon {
+
+/* Progress Stepper */
+.stepper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    position: relative;
+}
+
+.stepper::before {
+    content: '';
+    position: absolute;
+    top: 20px; /* Half of step-icon height */
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(139, 99, 75, 0.1);
+    z-index: 1;
+}
+
+.step {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid rgba(139, 99, 75, 0.2);
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    color: var(--text-muted);
+    font-weight: 700;
+    transition: all 0.3s ease;
 }
+
+.step.active .step-icon {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(139, 99, 75, 0.3);
+}
+
+.step.completed .step-icon {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.step.completed .step-icon i {
+    font-size: 0.9rem;
+}
+
+.step-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--bg-card);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.step.active .step-label {
+    color: var(--primary-color);
+}
+
+/* Remove default browser eye icon for password inputs to prevent overlap with custom eye icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    position: absolute;
+    right: 0;
+}
+
+
+
+

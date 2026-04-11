@@ -8,159 +8,131 @@
         <h1>Menu Management</h1>
         <p>Add, edit, or remove menu items visually.</p>
     </div>
-    {% if current_user.role|upper == 'ADMIN' %}
-    <button class="btn-admin btn-admin-primary" data-bs-toggle="modal" data-bs-target="#addMenuModal"><i
-            class="fas fa-plus"></i> Add Item</button>
-    {% endif %}
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <a href="{{ url_for('admin.menu_trash') }}" class="btn btn-outline-secondary px-4 py-2" style="border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-decoration: none;">
+            <i class="fas fa-trash-alt me-2"></i> View Trash
+        </a>
+        {% if current_user.role|upper == 'ADMIN' %}
+        <button class="btn-admin-primary px-4 py-2" data-bs-toggle="modal" data-bs-target="#addMenuModal" style="border-radius: 10px; border: none; font-weight: 700; font-size: 0.85rem;">
+            <i class="fas fa-plus me-2"></i> Add Item
+        </button>
+        {% endif %}
+    </div>
 </div>
 
-<!-- Extract Categories Data (Name, Image, Count) -->
-{% set categories_data = {} %}
-{% for item in items %}
-{% if item.category not in categories_data %}
-{% set _ = categories_data.update({item.category: {'image': item.image_url, 'count': 1}}) %}
-{% else %}
-{% set count = categories_data[item.category]['count'] + 1 %}
-{% set _ = categories_data.update({item.category: {'image': categories_data[item.category]['image'], 'count': count}})
-%}
-{% endif %}
-{% endfor %}
-
 <!-- 1. Categories Grid View -->
+{% set cat_icons = {
+    'All Day Breakfast': 'fas fa-egg',
+    'Best Sellers': 'fas fa-fire',
+    'Cakes & Pastries': 'fas fa-birthday-cake',
+    'Cocktails': 'fas fa-cocktail',
+    'Desserts': 'fas fa-ice-cream',
+    'Frappes': 'fas fa-coffee',
+    'Fruit Shakes & Yogurt Drinks': 'fas fa-blender',
+    'Hand-Tossed Pizza': 'fas fa-pizza-slice',
+    'Hot Coffee': 'fas fa-mug-hot',
+    'Iced Beverages': 'fas fa-glass-whiskey',
+    'Iced Coffee': 'fas fa-coffee',
+    'Milk Tea': 'fas fa-leaf',
+    'Milkshakes & Smoothies': 'fas fa-glass-whiskey',
+    'Pasta & Salads': 'fas fa-plate-wheat',
+    'Rice Plates': 'fas fa-bowl-rice',
+    'Starters & Sandwiches': 'fas fa-hamburger',
+    'Steaks': 'fas fa-drumstick-bite',
+    'Sweet Breakfast': 'fas fa-cookie-bite',
+    'Thin Crust Pizza': 'fas fa-pizza-slice'
+} %}
+
 <div id="categories-grid-view">
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
-        {% for cat_name, info in categories_data.items() %}
-        <div class="menu-grid-card category-card" onclick="showCategory('{{ cat_name }}')"
-            style="cursor: pointer; display: flex; flex-direction: column; height: 100%;">
-            <div class="menu-card-img-wrap"
-                style="height: 160px; overflow: hidden; background: #faf6f1; flex-shrink: 0;">
-                {% if info.image %}
-                <img src="{{ info.image }}" class="menu-card-img" style="transition: transform 0.6s ease;"
-                    alt="{{ cat_name }}">
-                {% else %}
-                <div
-                    style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #faf6f1;">
-                    <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 69, 19, 0.1);"></i>
+        {% for cat in categories_list %}
+        {% set icon_class = cat_icons.get(cat.name, 'fas fa-utensils') %}
+        <div class="menu-grid-card category-card" onclick="showCategory('{{ cat.name }}')"
+            style="cursor: pointer; display: flex; flex-direction: column; height: 100%; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+            
+            <div class="menu-card-img-wrap" style="height: 140px; background: linear-gradient(135deg, #fff 0%, #faf6f1 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <!-- Modern Minimalist Icon -->
+                <div style="width: 70px; height: 70px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(139, 99, 75, 0.08);">
+                    <i class="{{ icon_class }}" style="font-size: 2rem; color: #8B634B; opacity: 0.8;"></i>
+                </div>
+                
+                <!-- Count Badge -->
+                <div style="position: absolute; top: 15px; right: 15px; background: rgba(139, 99, 75, 0.1); color: #8B634B; font-size: 0.7rem; font-weight: 800; padding: 4px 12px; border-radius: 50px;">
+                    {{ cat.item_count }} ITEMS
+                </div>
+
+                {% if cat.oos_count > 0 %}
+                <div style="position: absolute; top: 15px; left: 15px; background: #fff1f0; color: #ff4d4f; font-size: 0.65rem; font-weight: 800; padding: 4px 10px; border-radius: 50px; border: 1px solid #ffa39e;">
+                    {{ cat.oos_count }} LOW STOCK
                 </div>
                 {% endif %}
             </div>
-            <div class="menu-card-body" style="padding: 1.25rem; flex-grow: 1; display: flex; flex-direction: column;">
-                <h4 class="menu-card-title m-0">{{ cat_name }}</h4>
-                <p class="menu-card-desc mb-0 mt-auto fw-bold"
-                    style="color: var(--admin-accent); padding-top: 0.5rem; font-size: 0.8rem;">Browse Selection <i
-                        class="fas fa-angle-right ms-1"></i></p>
+
+            <div class="menu-card-body" style="padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; text-align: center;">
+                <h4 class="menu-card-title m-0" style="font-size: 1.25rem; font-family: 'Playfair Display', serif; color: #3E2723;">{{ cat.name }}</h4>
+                <div style="margin-top: 1rem; width: 100%; height: 1px; background: rgba(139, 99, 75, 0.05);"></div>
+                <p class="menu-card-desc mb-0 mt-3 fw-bold" style="color: #8B634B; font-size: 0.85rem; letter-spacing: 0.5px; opacity: 0.8;">VIEW DETAILS <i class="fas fa-chevron-right ms-1" style="font-size: 0.7rem;"></i></p>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
 
-<!-- 2. Items View (Initially Hidden) -->
+<!-- 2. Items View (Initially Hidden, loaded lazily) -->
 <div id="items-view" style="display: none;">
     <div class="mb-4">
         <button onclick="showCategoriesGrid()"
-            style="background: white; border: 1px solid rgba(139, 69, 19, 0.2); padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; color: var(--admin-text); cursor: pointer; transition: all 0.2s ease;">
+            style="background: white; border: 1px solid rgba(139, 99, 75, 0.2); padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; color: var(--admin-text); cursor: pointer; transition: all 0.2s ease;">
             <i class="fas fa-arrow-left me-2"></i> Back to Categories
         </button>
     </div>
 
     {% for cat in categories_list %}
-    {% set cat_items = items | selectattr("category", "equalto", cat) | list %}
-    {% if cat_items %}
-    <div class="menu-category-section" data-category="{{ cat }}" style="display: none;">
+    <div class="menu-category-section" data-category="{{ cat.name }}" style="display: none;" data-loaded="false">
         <h2
             style="font-family: 'Inter', sans-serif; font-weight: bold; color: var(--admin-text); margin-bottom: 1.5rem;">
-            {{ cat }}</h2>
-        <div class="menu-grid">
-            {% for item in cat_items %}
-            <div class="menu-grid-card menu-item-card">
-                <div class="menu-card-img-wrap">
-                    {% if not item.is_available %}
-                    <div class="menu-card-status" style="color: var(--admin-red);">OUT OF STOCK</div>
-                    {% endif %}
+            {{ cat.name }}</h2>
+        <div class="menu-grid" data-grid-for="{{ cat.name }}"></div>
+    </div>
+    {% endfor %}
+</div>
 
-                    {% if current_user.role|upper == 'ADMIN' %}
-                    <div class="menu-card-actions">
-                        <button class="menu-card-icons" data-bs-toggle="modal" data-bs-target="#editModal{{ item.id }}"
-                            onclick="event.stopPropagation()">
-                            <i class="fas fa-pen"></i>
-                        </button>
-                        <form method="POST" action="{{ url_for('admin.menu_delete', item_id=item.id) }}"
-                            onsubmit="return confirm('Delete this item permanently?')" style="margin: 0;">
-                            <button class="menu-card-icons delete" type="submit" onclick="event.stopPropagation()">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    {% if item.image_url %}
-                    <img src="{{ item.image_url }}" class="menu-card-img">
-                    {% else %}
-                    <div
-                        style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fbf8f5;">
-                        <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 69, 19, 0.1);"></i>
-                    </div>
-                    {% endif %}
+<!-- Edit Modal (single, loaded on-demand) -->
+<div class="modal fade admin-modal" id="editMenuModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="editMenuForm" action="{{ url_for('admin.menu_edit', item_id=0) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editMenuTitle">Edit Menu Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="menu-card-body">
-                    <h4 class="menu-card-title">{{ item.name }}</h4>
-                    <p class="menu-card-desc">{{ item.description }}</p>
-                    <div class="menu-card-footer">
-                        <div class="menu-card-price">&#8369;{{ "%.2f"|format(item.price) }}</div>
-                        <div class="menu-card-category">{{ item.category }}</div>
+                <div class="modal-body">
+                    <div class="mb-3"><label>Name</label><input class="form-control" id="editItemName" name="name"
+                            required maxlength="50"></div>
+                    <div class="mb-3"><label>Description</label><textarea class="form-control" id="editItemDescription"
+                            name="description" rows="2" maxlength="255"></textarea></div>
+                    <div class="row">
+                        <div class="col-6 mb-3"><label>Price (&#8369;)</label><input class="form-control" id="editItemPrice"
+                                name="price" type="number" step="0.01" min="0" max="99999.99" required></div>
+                        <div class="col-6 mb-3"><label>Category</label>
+                            <select class="form-control" id="editItemCategory" name="category" required>
+                                {% for cat in categories_list %}
+                                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3"><label>Image URL</label><input class="form-control" id="editItemImageUrl"
+                            name="image_url" type="url" maxlength="255"></div>
+                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editItemAvail"
+                            name="is_available">
+                        <label class="form-check-label" for="editItemAvail">Available</label>
                     </div>
                 </div>
-            </div>
-
-            <!-- Edit Modal -->
-            <div class="modal fade admin-modal" id="editModal{{ item.id }}" tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <form method="POST" action="{{ url_for('admin.menu_edit', item_id=item.id) }}">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Edit: {{ item.name }}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="mb-3"><label>Name</label><input class="form-control" name="name"
-                                        value="{{ item.name }}" required maxlength="50"></div>
-                                <div class="mb-3"><label>Description</label><textarea class="form-control"
-                                        name="description" rows="2" maxlength="255">{{ item.description }}</textarea>
-                                </div>
-                                <div class="row">
-                                    <div class="col-6 mb-3"><label>Price (&#8369;)</label><input class="form-control"
-                                            name="price" type="number" step="0.01" min="0" max="99999.99"
-                                            value="{{ item.price }}" required>
-                                    </div>
-                                    <div class="col-6 mb-3"><label>Category</label>
-                                        <select class="form-control" name="category" required>
-                                            {% for c in categories_list %}
-                                            <option value="{{ c }}" {{ 'selected' if c==item.category }}>{{ c }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="mb-3"><label>Image URL</label><input class="form-control" name="image_url"
-                                        type="url" value="{{ item.image_url }}" maxlength="255"></div>
-                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox"
-                                        name="is_available" id="avail{{ item.id }}" {{ 'checked' if item.is_available
-                                        }}>
-                                    <label class="form-check-label" for="avail{{ item.id }}">Available</label>
-                                </div>
-                            </div>
-                            <div class="modal-footer"><button type="submit" class="btn-admin btn-admin-primary">Save
-                                    Changes</button></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+                <div class="modal-footer"><button type="submit" class="btn-admin btn-admin-primary">Save Changes</button></div>
+            </form>
         </div>
     </div>
-    {% endif %}
-    {% endfor %}
 </div>
 
 <!-- Add Modal -->
@@ -183,7 +155,7 @@
                         <div class="col-6 mb-3"><label>Category</label>
                             <select class="form-control" name="category" required>
                                 {% for cat in categories_list %}
-                                <option value="{{ cat }}">{{ cat }}</option>
+                                <option value="{{ cat.name }}">{{ cat.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -201,6 +173,47 @@
     </div>
 </div>
 
+<!-- View Details Modal (Portrait Style) -->
+<div class="modal fade admin-modal" id="viewItemDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+        <div class="modal-content" style="border-radius: 20px; overflow: hidden; border: none;">
+            <div style="position: relative;">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" 
+                        style="position: absolute; top: 15px; right: 15px; z-index: 10; background-color: white; border-radius: 50%; padding: 0.5rem; opacity: 1; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 15px; height: 15px;"></button>
+                <img id="detailItemImg" src="" style="width: 100%; height: 350px; object-fit: cover;">
+            </div>
+            <div class="modal-body p-4" style="background: #fff;">
+                <h4 id="detailItemName" style="font-family: 'Playfair Display', serif; font-weight: 800; color: #3E2723; margin-bottom: 0.5rem; font-size: 1.5rem;"></h4>
+                <div style="color: #8B634B; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem;">&#8369;<span id="detailItemPrice"></span></div>
+                <div style="width: 40px; height: 3px; background: #8B634B; margin-bottom: 1.5rem; border-radius: 10px;"></div>
+                <p id="detailItemDesc" style="color: #6c757d; font-size: 0.95rem; line-height: 1.6;"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Delete Modal (Custom Style) -->
+<div class="modal fade admin-modal" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+        <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.2);">
+            <div class="modal-body text-center p-5" style="background: #fff;">
+                <div style="width: 70px; height: 70px; background: #fff1f0; color: #ff4d4f; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 2rem;">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+                <h4 style="font-family: 'Playfair Display', serif; font-weight: 800; color: #3E2723; margin-bottom: 0.5rem;">Move to Trash?</h4>
+                <p id="deleteItemNameDisplay" style="color: #6c757d; font-size: 0.95rem; margin-bottom: 2rem;">Are you sure you want to remove this item?</p>
+                
+                <form id="deleteItemForm" method="POST" action="">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger py-3" style="border-radius: 12px; font-weight: 700; background: #ff4d4f; border: none;">Yes, Move to Trash</button>
+                        <button type="button" class="btn btn-light py-3 border-0" data-bs-dismiss="modal" style="border-radius: 12px; font-weight: 600; color: #6c757d;">No, Keep it</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     /* ─── MENU GRID NEW ──────────────────────────── */
     .menu-grid {
@@ -212,7 +225,7 @@
     .menu-grid-card {
         background: #ffffff;
         border-radius: 12px;
-        border: 1px solid rgba(139, 69, 19, 0.1);
+        border: 1px solid rgba(139, 99, 75, 0.1);
         overflow: hidden;
         position: relative;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
@@ -221,11 +234,21 @@
 
     .menu-grid-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(139, 69, 19, 0.08);
+        box-shadow: 0 8px 25px rgba(139, 99, 75, 0.08);
     }
 
     .category-card:hover .menu-card-img {
         transform: scale(1.08) !important;
+    }
+
+    .category-card:hover .menu-card-img-wrap i {
+        transform: scale(1.2) rotate(5deg);
+        color: #5D4037 !important;
+        opacity: 1 !important;
+    }
+
+    .menu-card-img-wrap i {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
     .menu-card-img-wrap {
@@ -243,25 +266,39 @@
 
     .menu-card-actions {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 15px;
+        right: 15px;
         display: flex;
-        gap: 0.5rem;
+        gap: 0.8rem;
+        opacity: 1; /* Always visible as per user request */
+        transform: translateY(0);
+        z-index: 20;
     }
 
     .menu-card-icons {
         background: #ffffff;
-        border-radius: 6px;
-        width: 32px;
-        height: 32px;
+        border-radius: 50%; /* Circular for better look */
+        width: 38px;
+        height: 38px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--admin-text-muted);
+        color: #5D4037;
         cursor: pointer;
         border: none;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s ease;
+    }
+
+    .menu-card-icons:hover {
+        background: #8B634B;
+        color: white !important;
+        transform: scale(1.1);
+        box-shadow: 0 6px 15px rgba(139, 99, 75, 0.3);
+    }
+
+    .menu-card-icons.delete:hover {
+        background: #d32f2f;
     }
 
     .menu-card-icons:hover {
@@ -309,18 +346,6 @@
         height: 2.8em;
     }
 
-    .menu-card-footer {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-    }
-
-    .menu-card-price {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #d4a862;
-    }
-
     .menu-card-category {
         font-size: 0.65rem;
         text-transform: uppercase;
@@ -328,9 +353,44 @@
         letter-spacing: 0.5px;
         color: #bcaaa4;
     }
+
+    /* ─── PORTRAIT ITEM CARDS ────────────────────── */
+    .menu-item-card {
+        height: 480px !important; /* Fixed portrait height */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .menu-item-card .menu-card-img-wrap {
+        height: 320px !important; /* Taller image area */
+        cursor: pointer;
+    }
+
+    .menu-item-card .menu-card-body {
+        padding: 1rem !important;
+        text-align: left !important;
+    }
+
+    .menu-item-card:hover .menu-card-img {
+        transform: scale(1.05);
+    }
 </style>
 
 <script>
+    const IS_ADMIN = {{ 'true' if current_user.role|upper == 'ADMIN' else 'false' }};
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function (m) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            })[m];
+        });
+    }
+
     function showCategory(categoryName) {
         document.getElementById('categories-grid-view').style.display = 'none';
         document.getElementById('items-view').style.display = 'block';
@@ -343,6 +403,8 @@
                 section.style.display = 'none';
             }
         });
+
+        loadCategoryItems(categoryName);
     }
 
     function showCategoriesGrid() {
@@ -361,8 +423,249 @@
             showCategory(openCategory);
         }
     });
+
+    async function loadCategoryItems(categoryName) {
+        const safeCat = (window.CSS && CSS.escape) ? CSS.escape(categoryName) : categoryName;
+        const section = document.querySelector(`.menu-category-section[data-category="${safeCat}"]`);
+        if (!section) return;
+        if (section.dataset.loaded === 'true') return;
+
+        const grid = section.querySelector('.menu-grid');
+        if (!grid) return;
+
+        // Show lightweight loading placeholder
+        grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 1rem; color: var(--admin-text-muted);">Loading items...</div>';
+
+        try {
+            const initialLimit = 150;
+            const resp = await fetch(`/admin/menu/items?category=${encodeURIComponent(categoryName)}&limit=${initialLimit}&offset=0`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) throw new Error(payload.message || 'Failed to load items');
+
+            const cards = (payload.items || []).map(function (item) {
+                const statusHtml = item.is_available ? '' : `<div class="menu-card-status" style="color: var(--admin-red);">OUT OF STOCK</div>`;
+
+                const actionsHtml = IS_ADMIN ? `
+                    <div class="menu-card-actions" onclick="event.stopPropagation()">
+                        <button class="menu-card-icons" type="button" onclick="event.stopPropagation(); openEditModal(${item.id});">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="menu-card-icons delete" type="button" onclick="event.stopPropagation(); openDeleteConfirm(${item.id}, '${escapeHtml(item.name)}');">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                ` : '';
+
+                const imgHtml = item.image_url ? `
+                    <img loading="lazy" decoding="async" src="${escapeHtml(item.image_url)}" class="menu-card-img">
+                ` : `
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fbf8f5;">
+                        <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 99, 75, 0.1);"></i>
+                    </div>
+                `;
+
+                const priceStr = Number(item.price || 0).toFixed(2);
+
+                return `
+                    <div class="menu-grid-card menu-item-card">
+                        ${actionsHtml}
+                        <div class="menu-card-img-wrap" onclick="openViewModal(${item.id}, '${escapeHtml(item.name)}', '${escapeHtml(item.description)}', ${item.price}, '${escapeHtml(item.image_url)}')">
+                            ${statusHtml}
+                            ${imgHtml}
+                        </div>
+                        <div class="menu-card-body" style="display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1;">
+                            <h4 class="menu-card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.5rem;">${escapeHtml(item.name || '')}</h4>
+                            <div class="menu-card-footer" style="margin-top: auto;">
+                                <div class="menu-card-price" style="font-size: 1.1rem; font-weight: 700; color: #8B634B;">&#8369;${priceStr}</div>
+                                <div class="menu-card-category" style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600; color: #bcaaa4;">${escapeHtml(item.category || '')}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // cards are already `.menu-grid-card` children; keep DOM shallow
+            grid.innerHTML = cards.join('');
+            section.dataset.loaded = 'true';
+            section.dataset.nextOffset = String(payload.offset + (payload.items || []).length);
+            section.dataset.hasMore = payload.has_more ? 'true' : 'false';
+
+            const loadWrap = section.querySelector('.menu-load-more-wrap') || (() => {
+                const el = document.createElement('div');
+                el.className = 'menu-load-more-wrap';
+                el.style.padding = '0.75rem 0';
+                el.style.textAlign = 'center';
+                section.appendChild(el);
+                return el;
+            })();
+
+            if (payload.has_more) {
+                loadWrap.innerHTML = `<button class="btn-admin btn-admin-primary" type="button">Load more</button>`;
+                const btn = loadWrap.querySelector('button');
+                btn.addEventListener('click', () => loadMoreCategoryItems(categoryName));
+
+                // Auto infinite-scroll: load next chunk when button is visible.
+                if ('IntersectionObserver' in window) {
+                    const obs = new IntersectionObserver((entries) => {
+                        const e = entries[0];
+                        if (e && e.isIntersecting && section.dataset.hasMore === 'true') {
+                            obs.disconnect();
+                            loadMoreCategoryItems(categoryName);
+                        }
+                    }, { root: null, threshold: 0.1 });
+                    obs.observe(loadWrap);
+                }
+            } else {
+                loadWrap.innerHTML = '';
+            }
+        } catch (e) {
+            console.error(e);
+            grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 1rem; color: var(--admin-red);">Failed to load items.</div>';
+        }
+    }
+
+    async function loadMoreCategoryItems(categoryName) {
+        const safeCat = (window.CSS && CSS.escape) ? CSS.escape(categoryName) : categoryName;
+        const section = document.querySelector(`.menu-category-section[data-category="${safeCat}"]`);
+        if (!section) return;
+        if (section.dataset.hasMore !== 'true') return;
+
+        const grid = section.querySelector('.menu-grid');
+        if (!grid) return;
+
+        const nextOffset = parseInt(section.dataset.nextOffset || '0', 10);
+        const limit = 150;
+
+        const loadWrap = section.querySelector('.menu-load-more-wrap');
+        if (loadWrap) loadWrap.innerHTML = `<div style="color: var(--admin-text-muted); padding: 0.5rem 0;">Loading...</div>`;
+
+        try {
+            const resp = await fetch(`/admin/menu/items?category=${encodeURIComponent(categoryName)}&limit=${limit}&offset=${nextOffset}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) throw new Error(payload.message || 'Failed to load more items');
+
+            const cards = (payload.items || []).map(function (item) {
+                const statusHtml = item.is_available ? '' : `<div class="menu-card-status" style="color: var(--admin-red);">OUT OF STOCK</div>`;
+
+                const actionsHtml = IS_ADMIN ? `
+                    <div class="menu-card-actions" onclick="event.stopPropagation()">
+                        <button class="menu-card-icons" type="button" onclick="event.stopPropagation(); openEditModal(${item.id});">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="menu-card-icons delete" type="button" onclick="event.stopPropagation(); openDeleteConfirm(${item.id}, '${escapeHtml(item.name)}');">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                ` : '';
+
+                const imgHtml = item.image_url ? `
+                    <img loading="lazy" decoding="async" src="${escapeHtml(item.image_url)}" class="menu-card-img">
+                ` : `
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fbf8f5;">
+                        <i class="fas fa-utensils" style="font-size: 3rem; color: rgba(139, 99, 75, 0.1);"></i>
+                    </div>
+                `;
+
+                const priceStr = Number(item.price || 0).toFixed(2);
+
+                return `
+                    <div class="menu-grid-card menu-item-card">
+                        ${actionsHtml}
+                        <div class="menu-card-img-wrap" onclick="openViewModal(${item.id}, '${escapeHtml(item.name)}', '${escapeHtml(item.description)}', ${item.price}, '${escapeHtml(item.image_url)}')">
+                            ${statusHtml}
+                            ${imgHtml}
+                        </div>
+                        <div class="menu-card-body" style="display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1;">
+                            <h4 class="menu-card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.5rem;">${escapeHtml(item.name || '')}</h4>
+                            <div class="menu-card-footer" style="margin-top: auto;">
+                                <div class="menu-card-price" style="font-size: 1.1rem; font-weight: 700; color: #8B634B;">&#8369;${priceStr}</div>
+                                <div class="menu-card-category" style="font-size: 0.65rem; text-transform: uppercase; font-weight: 600; color: #bcaaa4;">${escapeHtml(item.category || '')}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.insertAdjacentHTML('beforeend', cards.join(''));
+
+            section.dataset.nextOffset = String(nextOffset + (payload.items || []).length);
+            section.dataset.hasMore = payload.has_more ? 'true' : 'false';
+
+            if (payload.has_more) {
+                if (loadWrap) {
+                    loadWrap.innerHTML = `<button class="btn-admin btn-admin-primary" type="button">Load more</button>`;
+                    const btn = loadWrap.querySelector('button');
+                    btn.addEventListener('click', () => loadMoreCategoryItems(categoryName));
+                }
+            } else {
+                if (loadWrap) loadWrap.innerHTML = '';
+            }
+        } catch (e) {
+            console.error(e);
+            if (loadWrap) loadWrap.innerHTML = '';
+        }
+    }
+
+    async function openEditModal(itemId) {
+        try {
+            const resp = await fetch(`/admin/menu/item/${itemId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.message || 'Failed to load item');
+
+            document.getElementById('editMenuTitle').textContent = `Edit: ${data.name || 'Menu Item'}`;
+            document.getElementById('editMenuForm').setAttribute('action', `/admin/menu/edit/${itemId}`);
+            document.getElementById('editItemName').value = data.name || '';
+            document.getElementById('editItemDescription').value = data.description || '';
+            document.getElementById('editItemPrice').value = data.price ?? 0;
+            document.getElementById('editItemImageUrl').value = data.image_url || '';
+
+            const catSel = document.getElementById('editItemCategory');
+            for (const opt of catSel.options) {
+                opt.selected = (opt.value === data.category);
+            }
+
+            document.getElementById('editItemAvail').checked = !!data.is_available;
+
+            const modalEl = document.getElementById('editMenuModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to load menu item details for editing.');
+        }
+    }
+
+    function openViewModal(id, name, desc, price, img) {
+        document.getElementById('detailItemName').textContent = name;
+        document.getElementById('detailItemDesc').textContent = desc || "No description available.";
+        document.getElementById('detailItemPrice').textContent = Number(price).toFixed(2);
+        
+        const imgEl = document.getElementById('detailItemImg');
+        if (img && img !== 'null' && img !== 'undefined') {
+            imgEl.src = img;
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.src = 'https://via.placeholder.com/400x350?text=No+Image';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('viewItemDetailsModal'));
+        modal.show();
+    }
+
+    function openDeleteConfirm(id, name) {
+        document.getElementById('deleteItemNameDisplay').textContent = `Are you sure you want to move "${name}" to trash?`;
+        document.getElementById('deleteItemForm').setAttribute('action', `/admin/menu/delete/${id}`);
+        const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+        modal.show();
+    }
 </script>
 
-<!-- Bootstrap JS needed for Modal if not already loaded in base -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
+
+

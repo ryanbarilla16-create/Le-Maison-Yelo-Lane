@@ -1,16 +1,32 @@
 <style>
+    /* -------------------------------------------------------------------------
+       NAVBAR CORE STYLES (Resolved from Merge Conflict)
+       Combining Soft Aesthetic (Outfit Font, Mochan Colors) with Transparent Scroll Logic
+    ------------------------------------------------------------------------- */
     .main-nav {
-        background: #523727 !important; /* Softer profound brown */
-        border-bottom: 2px solid rgba(255, 255, 255, 0.05) !important;
-        padding: 0.8rem 0 !important;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+        background: transparent;
+        backdrop-filter: blur(0px);
+        -webkit-backdrop-filter: blur(0px);
+        padding: 1.2rem 0 !important;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        border-bottom: 2px solid rgba(255, 255, 255, 0);
+        box-shadow: none;
+        z-index: 1050;
     }
-    .main-nav.scrolled {
-        padding: 0.5rem 0 !important;
-        background: rgba(82, 55, 39, 0.98) !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-        backdrop-filter: blur(8px);
+
+    .navbar-transparent {
+        background: transparent !important;
+        backdrop-filter: blur(0px) !important;
+        -webkit-backdrop-filter: blur(0px) !important;
+    }
+    
+    .nav-scrolled, .nav-always-solid {
+        background: rgba(82, 55, 39, 0.98) !important; /* Soft profound brown */
+        backdrop-filter: blur(15px) !important;
+        -webkit-backdrop-filter: blur(15px) !important;
+        padding: 0.7rem 0 !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.05) !important;
     }
 
     /* Soft Cafe Badge for Cart & Notifications */
@@ -19,118 +35,174 @@
         color: #fff !important;
         font-family: 'Outfit', 'Inter', sans-serif;
         font-weight: 500;
-        border: 1px solid #FFFDF9; /* tiny white border to pop */
+        border: 1px solid #FFFDF9;
         transform: scale(1.05);
         box-shadow: 0 3px 8px rgba(184, 134, 86, 0.4);
     }
 
-    /* Nav text links */
+    .navBrand {
+        font-family: 'Playfair Display', serif !important;
+        font-weight: 800 !important;
+        font-size: 1.2rem !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+        color: #fff !important;
+        display: flex;
+        align-items: center; gap: 12px;
+        text-decoration: none !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
     .navTxt {
         color: #FDF3E7 !important; /* Softer cream text */
         font-family: 'Outfit', 'Inter', sans-serif;
         font-weight: 500 !important;
         font-size: 0.85rem !important;
-        letter-spacing: 1.2px;
-        text-transform: uppercase;
-        text-decoration: none;
+        letter-spacing: 1.2px !important;
+        padding: 0.5rem 1.2rem !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease;
         position: relative;
-        padding: 0.6rem 0.6rem !important;
-        transition: all 0.3s;
-        opacity: 0.9;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     .navTxt::after {
-        content: ''; position: absolute; bottom: 0; left: 50%; right: 50%;
-        height: 2px; background: #D4A862;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        opacity: 0;
+        content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 2px;
+        background: #D4A862; transition: all 0.3s ease; transform: translateX(-50%);
     }
-    .navTxt:hover { 
-        color: #fff !important; 
-        opacity: 1;
-        transform: translateY(-1px);
-    }
-    .navTxt:hover::after { left: 0.6rem; right: 0.6rem; opacity: 1; }
+    .navTxt:hover { color: #fff !important; transform: translateY(-1px); }
+    .navTxt:hover::after { width: 30px; }
 
-    /* Icon circle buttons (cart, bell) */
     .navIcon {
         width: 42px; height: 42px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
         background: rgba(255, 255, 255, 0.08) !important; 
         color: #FDF3E7 !important;
-        border: 1px solid rgba(255,255,255,0.05) !important;
-        font-size: 1.05rem;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         position: relative;
     }
-    .navIcon:hover {
-        background: rgba(255, 255, 255, 0.15) !important;
-        transform: translateY(-2px);
+    .navIcon:hover { 
+        background: rgba(255, 255, 255, 0.2) !important; 
+        transform: translateY(-2px); 
         color: #fff !important;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
 
-    /* Profile ring */
-    .navProfile {
-        width: 44px; height: 44px; border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.2) !important; 
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    .navJoin {
+        background: #8B634B !important; 
+        color: #fff !important;
+        font-weight: 800; font-size: 0.78rem;
+        letter-spacing: 1px; text-transform: uppercase;
+        padding: 0.75rem 1.8rem !important;
+        border-radius: 50px; border: none !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+        transition: all 0.3s ease;
+        text-decoration: none !important;
     }
-    .navProfile:hover { 
-        border-color: #fff !important;
-        box-shadow: 0 4px 12px rgba(255,255,255,0.1);
-    }
+    .navJoin:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139, 99, 75, 0.4) !important; background: #5D4037 !important; }
 
-    /* Dropdown refinement */
+    .navSignIn {
+        color: #fff !important;
+        font-weight: 700; font-size: 0.82rem;
+        padding: 0.7rem 1.5rem !important;
+        text-decoration: none !important;
+        transition: all 0.3s; opacity: 0.9;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .navSignIn:hover { opacity: 1; transform: translateY(-1px); }
+
+    .navLink {
+        color: rgba(255, 255, 255, 0.85) !important;
+        font-weight: 700; font-size: 0.82rem;
+        padding: 0.5rem 1.2rem !important;
+        transition: all 0.3s ease;
+        text-decoration: none !important;
+    }
+    .navLink:hover { color: #fff !important; background: rgba(255, 255, 255, 0.1); border-radius: 50px; }
+
+    /* Match profile dropdown background color to global navbar color */
     .navDropdown {
-        border-radius: 16px !important; 
-        border: 1px solid rgba(0,0,0,0.05) !important;
-        background: #FFFDF9 !important;
-        box-shadow: 0 15px 45px rgba(0,0,0,0.12) !important;
-        padding: 0.5rem !important; 
-        overflow: hidden;
-        margin-top: 10px !important;
+        border-radius: 20px !important; 
+        background: rgba(82, 55, 39, 0.98) !important; /* Matched from Navbar */
+        backdrop-filter: blur(25px) !important;
+        -webkit-backdrop-filter: blur(25px) !important;
+        padding: 0.75rem !important; 
+        box-shadow: 0 15px 40px rgba(0,0,0,0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        margin-top: 15px !important;
+        min-width: 240px !important;
         font-family: 'Outfit', 'Inter', sans-serif;
     }
     .navDropdown .dropdown-item {
-        font-weight: 500; padding: 0.75rem 1.25rem !important;
-        font-size: 0.88rem; border-radius: 12px;
-        color: #5A3E2B !important;
-        transition: all 0.2s;
-        display: flex; align-items: center; gap: 10px;
+        color: #ffffff !important;
+        font-weight: 500 !important;
+        padding: 0.8rem 1.5rem !important;
+        font-size: 0.88rem !important; 
+        border-radius: 12px !important; 
+        transition: all 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
     }
     .navDropdown .dropdown-item:hover { 
-        background: #FAF3EE !important; 
-        color: #5A3E2B !important; 
+        background: rgba(255, 255, 255, 0.12) !important; 
+        color: #ffffff !important;
+        transform: translateX(5px) !important;
+    }
+    .navDropdown .dropdown-item i {
+        font-size: 1rem;
+        opacity: 0.9;
+        width: 24px;
+        text-align: center;
+        color: #fff;
+    }
+    .navDropdown .dropdown-divider {
+        border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+        margin: 8px 0 !important;
     }
 
-    /* Mobile Grid Navbar Styles */
+    /* Mobile Grid Navbar Styles (Resolved and Softened) */
     @media (max-width: 767px) {
-        #mobileMenu {
-            background: #523727 !important; /* Softer profound brown */
+        .mobile-menu-dropdown {
+            position: fixed;
+            top: 54px;
+            left: 0;
+            width: 100%;
+            background: #523727 !important;
             padding: 24px 16px !important;
             border-radius: 0 0 28px 28px !important;
             border-bottom: 3px solid #AB7E58 !important;
             box-shadow: 0 15px 40px rgba(0,0,0,0.25) !important;
-            top: 54px !important;
+            z-index: 1000;
+            display: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-menu-dropdown.open {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
         }
         #navbar-menu {
             display: grid !important;
             grid-template-columns: repeat(4, 1fr);
-            gap: 14px !important; /* More breathable */
+            gap: 14px !important;
             padding: 0 !important;
             margin: 0 !important;
             list-style: none !important;
         }
         .mobile-background-icons {
-            background: rgba(181, 131, 90, 0.85) !important; /* Soft acoustic latte/mocha */
-            border-radius: 18px; /* Softer pill rounding */
+            background: rgba(181, 131, 90, 0.85) !important;
+            border-radius: 18px;
             padding: 16px 4px !important;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
             box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-            border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle glossy edge */
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .mobile-background-icons a {
             display: flex !important;
@@ -141,322 +213,357 @@
             color: #fff !important;
             width: 100%;
         }
-        .mobile-background-icons i {
-            font-size: 1.35rem !important;
-            color: #FDF3E7 !important;
-            margin-bottom: 2px;
-        }
+        .mobile-background-icons i { font-size: 1.35rem !important; color: #FDF3E7 !important; }
         .mobile-background-icons .nav-text {
-            font-size: 0.72rem !important;
-            font-weight: 500 !important; /* Softer reading text */
-            text-transform: capitalize; /* Softer than bold uppercase */
-            letter-spacing: 0.3px;
-            color: #FDF3E7 !important;
-            text-align: center;
-            font-family: 'Outfit', 'Inter', sans-serif;
-        }
-        
-        /* Login mobile card styling */
-        .login-mobile-card {
-            background: #402A1E !important; /* Dark warm roast */
-            border-radius: 18px;
-            padding: 18px 4px !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            margin-top: 5px;
-            width: 100%;
-        }
-        .login-mobile-card a {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            gap: 8px !important;
-            text-decoration: none !important;
-            color: #fff !important;
-            width: 100%;
-        }
-        .login-mobile-card i {
-            font-size: 1.35rem !important;
-            color: #FDF3E7 !important;
-        }
-        .login-mobile-card .nav-text {
             font-size: 0.72rem !important;
             font-weight: 500 !important;
             text-transform: capitalize;
             color: #FDF3E7 !important;
             font-family: 'Outfit', 'Inter', sans-serif;
         }
-
-        /* Hover/Active states */
-        .mobile-background-icons:active, .login-mobile-card:active {
-            transform: scale(0.95);
-            opacity: 0.9;
+        
+        .mobile-login-wrapper {
+            grid-column: span 4;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
         }
+        .mobile-grid-login {
+            background: #402A1E !important;
+            border-radius: 18px;
+            padding: 18px 4px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #fff !important;
+            text-decoration: none !important;
+            font-family: 'Outfit', 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        .mobile-grid-login.join-btn, .mobile-grid-login.logout-btn { background: #8B634B !important; }
     }
 </style>
 
-<nav class="navbar main-nav fixed-top navbar-expand-md">
+<nav class="navbar main-nav fixed-top navbar-expand-md {{ 'navbar-transparent' if (request.endpoint == 'main.index' or request.path == '/') else 'nav-scrolled' }}">
     <div class="container-fluid px-md-5">
-        <a class="navbar-brand" href="{{ url_for('main.index') }}"
-            style="font-family: 'Playfair Display', 'Georgia', serif; font-weight: 700; font-size: 1.15rem; letter-spacing: 0.5px; color: #F5EAE1;">
-            <span class="d-md-inline d-none text-uppercase">Le Maison de Yelo</span><span class="d-md-none d-inline text-uppercase">Le Maison</span>
+        <a class="navBrand" href="{{ url_for('main.index') }}">
+            <i class="fas fa-coffee" style="color: #D4A862;"></i> 
+            <span>Le Maison Yelo Lane</span>
         </a>
 
         <ul class="nav nav-left me-auto d-md-flex d-none align-items-center ms-4">
-            <li class="nav-item me-3">
-                <a class="nav-link navTxt" href="{{ url_for('main.menu_page') }}">MENU</a>
-            </li>
-            <li class="nav-item me-3">
-                <a class="nav-link navTxt" href="{{ url_for('main.about_page') }}">ABOUT</a>
-            </li>
-            <li class="nav-item me-3">
-                <a class="nav-link navTxt" href="{{ url_for('main.reviews_page') }}">REVIEWS</a>
-            </li>
+            <li class="nav-item"><a class="navTxt" href="{{ url_for('main.index') }}">HOME</a></li>
+            <li class="nav-item"><a class="navTxt" href="{{ url_for('main.menu_page') }}">MENU</a></li>
+            <li class="nav-item"><a class="navTxt" href="{{ url_for('main.about_page') }}">ABOUT</a></li>
+            <li class="nav-item"><a class="navTxt" href="{{ url_for('main.reserve') }}">RESERVE</a></li>
+            {% if not current_user.is_authenticated or current_user.role == 'ADMIN' %}
+            <li class="nav-item"><a class="navTxt" href="{{ url_for('main.reviews_page') }}">REVIEWS</a></li>
+            {% endif %}
         </ul>
 
-        <ul class="nav nav-right ms-auto d-md-flex d-none align-items-center" style="gap: 6px;">
+        <ul class="nav nav-right ms-auto d-md-flex d-none align-items-center" style="gap: 12px;">
             {% if current_user.is_authenticated %}
             <li class="nav-item">
-                <a href="{{ url_for('main.view_cart') }}" class="btn navIcon position-relative">
+                <a href="{{ url_for('main.view_cart') }}" class="navIcon position-relative">
                     <i class="fas fa-shopping-cart"></i>
                     {% set cart_data = session.get('cart', {}) %}
                     {% set cart_total_qty = cart_data.values()|list|sum if cart_data else 0 %}
-                    <span class="cart-badge position-absolute badge rounded-pill aesthetic-badge"
+                    <span class="cart-badge badge position-absolute rounded-pill aesthetic-badge"
                         style="font-size: 0.6rem; top: -2px; right: -4px; min-width: 18px;{{ ' display: none;' if cart_total_qty == 0 else '' }}">
-                        {{ cart_total_qty if cart_total_qty > 0 else '' }}
+                        {{ cart_total_qty }}
                     </span>
                 </a>
             </li>
-            <!-- NOTIFICATION BELL -->
-            <li class="nav-item">
-                <div class="user-notif-wrapper" style="position: relative;">
-                    <button id="userNotifBell" onclick="toggleUserNotifPanel()" class="btn navIcon position-relative">
-                        <i class="fas fa-bell"></i>
-                        <span id="userNotifBadge"
-                            class="position-absolute badge rounded-pill aesthetic-badge"
-                            style="font-size: 0.6rem; top: -2px; right: -4px; min-width: 18px; display: none;">0</span>
-                    </button>
-                    <!-- Notification Dropdown -->
-                    <div id="userNotifPanel" style="display:none; position: absolute; right: 0; top: 48px; width: 370px; max-height: 480px; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 9999; overflow: hidden; border: 1px solid rgba(0,0,0,0.06);">
-                        <div style="padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #5D4037, #795548);">
-                            <span style="font-weight: 700; font-size: 0.9rem; color: #fff;"><i class="fas fa-bell me-2"></i>Notifications</span>
-                            <button onclick="markAllUserNotifRead()" style="background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 0.72rem; cursor: pointer; padding: 4px 12px; border-radius: 20px; font-weight: 600; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">Mark all read</button>
-                        </div>
-                        <div id="userNotifList" style="max-height: 380px; overflow-y: auto; padding: 8px 0;"></div>
-                        <div id="userNotifEmpty" style="display:none; text-align: center; padding: 40px 20px; color: #999;">
-                            <i class="fas fa-bell-slash" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.2;"></i>
-                            <p style="margin: 0; font-size: 0.85rem;">No notifications yet</p>
-                        </div>
+            <li class="nav-item dropdown">
+                <a href="#" class="navIcon position-relative d-flex" id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="text-decoration: none;">
+                    <i class="fas fa-bell"></i>
+                    <span id="userNotifBadge" class="position-absolute badge rounded-pill aesthetic-badge" style="font-size: 0.6rem; top: -2px; right: -4px; min-width: 18px; display: none;">0</span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end p-0 overflow-hidden shadow-2xl border-0" aria-labelledby="notifDropdown" 
+                    style="width: 390px; max-width: 95vw; border-radius: 28px; background: rgba(253, 251, 249, 0.98); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(139, 99, 75, 0.08) !important; margin-top: 15px !important; box-shadow: 0 30px 60px -12px rgba(93, 64, 55, 0.18);">
+                    <div style="padding: 24px 28px; border-bottom: 1px solid rgba(139, 99, 75, 0.06); display: flex; align-items: center; justify-content: space-between; background: rgba(250, 243, 239, 0.5);">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #4E342E; font-family: 'Playfair Display', serif;"><i class="fas fa-bell me-2" style="color: #8B634B; opacity: 0.8;"></i>Notifications</span>
+                        <button onclick="markAllUserNotifRead(event)" class="notif-mark-read-btn" style="background: #fff; border: 1px solid rgba(139, 99, 75, 0.12); color: #8B634B; font-size: 0.72rem; cursor: pointer; padding: 7px 16px; border-radius: 50px; font-weight: 700; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 6px rgba(139, 99, 75, 0.05);">Mark all read</button>
+                    </div>
+                    <div id="userNotifList" style="max-height: 440px; overflow-y: auto; background: transparent;">
+                        <!-- JS content loads here -->
+                    </div>
+                    <div style="padding: 14px; text-align: center; background: rgba(250, 243, 239, 0.3); border-top: 1px solid rgba(139, 99, 75, 0.04);">
+                        <small style="color: #A1887F; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">End of updates</small>
                     </div>
                 </div>
             </li>
 
-            <li style="width: 1px; height: 24px; background: rgba(93,64,55,0.1); margin: 0 6px;"></li>
+            <li style="width: 1px; height: 24px; background: rgba(255,255,255,0.1); margin: 0 8px;"></li>
 
-            <li class="nav-item">
-                <a href="{{ url_for('main.index') }}" class="btn navLink">
-                    <i class="fas fa-home"></i> Home
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{{ url_for('main.my_orders') }}" class="btn navLink">
-                    <i class="fas fa-shopping-bag"></i> Orders
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{{ url_for('main.reserve') }}" class="btn navCta">
-                    <i class="fas fa-calendar-plus me-1"></i> Reserve Now
-                </a>
-            </li>
+            <li class="nav-item"><a href="{{ url_for('main.my_orders') }}" class="navLink">My Orders</a></li>
+            <li class="nav-item"><a href="{{ url_for('main.reserve') }}" class="navJoin" onclick="clearReservationSession()">Reserve</a></li>
 
-            <li style="width: 1px; height: 24px; background: rgba(93,64,55,0.1); margin: 0 4px;"></li>
-
-            <li class="nav-item dropdown d-flex align-items-center">
-                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle px-1"
-                    id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false"
-                    style="color: var(--text-main);">
+            <li class="nav-item dropdown ms-2">
+                <a href="#" class="d-flex align-items-center dropdown-toggle px-1" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                     {% if current_user.profile_picture_url %}
-                    <img src="{{ current_user.profile_picture_url }}" alt="Profile" class="navProfile"
-                        style="width: 42px; height: 42px; object-fit: cover;">
+                    <img src="{{ current_user.profile_picture_url }}" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); object-fit: cover;">
                     {% else %}
-                    <div class="navProfile"
-                        style="width: 42px; height: 42px; background: rgba(255,255,255,0.1); color: #F5EAE1; display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: 'Georgia', serif; font-size: 1rem; border-radius: 50%;">
-                        {{ current_user.first_name[:1] }}{{ current_user.last_name[:1] }}
-                    </div>
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: #8B634B; color: white; display:flex; align-items:center; justify-content:center; font-weight: bold; border: 2px solid rgba(255,255,255,0.2);">{{ current_user.first_name[:1] }}</div>
                     {% endif %}
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end navDropdown mt-3" aria-labelledby="profileDropdown"
-                    style="min-width: 220px;">
-                    <li class="px-3 py-2 border-bottom mb-1">
-                        <div class="fw-bold" style="font-size: 0.95rem;">{{ current_user.first_name }} {{ current_user.last_name }}</div>
-                        <small style="color: var(--text-muted); font-size: 0.78rem;">{{ current_user.email }}</small>
+                <ul class="dropdown-menu dropdown-menu-end navDropdown">
+                    <li class="px-3 py-2 mb-2" style="border-bottom: 1px solid rgba(255,255,255,0.15);">
+                        <div class="fw-bold text-white" style="font-size: 0.95rem;">{{ current_user.first_name }} {{ current_user.last_name }}</div>
+                        <small style="color: rgba(255,255,255,0.5);">{{ current_user.email }}</small>
                     </li>
-                    <li><a class="dropdown-item" href="{{ url_for('main.index') }}"><i class="fas fa-home me-2" style="color: var(--text-muted);"></i>Dashboard</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('main.my_orders') }}"><i class="fas fa-shopping-bag me-2" style="color: var(--text-muted);"></i>My Orders</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="fas fa-user-edit me-2" style="color: var(--text-muted);"></i>Edit Profile</a></li>
-                    <li><hr class="dropdown-divider my-1"></li>
-                    <li><a class="dropdown-item" href="{{ url_for('main.logout') }}" style="color: var(--danger); font-weight: 600;"><i class="fas fa-sign-out-alt me-2"></i>Sign out</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="fas fa-user-edit"></i>Profile Settings</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.my_orders') }}"><i class="fas fa-receipt"></i>My Orders</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.logout') }}" style="color: #ff5252 !important;"><i class="fas fa-sign-out-alt"></i>Sign out</a></li>
                 </ul>
             </li>
             {% else %}
-            <li class="nav-item ms-2">
-                <button onclick="$('#termsModal').modal('show'); window.authIntent = 'login';"
-                    class="navTxt" style="background: none; border: none; font-size: 0.8rem;">Login</button>
-            </li>
+            <li class="nav-item"><a href="javascript:void(0)" onclick="$('#termsModal').modal('show'); window.authIntent = 'login';" class="navSignIn">Sign In</a></li>
+            <li class="nav-item"><a href="javascript:void(0)" onclick="$('#termsModal').modal('show'); window.authIntent = 'signup';" class="navJoin">Join Now</a></li>
             {% endif %}
         </ul>
 
-        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu">
-            <span class="navbar-toggler-icon"></span>
+        <button class="navbar-toggler border-0 text-white ms-2 d-md-none" type="button" onclick="toggleMobileMenu()" aria-label="Menu">
+            <i class="fas fa-bars"></i>
         </button>
     </div>
 </nav>
 
-<div class="collapse d-md-none p-3 fixed-top" id="mobileMenu">
-    <ul class="nav-links-container active" id="navbar-menu">
-        <li class="mobile-background-icons">
-            <a href="{{ url_for('main.index') }}">
-                <i class="fas fa-home"></i> 
-                <span class="nav-text">Home</span>
-            </a>
-        </li>
-        <li class="mobile-background-icons">
-            <a href="{{ url_for('main.menu_page') }}">
-                <i class="fas fa-utensils"></i> 
-                <span class="nav-text">Menu</span>
-            </a>
-        </li>
-        <li class="mobile-background-icons">
-            <a href="{{ url_for('main.about_page') }}">
-                <i class="fas fa-info-circle"></i> 
-                <span class="nav-text">About</span>
-            </a>
-        </li>
-        <li class="mobile-background-icons">
-            <a href="{{ url_for('main.reserve') }}">
-                <i class="fas fa-calendar-plus"></i> 
-                <span class="nav-text">Reserve</span>
-            </a>
-        </li>
-        
-        {% if not current_user.is_authenticated %}
-            <li class="login-mobile-card">
-                <a href="{{ url_for('main.login') }}">
-                    <i class="fas fa-sign-in-alt"></i> 
-                    <span class="nav-text">Login</span>
+<!-- Mobile Navigation Menu Dropdown -->
+<div class="mobile-menu-dropdown d-md-none" id="mobileMenu">
+    <nav>
+        <ul class="nav-links-container active" id="navbar-menu">
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.index') }}"><i class="fas fa-home"></i> <span class="nav-text">Home</span></a>
+            </li>
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.menu_page') }}"><i class="fas fa-utensils"></i> <span class="nav-text">Menu</span></a>
+            </li>
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.about_page') }}"><i class="fas fa-info-circle"></i> <span class="nav-text">About</span></a>
+            </li>
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.reserve') }}"><i class="fas fa-calendar-plus"></i> <span class="nav-text">Reserve</span></a>
+            </li>
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.reviews_page') }}"><i class="fas fa-star"></i> <span class="nav-text">Reviews</span></a>
+            </li>
+
+            {% if current_user.is_authenticated %}
+            <li class="mobile-background-icons">
+                <a href="{{ url_for('main.view_cart') }}">
+                    <i class="fas fa-shopping-cart"></i> <span class="nav-text">Cart</span>
                 </a>
             </li>
-        {% else %}
             <li class="mobile-background-icons">
                 <a href="{{ url_for('main.my_orders') }}">
-                    <i class="fas fa-shopping-bag"></i> 
-                    <span class="nav-text">Orders</span>
+                    <i class="fas fa-receipt"></i> <span class="nav-text">Orders</span>
                 </a>
             </li>
-            <li class="login-mobile-card">
-                <a href="{{ url_for('main.logout') }}">
-                    <i class="fas fa-sign-out-alt"></i> 
-                    <span class="nav-text">Logout</span>
+            <li class="mobile-background-icons">
+                <a href="javascript:void(0)" onclick="closeMobileMenu(); toggleUserNotifPanel();" class="position-relative">
+                    <i class="fas fa-bell"></i> <span class="nav-text">Notifs</span>
+                    <span id="userNotifBadgeMobile" class="position-absolute badge rounded-pill aesthetic-badge" style="font-size: 0.55rem; top: 8px; right: 25px; min-width: 16px; display: none;">0</span>
                 </a>
             </li>
-        {% endif %}
-    </ul>
+            {% endif %}
+            
+            <li class="mobile-login-wrapper">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('main.profile') }}" class="mobile-grid-login">
+                        <i class="fas fa-user-circle"></i> <span class="nav-text">Profile</span>
+                    </a>
+                    <a href="{{ url_for('main.logout') }}" class="mobile-grid-login logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> <span class="nav-text">Sign Out</span>
+                    </a>
+                {% else %}
+                    <a href="javascript:void(0)" onclick="closeMobileMenu(); setTimeout(function(){ $('#termsModal').modal('show'); window.authIntent = 'login'; }, 300);" class="mobile-grid-login">
+                        <i class="fas fa-sign-in-alt"></i> <span class="nav-text">Sign In</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="closeMobileMenu(); setTimeout(function(){ $('#termsModal').modal('show'); window.authIntent = 'signup'; }, 300);" class="mobile-grid-login join-btn">
+                        <i class="fas fa-user-plus"></i> <span class="nav-text">Join Now</span>
+                    </a>
+                {% endif %}
+            </li>
+        </ul>
+    </nav>
 </div>
 
-{% if current_user.is_authenticated %}
-<!-- User Notification Bell JS -->
-<style>
-    @keyframes userNotifPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-    #userNotifPanel::-webkit-scrollbar { width: 4px; }
-    #userNotifPanel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-</style>
 <script>
-    let _userNotifOpen = false;
-
-    function toggleUserNotifPanel() {
-        const panel = document.getElementById('userNotifPanel');
-        _userNotifOpen = !_userNotifOpen;
-        panel.style.display = _userNotifOpen ? 'block' : 'none';
-        if (_userNotifOpen) fetchUserNotifs();
+    // Notification System Logic
+    {% if current_user.is_authenticated %}
+    const userId = {{ current_user.id }};
+    
+    function updateNotifCount() {
+        if (!userId) return;
+        fetch(`/api/user/${userId}/unread-notifications/count`)
+            .catch(() => fetch(`/api/user/${userId}/notifications/unread-count`))
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('userNotifBadge');
+                const mBadge = document.getElementById('userNotifBadgeMobile');
+                const count = data.count || 0;
+                
+                [badge, mBadge].forEach(b => {
+                    if (b) {
+                        if (count > 0) {
+                            b.innerText = count;
+                            b.style.display = 'block';
+                        } else {
+                            b.style.display = 'none';
+                        }
+                    }
+                });
+            })
+            .catch(err => console.error('Error fetching notif count:', err));
     }
 
-    document.addEventListener('click', function(e) {
-        const wrapper = document.querySelector('.user-notif-wrapper');
-        if (wrapper && !wrapper.contains(e.target)) {
-            _userNotifOpen = false;
-            const panel = document.getElementById('userNotifPanel');
-            if (panel) panel.style.display = 'none';
+    function renderNotifItems(data, listId) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        
+        list.innerHTML = '';
+        if (data.notifications && data.notifications.length > 0) {
+            data.notifications.forEach(n => {
+                const item = document.createElement('div');
+                item.className = 'notif-entry';
+                item.style.padding = '20px 24px';
+                item.style.borderBottom = '1px solid rgba(139, 99, 75, 0.05)';
+                item.style.background = n.is_read ? 'transparent' : 'rgba(139, 99, 75, 0.02)';
+                item.style.transition = 'all 0.3s ease';
+                item.style.opacity = n.is_read ? '0.6' : '1';
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #D4A862; display: ${n.is_read ? 'none' : 'block'};"></div>
+                            <strong style="color: #4E342E; font-size: 0.88rem; font-weight: 700; font-family: 'Inter', sans-serif;">${n.title}</strong>
+                        </div>
+                        <small style="font-size: 0.65rem; color: #A1887F; font-weight: 600;">${n.created_at}</small>
+                    </div>
+                    <p class="mb-0" style="font-size: 0.78rem; line-height: 1.6; color: #6D4C41; font-weight: 400; padding-left: ${n.is_read ? '0' : '16px'}; border-left: ${n.is_read ? 'none' : '1.5px solid rgba(139, 99, 75, 0.1)'};">${n.message}</p>
+                `;
+                list.appendChild(item);
+            });
+        } else {
+            list.innerHTML = `
+                <div class="p-5 text-center" style="background: rgba(139, 99, 75, 0.01);">
+                    <div style="width: 64px; height: 64px; background: #FAF3EF; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                        <i class="fas fa-bell-slash opacity-30" style="font-size: 1.5rem; color: #8B634B;"></i>
+                    </div>
+                    <p style="color: #8B634B; font-size: 0.85rem; font-weight: 600; margin: 0; font-family: 'Playfair Display', serif;">A Moment of Peace</p>
+                    <p style="color: #A1887F; font-size: 0.72rem; margin-top: 5px;">No new alerts for you right now.</p>
+                </div>`;
         }
+    }
+
+    function loadUserNotifs(targetListId = 'userNotifList') {
+        const list = document.getElementById(targetListId);
+        if (!list) return;
+        list.innerHTML = '<div class="text-center p-5"><div class="spinner-border spinner-border-sm" style="color: #8B634B;"></div></div>';
+        
+        fetch(`/api/user/${userId}/notifications`)
+            .then(res => res.json())
+            .then(data => renderNotifItems(data, targetListId))
+            .catch(err => {
+                console.error('Error loading notifs:', err);
+                list.innerHTML = '<div class="p-3 text-center text-danger small">Failed to load notifications</div>';
+            });
+    }
+
+    function markAllUserNotifRead(e) {
+        if (e) e.stopPropagation();
+        fetch(`/api/user/${userId}/notifications/mark-all-read`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                updateNotifCount();
+                loadUserNotifs('userNotifList');
+                loadUserNotifs('userNotifListMobile');
+            })
+            .catch(err => console.error('Error marking read:', err));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('notifDropdown')?.addEventListener('show.bs.dropdown', () => loadUserNotifs('userNotifList'));
+        updateNotifCount();
+        setInterval(updateNotifCount, 30000);
     });
 
-    function _userNotifIcon(type) {
-        const icons = {
-            'ORDER': '<i class="fas fa-shopping-bag" style="color:#8B4513;"></i>',
-            'RESERVATION': '<i class="fas fa-calendar-check" style="color:#17a2b8;"></i>',
-            'DELIVERY': '<i class="fas fa-truck" style="color:#28a745;"></i>',
-            'SYSTEM': '<i class="fas fa-cog" style="color:#6c757d;"></i>',
-        };
-        return icons[type] || icons['SYSTEM'];
+    function toggleUserNotifPanel() {
+        closeMobileMenu();
+        const modalEl = document.getElementById('mobileNotifModal');
+        if (modalEl) {
+            const bsModal = new bootstrap.Modal(modalEl);
+            bsModal.show();
+            loadUserNotifs('userNotifListMobile');
+        }
+    }
+    {% endif %}
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const mainNav = document.querySelector('.main-nav');
+        if (mainNav) {
+            const handleScroll = () => {
+                if (window.scrollY > 30) {
+                    mainNav.classList.add('nav-scrolled');
+                    mainNav.classList.remove('navbar-transparent');
+                } else {
+                    mainNav.classList.remove('nav-scrolled');
+                    if (!mainNav.classList.contains('nav-always-solid')) {
+                        mainNav.classList.add('navbar-transparent');
+                    }
+                }
+            };
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            handleScroll();
+        }
+
+        const toggler = document.querySelector('.navbar-toggler');
+        if (toggler) toggler.onclick = toggleMobileMenu;
+    });
+
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobileMenu');
+        if (!menu) return;
+        menu.classList.toggle('open');
+        document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
     }
 
-    async function fetchUserNotifs() {
-        try {
-            const resp = await fetch('/admin/web/notifications');
-            const data = await resp.json();
-            const list = document.getElementById('userNotifList');
-            const empty = document.getElementById('userNotifEmpty');
-
-            if (!data.notifications || data.notifications.length === 0) {
-                list.innerHTML = '';
-                empty.style.display = 'block';
-                return;
-            }
-            empty.style.display = 'none';
-            list.innerHTML = data.notifications.map(n => `
-                <div style="padding: 12px 20px; border-bottom: 1px solid #f5f5f5; display: flex; gap: 12px; align-items: flex-start; background: ${n.is_read ? '#fff' : '#faf6f2'}; transition: background 0.2s; cursor: default;"
-                     onmouseover="this.style.background='#f5f0eb'" onmouseout="this.style.background='${n.is_read ? '#fff' : '#faf6f2'}'">
-                    <div style="width: 36px; height: 36px; border-radius: 50%; background: ${n.is_read ? '#f0f0f0' : 'rgba(139,69,19,0.1)'}; display:flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.85rem;">
-                        ${_userNotifIcon(n.type)}
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: ${n.is_read ? '400' : '600'}; font-size: 0.82rem; color: #333; margin-bottom: 2px;">${n.title}</div>
-                        <div style="font-size: 0.75rem; color: #777; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${n.message}</div>
-                        <div style="font-size: 0.65rem; color: #aaa; margin-top: 4px;"><i class="far fa-clock me-1"></i>${n.created_at}</div>
-                    </div>
-                    ${!n.is_read ? '<div style="width:8px;height:8px;border-radius:50%;background:#8B4513;flex-shrink:0;margin-top:6px;"></div>' : ''}
-                </div>
-            `).join('');
-        } catch (e) { console.error('User notif error:', e); }
+    function closeMobileMenu() {
+        const menu = document.getElementById('mobileMenu');
+        if (menu) {
+            menu.classList.remove('open');
+            document.body.style.overflow = '';
+        }
     }
 
-    async function fetchUserUnreadCount() {
-        try {
-            const resp = await fetch('/admin/web/notifications/unread-count');
-            const data = await resp.json();
-            const badge = document.getElementById('userNotifBadge');
-            if (data.count > 0) {
-                badge.textContent = data.count > 99 ? '99+' : data.count;
-                badge.style.display = 'inline-block';
-            } else {
-                badge.style.display = 'none';
-            }
-        } catch (e) {}
-    }
-
-    async function markAllUserNotifRead() {
-        try {
-            await fetch('/admin/web/notifications/mark-all-read', { method: 'POST' });
-            fetchUserUnreadCount();
-            fetchUserNotifs();
-        } catch (e) {}
-    }
-
-    // Initial + auto-poll every 15 seconds
-    fetchUserUnreadCount();
-    setInterval(fetchUserUnreadCount, 15000);
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 768) {
+            closeMobileMenu();
+        }
+    });
 </script>
+
+{% if current_user.is_authenticated %}
+<div class="modal fade" id="mobileNotifModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm" style="max-width: 95vw; margin: 10px auto;">
+        <div class="modal-content overflow-hidden border-0 shadow-2xl" style="background: rgba(253, 251, 249, 1); border-radius: 32px;">
+            <div class="modal-header border-0 py-4 px-4" style="background: #FAF3EF;">
+                <h6 class="modal-title fw-bold" style="color: #4E342E; font-family: 'Playfair Display', serif; font-size: 1.1rem;"><i class="fas fa-bell me-2" style="color: #8B634B;"></i>Notifications</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.8rem;"></button>
+            </div>
+            <div class="modal-body p-0" id="userNotifListMobile" style="max-height: 70vh; overflow-y: auto; background: #FDFBF9;">
+                <!-- Content loads here -->
+            </div>
+            <div class="modal-footer border-0 p-4" style="background: #FAF3EF;">
+                <button type="button" class="btn btn-sm w-100 fw-bold" onclick="markAllUserNotifRead()" 
+                    style="font-size: 0.8rem; color: #8B634B; background: #fff; border: 1px solid rgba(139, 99, 75, 0.15); border-radius: 50px; padding: 12px; box-shadow: 0 4px 12px rgba(139, 99, 75, 0.08);">Mark all read</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}

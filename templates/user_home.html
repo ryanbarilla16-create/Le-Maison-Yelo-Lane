@@ -68,7 +68,7 @@
         font-family: 'Playfair Display', serif;
         font-style: italic;
         font-size: 1.15rem;
-        color: #D4A862;
+        color: #8B634B;
         margin-bottom: 0.4rem;
         letter-spacing: 1px;
     }
@@ -116,7 +116,7 @@
         text-align: center;
         text-decoration: none !important;
         color: inherit !important;
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
@@ -137,7 +137,7 @@
 
     .dashAction:hover {
         transform: translateY(-8px);
-        box-shadow: 0 16px 48px rgba(93, 64, 55, 0.15);
+        box-shadow: 0 16px 48px rgba(139, 99, 75, 0.15);
     }
 
     .dashAction:hover::before {
@@ -188,7 +188,7 @@
         background: #fff;
         border-radius: 20px;
         padding: 2rem;
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
         display: flex;
         align-items: center;
@@ -206,7 +206,7 @@
         width: 100px;
         height: 100px;
         border-radius: 50%;
-        background: var(--stat-accent, rgba(93, 64, 55, 0.04));
+        background: var(--stat-accent, rgba(139, 99, 75, 0.04));
     }
 
     .dashStat:hover {
@@ -262,7 +262,7 @@
         background: #fff;
         border-radius: 20px;
         padding: 1.75rem;
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
     }
 
@@ -272,7 +272,7 @@
         align-items: center;
         margin-bottom: 1.25rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid rgba(93, 64, 55, 0.06);
+        border-bottom: 1px solid rgba(139, 99, 75, 0.06);
     }
 
     .dashPanel-head h5 {
@@ -287,8 +287,8 @@
 
     .dashPanel-head .panelBtn {
         background: linear-gradient(135deg, #5D4037, #795548);
-        color: #fff;
-        padding: 0.4rem 1rem;
+        color: #fff !important;
+        padding: 0.4rem 1.1rem;
         border-radius: 50px;
         font-size: 0.72rem;
         font-weight: 700;
@@ -297,27 +297,28 @@
         align-items: center;
         gap: 5px;
         transition: all 0.3s;
-        box-shadow: 0 3px 12px rgba(93, 64, 55, 0.2);
+        box-shadow: 0 4px 14px rgba(93, 64, 55, 0.25);
+        border: none !important;
     }
 
     .dashPanel-head .panelBtn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(93, 64, 55, 0.3);
-        color: #fff;
+        box-shadow: 0 8px 24px rgba(93, 64, 55, 0.35);
+        color: #fff !important;
     }
 
     /* List Items */
     .dashItem {
-        background: linear-gradient(135deg, rgba(93, 64, 55, 0.02), rgba(212, 168, 98, 0.03));
+        background: linear-gradient(135deg, rgba(139, 99, 75, 0.02), rgba(212, 168, 98, 0.03));
         border-radius: 14px;
         padding: 1rem 1.1rem;
         margin-bottom: 0.6rem;
-        border: 1px solid rgba(93, 64, 55, 0.04);
+        border: 1px solid rgba(139, 99, 75, 0.04);
         transition: all 0.25s;
     }
 
     .dashItem:hover {
-        background: rgba(93, 64, 55, 0.05);
+        background: rgba(139, 99, 75, 0.05);
         transform: translateX(3px);
     }
 
@@ -376,7 +377,7 @@
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: rgba(93, 64, 55, 0.05);
+        background: rgba(139, 99, 75, 0.05);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -385,7 +386,7 @@
 
     .dashEmpty-icon i {
         font-size: 1.5rem;
-        color: rgba(93, 64, 55, 0.2);
+        color: rgba(139, 99, 75, 0.2);
     }
 
     .dashEmpty p {
@@ -408,7 +409,7 @@
         font-weight: 700;
         letter-spacing: 3px;
         font-size: 0.72rem;
-        color: #D4A862;
+        color: #8B634B;
         margin-bottom: 0.3rem;
     }
 
@@ -432,13 +433,14 @@
         align-items: center;
         gap: 6px;
         transition: all 0.3s;
-        box-shadow: 0 4px 16px rgba(93, 64, 55, 0.2);
+        box-shadow: 0 4px 16px rgba(93, 64, 55, 0.25);
         white-space: nowrap;
+        border: none !important;
     }
 
     .dashSecHead .secBtn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(93, 64, 55, 0.3);
+        box-shadow: 0 8px 24px rgba(93, 64, 55, 0.35);
     }
 
     /* ═══ MENU CARDS ═══ */
@@ -452,14 +454,14 @@
         background: #fff;
         border-radius: 18px;
         overflow: hidden;
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .dashMenuCard:hover {
         transform: translateY(-6px);
-        box-shadow: 0 16px 40px rgba(93, 64, 55, 0.12);
+        box-shadow: 0 16px 40px rgba(139, 99, 75, 0.12);
     }
 
     .dashMenuCard .mcImg {
@@ -483,13 +485,13 @@
         position: absolute;
         top: 12px;
         left: 12px;
-        background: linear-gradient(135deg, #D4A862, #c49652);
+        background: linear-gradient(135deg, #5D4037, #795548);
         color: #fff;
         padding: 0.25rem 0.75rem;
         border-radius: 50px;
         font-size: 0.65rem;
         font-weight: 700;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px rgba(93, 64, 55, 0.3);
     }
 
     .dashMenuCard .mcNoImg {
@@ -497,7 +499,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #5D4037 0%, #8D6E63 50%, #D4A862 100%);
+        background: linear-gradient(135deg, #5D4037 0%, #795548 100%);
     }
 
     .dashMenuCard .mcInfo {
@@ -513,14 +515,14 @@
 
     .dashMenuCard .mcInfo .mcPrice {
         font-weight: 800;
-        color: var(--primary-color);
+        color: #8B634B;
         font-size: 1rem;
         font-family: 'Playfair Display', serif;
     }
 
     .dashMenuCard .mcInfo .mcCat {
         display: inline-block;
-        background: rgba(93, 64, 55, 0.06);
+        background: rgba(139, 99, 75, 0.06);
         color: var(--text-muted);
         padding: 0.18rem 0.65rem;
         border-radius: 50px;
@@ -532,57 +534,70 @@
     /* ═══ CATEGORY GRID ═══ */
     .dashCatGrid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 2rem;
     }
 
     .dashCatCard {
-        background: #fff;
-        border-radius: 16px;
-        overflow: hidden;
-        border: 1px solid rgba(93, 64, 55, 0.06);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-        transition: all 0.35s ease;
+        display: flex;
+        flex-direction: column;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        cursor: pointer;
+        height: 100%;
+        transition: transform 0.4s ease;
         text-decoration: none !important;
-        color: inherit !important;
+        color: var(--text-main) !important;
     }
 
     .dashCatCard:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 32px rgba(93, 64, 55, 0.1);
+        transform: translateY(-8px);
     }
 
     .dashCatCard .ccImg {
-        height: 130px;
+        position: relative;
+        width: 100%;
+        padding-top: 130%; /* Portrait rectangle aspect ratio */
+        border-radius: 0;
         overflow: hidden;
+        background: #f8f9fa;
+        flex-shrink: 0;
     }
 
     .dashCatCard .ccImg img {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transition: transform 0.5s;
+        transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
     }
 
     .dashCatCard:hover .ccImg img {
-        transform: scale(1.08);
+        transform: scale(1.1);
     }
 
     .dashCatCard .ccInfo {
-        padding: 0.9rem 1.1rem;
+        padding: 1rem 0;
+        display: flex;
+        flex-direction: column;
     }
 
     .dashCatCard .ccInfo h5 {
-        font-family: 'Playfair Display', serif;
+        font-family: 'Georgia', serif;
         font-weight: 700;
-        font-size: 0.95rem;
-        margin-bottom: 0.15rem;
+        font-size: 1.15rem;
+        color: var(--text-main);
+        margin: 0;
     }
 
     .dashCatCard .ccInfo p {
-        color: var(--text-muted);
-        font-size: 0.75rem;
-        margin: 0;
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+        color: #443127;
+        font-weight: bold;
     }
 
     /* ═══ LOCATION ═══ */
@@ -593,7 +608,7 @@
         border-radius: 24px;
         overflow: hidden;
         box-shadow: 0 8px 36px rgba(0, 0, 0, 0.06);
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
         margin: 3.5rem 0;
     }
 
@@ -626,7 +641,7 @@
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background: rgba(93, 64, 55, 0.06);
+        background: rgba(139, 99, 75, 0.06);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -720,7 +735,7 @@
 <main>
     <!-- ═══ CINEMATIC HERO ═══ -->
     <section class="dashHero">
-        <img src="https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=2070&auto=format&fit=crop"
+        <img loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=75&w=1600&auto=format&fit=crop"
             alt="Restaurant Ambiance">
         <div class="dashHero-content">
             <div class="dashHero-text">
@@ -736,9 +751,9 @@
     <!-- ═══ STATS ═══ -->
     <section class="dashWrap">
         <div class="dashStats">
-            <div class="dashStat" style="--stat-accent: rgba(93,64,55,0.06);">
+            <div class="dashStat" style="--stat-accent: rgba(139, 99, 75,0.06);">
                 <div class="dashStat-icon"
-                    style="background: linear-gradient(135deg, rgba(93,64,55,0.08), rgba(93,64,55,0.15)); color: var(--primary-color);">
+                    style="background: linear-gradient(135deg, rgba(139, 99, 75,0.08), rgba(139, 99, 75,0.15)); color: var(--primary-color);">
                     <i class="fas fa-calendar-check"></i>
                 </div>
                 <div>
@@ -767,7 +782,7 @@
                 <div class="dashPanel-head">
                     <h5><i class="fas fa-clock" style="color: var(--primary-color); font-size: 0.95rem;"></i> Upcoming
                         Reservations</h5>
-                    <a href="{{ url_for('main.reserve') }}" class="panelBtn"><i class="fas fa-plus"></i> New</a>
+                    <a href="{{ url_for('main.reserve') }}" class="panelBtn" onclick="clearReservationSession()"><i class="fas fa-plus"></i> New</a>
                 </div>
                 {% if upcoming %}
                 {% for res in upcoming %}
@@ -798,7 +813,7 @@
                 <div class="dashEmpty">
                     <div class="dashEmpty-icon"><i class="far fa-calendar"></i></div>
                     <p>No upcoming reservations</p>
-                    <a href="{{ url_for('main.reserve') }}" class="panelBtn" style="display: inline-flex;">Book a
+                    <a href="{{ url_for('main.reserve') }}" class="panelBtn" style="display: inline-flex;" onclick="clearReservationSession()">Book a
                         Table</a>
                 </div>
                 {% endif %}
@@ -824,7 +839,7 @@
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <span
-                                style="font-weight: 700; color: var(--primary-color); font-size: 0.9rem; font-family:'Playfair Display',serif;">₱{{
+                                style="font-weight: 700; color: #8B634B; font-size: 0.9rem; font-family:'Playfair Display',serif;">₱{{
                                 "%.2f"|format(order.total_amount) }}</span>
                             {% if order.status == 'COMPLETED' %}
                             <span class="dbadge dbadge-green">Done</span>
@@ -853,40 +868,6 @@
                 </div>
                 {% endif %}
             </div>
-        </div>
-    </section>
-
-    <!-- ═══ BESTSELLERS ═══ -->
-    <section class="dashWrap">
-        <div class="dashSecHead">
-            <div>
-                <p class="eyebrow">🔥 Bestsellers</p>
-                <h3>Today's Specials</h3>
-            </div>
-            <a href="{{ url_for('main.menu_page') }}" class="secBtn">Full Menu <i class="fas fa-arrow-right"></i></a>
-        </div>
-        <div class="dashMenuGrid">
-            {% for item in bestsellers %}
-            <div class="dashMenuCard">
-                {% if item.image_url %}
-                <div class="mcImg">
-                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                    <span class="mcBadge"><i class="fas fa-fire me-1"></i>Popular</span>
-                </div>
-                {% else %}
-                <div class="mcNoImg">
-                    <i class="fas fa-utensils" style="font-size: 2.5rem; color: rgba(255,255,255,0.2);"></i>
-                </div>
-                {% endif %}
-                <div class="mcInfo">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <h6>{{ item.name }}</h6>
-                        <span class="mcPrice">₱{{ item.price }}</span>
-                    </div>
-                    <span class="mcCat">{{ item.category }}</span>
-                </div>
-            </div>
-            {% endfor %}
         </div>
     </section>
 
@@ -924,62 +905,30 @@
     </section>
     {% endif %}
 
-    <!-- ═══ FEATURED PICKS ═══ -->
-    <section class="dashWrap">
-        <div class="dashSecHead">
-            <div>
-                <p class="eyebrow">Curated For You</p>
-                <h3>Today's Featured Picks</h3>
-            </div>
-            <a href="{{ url_for('main.menu_page') }}" class="secBtn">Full Menu <i class="fas fa-arrow-right"></i></a>
-        </div>
-        <div class="dashMenuGrid">
-            {% for item in featured %}
-            <div class="dashMenuCard">
-                {% if item.image_url %}
-                <div class="mcImg">
-                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                </div>
-                {% else %}
-                <div class="mcNoImg">
-                    <i class="fas fa-utensils" style="font-size: 2.5rem; color: rgba(255,255,255,0.2);"></i>
-                </div>
-                {% endif %}
-                <div class="mcInfo">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <h6>{{ item.name }}</h6>
-                        <span class="mcPrice">₱{{ item.price }}</span>
-                    </div>
-                    <span class="mcCat">{{ item.category }}</span>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
+
 
     <!-- ═══ CATEGORIES ═══ -->
     <section class="dashWrap">
-        <div class="dashSecHead">
+        <div class="dashSecHead justify-content-center text-center">
             <div>
                 <p class="eyebrow">Browse By</p>
-                <h3>Menu Categories</h3>
+                <h3 style="font-size: 2.2rem; color: #8B634B;">Menu Categories</h3>
             </div>
         </div>
         <div class="dashCatGrid">
             {% for cat in categories %}
             <a href="{{ url_for('main.menu_page') }}" class="dashCatCard">
                 {% if cat.sample_image %}
-                <div class="ccImg"><img src="{{ cat.sample_image }}" alt="{{ cat.category }}"></div>
+                <div class="ccImg"><img loading="lazy" decoding="async" src="{{ cat.sample_image }}" alt="{{ cat.category }}"></div>
                 {% else %}
                 <div class="ccImg"
-                    style="background: linear-gradient(135deg, #5D4037, #8D6E63, #D4A862); display: flex; align-items: center; justify-content: center;">
+                    style="background: linear-gradient(135deg, #8b634b, #8D6E63, #D4A862); display: flex; align-items: center; justify-content: center;">
                     <i class="fas fa-utensils" style="font-size: 2rem; color: rgba(255,255,255,0.2);"></i>
                 </div>
                 {% endif %}
-                <div class="ccInfo">
+                <div class="ccInfo" style="flex-grow: 1; display: flex; flex-direction: column;">
                     <h5>{{ cat.category }}</h5>
-                    <p class="fw-bold" style="color: var(--primary-color); font-size: 0.75rem; margin: 0;">Browse
-                        Selection <i class="fas fa-angle-right ms-1"></i></p>
+                    <p class="fw-bold" style="color: var(--primary-color); font-size: 0.75rem; margin: 0; margin-top: auto;">See More <i class="fas fa-arrow-right ms-1"></i></p>
                 </div>
             </a>
             {% endfor %}
@@ -1023,3 +972,6 @@
     </section>
 </main>
 {% endblock %}
+
+
+

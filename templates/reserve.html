@@ -19,7 +19,7 @@
     }
 
     .resHeader {
-        background: linear-gradient(135deg, rgba(93, 64, 55, 0.04), rgba(212, 168, 98, 0.06));
+        background: linear-gradient(135deg, rgba(139, 99, 75, 0.04), rgba(212, 168, 98, 0.06));
         padding: 2.5rem 2.5rem 1.5rem;
         text-align: center;
     }
@@ -29,7 +29,7 @@
         font-weight: 700;
         font-size: 2rem;
         margin-bottom: 0.5rem;
-        background: linear-gradient(135deg, #5D4037, #D4A862);
+        background: linear-gradient(135deg, #5D4037, #795548);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -44,9 +44,9 @@
     .resPolicies {
         margin: 0 2rem;
         padding: 1.5rem;
-        background: rgba(93, 64, 55, 0.03);
+        background: rgba(139, 99, 75, 0.03);
         border-radius: 16px;
-        border: 1px solid rgba(93, 64, 55, 0.06);
+        border: 1px solid rgba(139, 99, 75, 0.06);
     }
 
     .resPolicies h6 {
@@ -81,7 +81,7 @@
     }
 
     .resPolicies .polItem strong i {
-        color: #D4A862;
+        color: #8B634B;
         font-size: 0.8rem;
     }
 
@@ -96,7 +96,7 @@
 
     .resPolicies .polFull {
         grid-column: 1 / -1;
-        border-top: 1px solid rgba(93, 64, 55, 0.08);
+        border-top: 1px solid rgba(139, 99, 75, 0.08);
         padding-top: 0.75rem;
         margin-top: 0.25rem;
     }
@@ -127,7 +127,7 @@
     .resField input,
     .resField select,
     .resField textarea {
-        border: 1.5px solid rgba(93, 64, 55, 0.12);
+        border: 1.5px solid rgba(139, 99, 75, 0.12);
         border-radius: 12px;
         padding: 0.7rem 1rem;
         font-size: 0.9rem;
@@ -143,7 +143,7 @@
     .resField select:focus,
     .resField textarea:focus {
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(93, 64, 55, 0.08);
+        box-shadow: 0 0 0 3px rgba(139, 99, 75, 0.08);
         outline: none;
     }
 
@@ -166,13 +166,14 @@
         font-size: 1rem;
         cursor: pointer;
         transition: all 0.3s;
-        box-shadow: 0 6px 20px rgba(93, 64, 55, 0.2);
+        box-shadow: 0 4px 14px rgba(93, 64, 55, 0.25);
+        border: none !important;
         letter-spacing: 0.5px;
     }
 
     .resSubmit:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(93, 64, 55, 0.3);
+        box-shadow: 0 8px 24px rgba(93, 64, 55, 0.35);
     }
 
     .resSteps {
@@ -261,17 +262,30 @@
 <div class="resPage">
     <div class="resCard">
         <div class="resHeader">
-            <h2><i class="fas fa-calendar-plus"
-                    style="font-size: 1.6rem; -webkit-text-fill-color: var(--primary-color);"></i> Book a Table</h2>
+            <h2>Book a Table</h2>
             <p>Experience fine dining. Reserve your spot today.</p>
+
+            <div class="step-indicator mt-4" style="display: flex; justify-content: center; gap: 1rem; align-items: center;">
+                <div class="step active" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: #5D4037;">
+                    <div class="step-num" style="width: 28px; height: 28px; border-radius: 50%; background: #5D4037; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">1</div> Details
+                </div>
+                <div class="step-line" style="width: 40px; height: 2px; background: #eee;"></div>
+                <div class="step" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: #bcaaa4;">
+                    <div class="step-num" style="width: 28px; height: 28px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">2</div> Menu
+                </div>
+                <div class="step-line" style="width: 40px; height: 2px; background: #eee;"></div>
+                <div class="step" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: #bcaaa4;">
+                    <div class="step-num" style="width: 28px; height: 28px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">3</div> Payment
+                </div>
+            </div>
         </div>
 
         <!-- Enhanced Reservation Policies Section -->
         <div class="resPolicies"
-            style="background: #fff; border: 1.5px solid rgba(139, 69, 19, 0.08); padding: 1.8rem; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); margin: 0 2rem 1.5rem;">
+            style="background: #fff; border: 1.5px solid rgba(139, 99, 75, 0.08); padding: 1.8rem; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); margin: 0 2rem 1.5rem;">
             <div class="d-flex align-items-center gap-2 mb-4">
                 <div
-                    style="background: #8B4513; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    style="background: #5D4037; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                     <i class="fas fa-info-circle text-white" style="font-size: 0.9rem;"></i>
                 </div>
                 <h5 class="mb-0 fw-bold"
@@ -283,14 +297,14 @@
                 <!-- Lead Time & Hours -->
                 <div class="col-md-6">
                     <div class="d-flex gap-3">
-                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i
+                        <div style="color: #8B634B; font-size: 1.2rem; min-width: 24px;"><i
                                 class="fas fa-calendar-check"></i></div>
                         <div>
                             <h6 class="fw-bold mb-1" style="font-size: 0.88rem; color: #5D4037;">Booking Schedule</h6>
                             <p class="mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.4;">
-                                <span id="advance-text" class="fw-bold" style="color: #8B4513;">Same day to 2
+                                <span id="advance-text" class="fw-bold" style="color: #5D4037;">Same day to 2
                                     months</span> in advance.<br>
-                                Slots available from <span class="fw-bold" style="color: #8B4513;">11:30 AM to 8:30
+                                Slots available from <span class="fw-bold" style="color: #5D4037;">11:30 AM to 8:30
                                     PM</span>.
                             </p>
                         </div>
@@ -300,31 +314,28 @@
                 <!-- Capacity -->
                 <div class="col-md-6">
                     <div class="d-flex gap-3">
-                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i class="fas fa-users"></i>
+                        <div style="color: #8B634B; font-size: 1.2rem; min-width: 24px;"><i class="fas fa-users"></i>
                         </div>
                         <div>
-                            <h6 class="fw-bold mb-1" style="font-size: 0.88rem; color: #5D4037;">Guest Capacity</h6>
+                            <h6 class="fw-bold mb-1" style="font-size: 0.88rem; color: #8b634b;">Guest Capacity</h6>
                             <p class="mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.4;">
                                 Accommodates up to <span id="max-guest-text" class="fw-bold"
-                                    style="color: #8B4513;">20</span> guests per booking.<br>
+                                    style="color: #8b634b;">20</span> guests per booking.<br>
                                 <span style="font-size: 0.72rem;">*Subject to real-time seat availability checks.</span>
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Approval Status -->
-                <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed rgba(139, 69, 19, 0.15);">
+                <!-- Payment First Rule -->
+                <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed rgba(139, 99, 75, 0.15);">
                     <div class="d-flex gap-3 align-items-center">
-                        <div style="color: #D4A862; font-size: 1.2rem; min-width: 24px;"><i
-                                class="fas fa-shield-alt"></i></div>
+                        <div style="color: #d35400; font-size: 1.2rem; min-width: 24px;"><i
+                                class="fas fa-credit-card"></i></div>
                         <div
-                            style="background: rgba(212,168,98,0.06); padding: 10px 15px; border-radius: 12px; border: 1px solid rgba(212,168,98,0.1); width: 100%;">
-                            <p class="mb-0" style="font-size: 0.8rem; line-height: 1.4; color: #5D4037;">
-                                <i class="fas fa-clock-rotate-left me-2" style="font-size: 0.75rem;"></i>
-                                All bookings are initially tagged as <strong
-                                    style="color: #A0522D; text-transform: uppercase; font-size: 0.75rem; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #A0522D;">Pending</strong>.
-                                Our team will review and approve your request shortly.
+                            style="background: #fff8f0; padding: 10px 15px; border-radius: 12px; border: 1px solid #fde0b5; width: 100%;">
+                            <p class="mb-0" style="font-size: 0.8rem; line-height: 1.4; color: #d35400;">
+                                <strong style="font-size: 0.85rem;">Payment First Policy:</strong> All reservations require menu pre-selection and online payment to confirm your booking.
                             </p>
                         </div>
                     </div>
@@ -332,6 +343,7 @@
             </div>
         </div>
 
+<<<<<<< HEAD
         <form method="POST" action="{{ url_for('main.reserve') }}" class="resForm" id="reservationForm">
             <!-- Step Indicators -->
             <div class="resSteps">
@@ -360,6 +372,27 @@
                             • 5-8 Pax: Combined Tables<br>
                             • 9+ Pax: Banquet Seating
                         </div>
+=======
+        <form method="POST" action="{{ url_for('main.reserve') }}" class="resForm">
+            <div class="resRow">
+                <div class="resField">
+                    <label for="booking_type">Booking Type</label>
+                    <select id="booking_type" name="booking_type" onchange="updateBookingRules()" required>
+                        <option value="REGULAR" selected>Standard Booking</option>
+                        <option value="EXCLUSIVE">Exclusive (Rent Whole Restaurant)</option>
+                    </select>
+                </div>
+                <div class="resField">
+                    <label for="guest_count">Total Guests & Seating Preference</label>
+                    <input type="number" id="guest_count" name="guest_count" min="1" max="50" step="1" required
+                        placeholder="Total number of guests">
+                    <div id="guestHint"
+                        style="background: rgba(139, 99, 75, 0.05); border: 1px solid rgba(139, 99, 75, 0.1); border-radius: 8px; padding: 10px; margin-top: 0.5rem; font-size: 0.78rem; color: #8b634b; line-height: 1.5;">
+                        <i class="fas fa-chair me-2" style="color: #D4A862;"></i><strong>Seating Guide:</strong><br>
+                        • 1-4 Persons: 1 Standard Table<br>
+                        • 5-8 Persons: 2 Combined Tables<br>
+                        • 9+ Persons: Group Banquet Seating
+>>>>>>> 7128755d5fc228a246295009c3447dcff7d8c5e2
                     </div>
                 </div>
                 <div class="resRow mb-0">
@@ -441,6 +474,11 @@
                     <button type="submit" class="resSubmit flex-grow-1" style="margin-top:0;"><i class="fas fa-calendar-check me-2"></i>Confirm & Reserve</button>
                 </div>
             </div>
+<<<<<<< HEAD
+=======
+
+            <button type="submit" class="resSubmit">Continue to Menu <i class="fas fa-arrow-right ms-2"></i></button>
+>>>>>>> 7128755d5fc228a246295009c3447dcff7d8c5e2
         </form>
     </div>
 </div>
@@ -453,34 +491,92 @@
         var advanceText = document.getElementById('advance-text');
         var maxGuestText = document.getElementById('max-guest-text');
         var dateField = document.getElementById('date');
+        var durationSelect = document.getElementById('duration');
 
         var today = new Date();
-        var minExclusive = new Date(today); minExclusive.setDate(minExclusive.getDate() + 3);
-        var maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 60);
+        
+        // Calculate current time as HH:MM
+        var currHour = today.getHours();
+        var currMin = today.getMinutes();
+        var currTimeStr = (currHour < 10 ? '0' + currHour : currHour) + ':' + (currMin < 10 ? '0' + currMin : currMin);
+        
+        // If it's 8:30 PM (20:30) or later, same-day booking is closed, shift "effective today" to tomorrow.
+        var effectiveToday = new Date(today);
+        if (currTimeStr >= "20:30") {
+            effectiveToday.setDate(effectiveToday.getDate() + 1);
+        }
+
+        var minExclusive = new Date(effectiveToday); minExclusive.setDate(minExclusive.getDate() + 3);
+        var maxDate = new Date(effectiveToday); maxDate.setDate(maxDate.getDate() + 60);
 
         if (type === 'EXCLUSIVE') {
-            guestInput.max = 50;
-            guestHint.innerText = 'Maximum of 50 guests for exclusive bookings.';
-            maxGuestText.innerText = '50';
-            advanceText.innerText = '3 days to 2 months';
+            guestInput.max = 40;
+            if (guestInput.value > 40) guestInput.value = 40;
+            
+            // Set fixed duration for Exclusive
+            durationSelect.value = "2";
+            durationSelect.disabled = true;
+            
+            // Update UI
+            guestHint.innerHTML = '<i class="fas fa-gem me-2" style="color: #D4A862;"></i><strong>Exclusive Booking:</strong><br>• Capacity: Max 40 pax<br>• Duration: Fixed 2 Hours (Automatic)<br>• Consumable: All Menu Items included';
+            maxGuestText.innerText = '40';
+            
+            // Pricing Preview logic
+            function updatePriceDisplay() {
+                var d = new Date(dateField.value);
+                var isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                var price = isWeekend ? "30,000" : "20,000";
+                var dayType = isWeekend ? "Weekend" : "Weekday";
+                
+                if (dateField.value) {
+                    guestHint.innerHTML += `<div class="mt-2 pt-2 border-top" style="border-color: rgba(139,99,75,0.2) !important;">
+                        <span class="badge bg-dark">PHP ${price}</span> (${dayType} Rate)
+                    </div>`;
+                }
+            }
+
+            if (currTimeStr >= "20:30") {
+                advanceText.innerText = '3 days to 2 months (Closed for today)';
+            } else {
+                advanceText.innerText = '3 days to 2 months';
+            }
 
             // Require 3 days advance
             var minStr = minExclusive.toISOString().split("T")[0];
             dateField.min = minStr;
 
-            // If currently selected date is before 3 days from now, clear it
             if (dateField.value && dateField.value < minStr) {
                 dateField.value = '';
             }
+            
+            updatePriceDisplay();
+            dateField.onchange = function() {
+                filterTimeSlots();
+                updateBookingRules(); // Re-run to update price display
+            };
         } else {
             guestInput.max = 20;
             if (guestInput.value > 20) guestInput.value = 20;
-            guestHint.innerText = 'Maximum of 20 guests per reservation.';
+            
+            durationSelect.disabled = false;
+            
+            guestHint.innerHTML = '<i class="fas fa-chair me-2" style="color: #8B634B;"></i><strong>Standard Booking:</strong><br>• 1-4 Persons: 1 Standard Table<br>• 5-8 Persons: 2 Combined Tables<br>• 9+ Persons: Group Banquet Seating';
             maxGuestText.innerText = '20';
-            advanceText.innerText = 'Same day to 2 months';
+            
+            if (currTimeStr >= "20:30") {
+                advanceText.innerHTML = 'Tomorrow to 2 months <span style="color:red;font-size:0.75rem;">(Closed for today)</span>';
+            } else {
+                advanceText.innerText = 'Same day to 2 months';
+            }
 
-            // Allow same day
-            dateField.min = today.toISOString().split("T")[0];
+            var minStr = effectiveToday.toISOString().split("T")[0];
+            dateField.min = minStr;
+            
+            if (dateField.value && dateField.value < minStr) {
+                dateField.value = '';
+            }
+            
+            dateField.onchange = filterTimeSlots;
         }
 
         dateField.max = maxDate.toISOString().split("T")[0];
@@ -491,6 +587,7 @@
         var dateField = document.getElementById('date');
         var timeSelect = document.getElementById('time');
         var options = timeSelect.options;
+        var submitBtn = document.querySelector('.resSubmit');
 
         var selectedDate = dateField.value;
         var today = new Date();
@@ -501,6 +598,7 @@
         var currMin = today.getMinutes();
         var currTimeStr = (currHour < 10 ? '0' + currHour : currHour) + ':' + (currMin < 10 ? '0' + currMin : currMin);
 
+        let hasAvailableSlots = false;
         for (var i = 1; i < options.length; i++) {
             var opt = options[i];
             if (selectedDate === todayStr) {
@@ -510,6 +608,7 @@
                     opt.text = opt.value + " (Unavailable)";
                 } else {
                     opt.disabled = false;
+                    hasAvailableSlots = true;
                     // Reset text
                     var ampm = parseInt(opt.value.split(':')[0]) >= 12 ? ' PM' : ' AM';
                     var h = parseInt(opt.value.split(':')[0]) % 12 || 12;
@@ -519,11 +618,30 @@
             } else {
                 // Enable everything for future dates
                 opt.disabled = false;
+                hasAvailableSlots = true;
                 var ampm = parseInt(opt.value.split(':')[0]) >= 12 ? ' PM' : ' AM';
                 var h = parseInt(opt.value.split(':')[0]) % 12 || 12;
                 var m = opt.value.split(':')[1];
                 opt.text = h + ":" + m + ampm;
             }
+        }
+
+        // Final check for cutoff
+        if (selectedDate === todayStr && currTimeStr >= "20:30") {
+            hasAvailableSlots = false;
+            for(var i=1; i<options.length; i++) options[i].disabled = true;
+        }
+
+        if (!hasAvailableSlots && selectedDate === todayStr) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Restaurant Closed For Today";
+            submitBtn.style.opacity = "0.6";
+            submitBtn.style.cursor = "not-allowed";
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Continue to Menu <i class="fas fa-arrow-right ms-2"></i>';
+            submitBtn.style.opacity = "1";
+            submitBtn.style.cursor = "pointer";
         }
 
         // If current selected time is now disabled, reset
@@ -532,6 +650,7 @@
         }
     }
 
+<<<<<<< HEAD
     function goToStep(stepNum) {
         // Validate inputs before next step
         if (stepNum === 2) {
@@ -583,9 +702,60 @@
             document.getElementById('sumOccasionLi').style.display = 'none';
         }
     }
+=======
+>>>>>>> 7128755d5fc228a246295009c3447dcff7d8c5e2
 
     document.addEventListener("DOMContentLoaded", function () {
+        // Safety: If not coming back from Step 2 (Menu Selection), clear old session data
+        if (!document.referrer.includes('/reserve/menu')) {
+            const keys = Object.keys(sessionStorage);
+            keys.forEach(key => {
+                if (key.startsWith('res_')) {
+                    sessionStorage.removeItem(key);
+                }
+            });
+        }
+
+        // Fallback or override values from session if coming back from Step 2
+        let p_date = "{{ pending.get('date', '') if pending else '' }}";
+        let p_time = "{{ pending.get('time', '') if pending else '' }}";
+        let p_guests = "{{ pending.get('guest_count', '') if pending else '' }}";
+        let p_type = "{{ pending.get('booking_type', 'REGULAR') if pending else 'REGULAR' }}";
+        let p_duration = "{{ pending.get('duration', '2') if pending else '2' }}";
+        let p_occasion = "{{ pending.get('occasion', '') if pending else '' }}";
+
+        // Restore from sessionStorage OR server pending details
+        if (sessionStorage.getItem('res_type') || p_type) document.getElementById('booking_type').value = sessionStorage.getItem('res_type') || p_type;
+        if (sessionStorage.getItem('res_guests') || p_guests) document.getElementById('guest_count').value = sessionStorage.getItem('res_guests') || p_guests;
+        if (sessionStorage.getItem('res_duration') || p_duration) document.getElementById('duration').value = sessionStorage.getItem('res_duration') || p_duration;
+        if (sessionStorage.getItem('res_occasion') || p_occasion) document.getElementById('occasion').value = sessionStorage.getItem('res_occasion') || p_occasion;
+        if (sessionStorage.getItem('res_date') || p_date) document.getElementById('date').value = sessionStorage.getItem('res_date') || p_date;
+
         updateBookingRules();
+
+        // Time needs to be set after options are generated
+        setTimeout(() => {
+            let selectedTime = sessionStorage.getItem('res_time') || p_time;
+            if (selectedTime) document.getElementById('time').value = selectedTime;
+        }, 50);
+
+        // Save on change
+        const fields = ['booking_type', 'guest_count', 'duration', 'occasion', 'date', 'time'];
+        fields.forEach(f => {
+            var el = document.getElementById(f);
+            if(el) {
+                el.addEventListener('input', (e) => {
+                    sessionStorage.setItem('res_' + f, e.target.value);
+                });
+                el.addEventListener('change', (e) => {
+                    sessionStorage.setItem('res_' + f, e.target.value);
+                });
+            }
+        });
     });
 </script>
 {% endblock %}
+
+
+
+

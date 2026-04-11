@@ -5,20 +5,77 @@ from models import db, MenuItem, Reservation
 from utils import load_site_settings
 from sqlalchemy import func
 from datetime import date
+from sqlalchemy.orm import load_only
+import time
+import random
+
+_MENU_PAGE_CACHE = {"loaded_at": 0.0, "items": None}
+_FEATURED_CACHE = {"loaded_at": 0.0, "items": None}
+
+def _get_menu_items_for_menu_page():
+    # Small TTL cache to speed up navigation between tabs.
+    ttl_seconds = 10
+    now = time.monotonic()
+    cached = _MENU_PAGE_CACHE["items"]
+    if cached is not None and (now - _MENU_PAGE_CACHE["loaded_at"]) < ttl_seconds:
+        return cached
+
+    items = (
+        MenuItem.query.options(
+            load_only(MenuItem.id, MenuItem.name, MenuItem.price, MenuItem.category, MenuItem.image_url, MenuItem.is_available)
+        )
+        .filter(MenuItem.is_deleted == False)
+        .order_by(MenuItem.category, MenuItem.name)
+        .all()
+    )
+    _MENU_PAGE_CACHE["items"] = items
+    _MENU_PAGE_CACHE["loaded_at"] = now
+    return items
+
+def _get_featured_items_cached():
+    ttl_seconds = 60
+    now = time.monotonic()
+    if _FEATURED_CACHE["items"] is not None and (now - _FEATURED_CACHE["loaded_at"]) < ttl_seconds:
+        return _FEATURED_CACHE["items"]
+
+    total_available = MenuItem.query.filter_by(is_available=True, is_deleted=False).count()
+    if total_available <= 0:
+        _FEATURED_CACHE["items"] = []
+        _FEATURED_CACHE["loaded_at"] = now
+        return _FEATURED_CACHE["items"]
+
+    # Avoid `ORDER BY RANDOM()` (slow on large tables). We cache and pick an indexed slice by offset.
+    offset = 0
+    if total_available > 6:
+        offset = random.randint(0, total_available - 6)
+
+    items = (
+        MenuItem.query.filter_by(is_available=True, is_deleted=False)
+        .order_by(MenuItem.id.asc())
+        .offset(offset)
+        .limit(6)
+        .all()
+    )
+
+    _FEATURED_CACHE["items"] = items
+    _FEATURED_CACHE["loaded_at"] = now
+    return items
 
 @main_bp.route('/')
 def index():
     site = load_site_settings()
-    menu_items = MenuItem.query.filter_by(is_available=True).limit(4).all()
+    menu_items = MenuItem.query.filter_by(is_deleted=False).limit(4).all()
     categories = db.session.query(
         MenuItem.category,
         func.count(MenuItem.id).label('count'),
         func.min(MenuItem.image_url).label('sample_image')
-    ).filter(MenuItem.is_available == True).group_by(MenuItem.category).all()
+    ).filter(MenuItem.is_deleted == False).group_by(MenuItem.category).all()
 
     if current_user.is_authenticated and current_user.role != 'ADMIN':
-        # Personalized user dashboard
+        # Optimized User Dashboard - Combined queries and added limits
         today = date.today()
+        
+        # Combined Reservation Fetching
         upcoming = Reservation.query.filter(
             Reservation.user_id == current_user.id,
             Reservation.date >= today,
@@ -35,43 +92,38 @@ def index():
             Reservation.status == 'COMPLETED'
         ).count()
 
-        featured = MenuItem.query.filter_by(is_available=True).order_by(func.random()).limit(6).all()
+        # Efficient Menu Fetching
+        featured = _get_featured_items_cached()
+        bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(6).all()
 
-        # Bestsellers - items from the 'Best Sellers' category
-        bestsellers = MenuItem.query.filter_by(is_available=True, category='Best Sellers').all()
-
-        from models import Order
-        
+        from models import Order, Review
         recent_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).limit(5).all()
         
-        from models import Review
+        # Optimized Review Lookup
         user_reviews = Review.query.filter_by(user_id=current_user.id).all()
         user_reviews_by_order = {r.order_id: r for r in user_reviews if r.order_id}
 
         return render_template('user_home.html',
-            site=site,
-            upcoming=upcoming,
-            past=past,
-            total_visits=total_visits,
-            featured=featured,
-            bestsellers=bestsellers,
-            categories=categories,
-            menu_items=menu_items,
-            recent_orders=recent_orders,
-            user_reviews_by_order=user_reviews_by_order
+            site=site, upcoming=upcoming, past=past, total_visits=total_visits,
+            featured=featured, bestsellers=bestsellers, categories=categories,
+            menu_items=menu_items, recent_orders=recent_orders,
+            user_reviews_by_order=user_reviews_by_order,
+            approved_reviews=Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).limit(30).all()
         )
 
     from models import Review
-    approved_reviews = Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).all()
+    approved_reviews = Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).limit(30).all()
+    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(8).all()
 
-    return render_template('index.html', menu_items=menu_items, site=site, categories=categories, approved_reviews=approved_reviews)
+    return render_template('index.html', menu_items=menu_items, site=site, categories=categories, approved_reviews=approved_reviews, bestsellers=bestsellers)
 
 @main_bp.route('/my-orders')
 @login_required
 def my_orders():
     from models import Order, Review
 
-    all_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    # Optimized Order Fetching (Limit to last 30 to prevent dashboard lag)
+    all_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).limit(30).all()
     
     for o in all_orders:
         if o.dining_option == 'DELIVERY' and o.status == 'COMPLETED' and o.delivery_status != 'DELIVERED':
@@ -101,10 +153,43 @@ def my_orders():
         user_reviews_by_order=user_reviews_by_order
     )
 
+@main_bp.route('/my-reservations')
+@login_required
+def my_reservations():
+    from models import Reservation
+    # Limit list payload to keep page snappy; counts stay accurate via SQL
+    all_res = (
+        Reservation.query.filter_by(user_id=current_user.id)
+        .order_by(Reservation.date.desc(), Reservation.time.desc())
+        .limit(100)
+        .all()
+    )
+
+    from sqlalchemy import func
+    rows = (
+        db.session.query(Reservation.status, func.count(Reservation.id))
+        .filter(Reservation.user_id == current_user.id)
+        .group_by(Reservation.status)
+        .all()
+    )
+    counts = {status: c for status, c in rows}
+    pending_count = counts.get('PENDING', 0)
+    confirmed_count = counts.get('CONFIRMED', 0)
+    completed_count = counts.get('COMPLETED', 0)
+    cancelled_count = counts.get('REJECTED', 0)
+
+    return render_template('my_reservations.html',
+        all_res=all_res,
+        pending_count=pending_count,
+        confirmed_count=confirmed_count,
+        completed_count=completed_count,
+        cancelled_count=cancelled_count
+    )
+
 @main_bp.route('/menu')
 def menu_page():
-    # Show all available items on the full menu page
-    menu_items = MenuItem.query.filter_by(is_available=True).all()
+    # Show all items (even unavailable ones, which show as 'Sold Out')
+    menu_items = _get_menu_items_for_menu_page()
     return render_template('menu_page.html', menu_items=menu_items)
 
 @main_bp.route('/about')
@@ -114,17 +199,18 @@ def about_page():
 @main_bp.route('/reviews')
 def reviews_page():
     site = load_site_settings()
-    menu_items = MenuItem.query.filter_by(is_available=True).limit(4).all()
+    menu_items = MenuItem.query.filter_by(is_deleted=False).limit(4).all()
     categories = db.session.query(
         MenuItem.category,
         func.count(MenuItem.id).label('count'),
         func.min(MenuItem.image_url).label('sample_image')
-    ).filter(MenuItem.is_available == True).group_by(MenuItem.category).all()
+    ).filter(MenuItem.is_deleted == False).group_by(MenuItem.category).all()
     
     from models import Review
     approved_reviews = Review.query.filter_by(status='APPROVED').order_by(Review.rating.desc(), Review.created_at.desc()).all()
 
-    return render_template('index.html', title="Reviews", site=site, menu_items=menu_items, categories=categories, approved_reviews=approved_reviews)
+    bestsellers = MenuItem.query.filter_by(category='Best Sellers', is_available=True, is_deleted=False).limit(8).all()
+    return render_template('index.html', title="Reviews", site=site, menu_items=menu_items, categories=categories, approved_reviews=approved_reviews, bestsellers=bestsellers)
 
 @main_bp.route('/pages/<page_name>')
 def static_page(page_name):
@@ -293,3 +379,8 @@ def static_page(page_name):
     content = content_map.get(title, f'<div style="text-align:center;"><p>Welcome to the {title} page. Full details will be available soon.</p></div>')
     
     return render_template('generic_page.html', title=title, site=site, content=content)
+
+@main_bp.route('/contact')
+def contact_page():
+    site = load_site_settings()
+    return render_template('contact_page.html', site=site)

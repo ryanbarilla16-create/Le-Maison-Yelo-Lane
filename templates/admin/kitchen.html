@@ -1,484 +1,136 @@
 {% extends "admin/base.html" %}
 
-{% block title %}Kitchen View{% endblock %}
+{% block title %}Kitchen Display | Le Maison Kitchen{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 2rem; font-weight: bold; margin: 0;">
-        <i class="fas fa-fire-burner me-2" style="color: #e65100;"></i>Kitchen Display
-    </h1>
-    <div class="d-flex align-items-center gap-3">
-        <div class="d-flex align-items-center gap-2">
-            <span class="text-muted" style="font-size: 0.8rem;">Auto-refresh</span>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked style="cursor: pointer;">
-            </div>
-        </div>
-        <div class="d-flex align-items-center gap-2 border-start ps-3">
-            <span class="text-muted" style="font-size: 0.8rem;">Sound</span>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="soundToggle" checked style="cursor: pointer;">
-            </div>
-        </div>
-    </div>
+<!-- HEADER SYNCED WITH CHATS ALIGNMENT -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 style="font-family: 'Georgia', serif; color: #5D4037; font-size: 2rem; font-weight: bold; margin: 0;">
+        Kitchen Display System</h1>
 </div>
 
-<!-- Performance Banner -->
-<div class="alert alert-info border-0 shadow-sm d-flex justify-content-between align-items-center mb-4" style="border-radius: 12px; background: white; border-left: 5px solid var(--admin-blue) !important;">
-    <div class="d-flex align-items-center gap-3">
-        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px; background: rgba(59,130,246,0.1); color: var(--admin-blue);">
-            <i class="fas fa-chart-line fs-5"></i>
-        </div>
-        <div>
-            <h6 class="mb-0 fw-bold" style="color: #333;">Today's Throughput</h6>
-            <small class="text-muted">Efficiency tracking for prep stations</small>
+<!-- STANDARD ROW/COL ALIGNMENT (JUST LIKE CHATS PAGE) -->
+<div class="row">
+    <div class="col-md-12">
+        <div id="kitchen-content-wrapper" style="min-height: 75vh;">
+            {% include 'admin/kitchen_partial.html' %}
         </div>
     </div>
-    <div class="d-flex gap-4">
-        <div class="text-center">
-            <div class="fw-bold" style="font-size: 1.1rem; color: var(--admin-blue);">{{ avg_prep_time }}m</div>
-            <small class="text-muted" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Avg. Prep Time</small>
-        </div>
-        <div class="text-center border-start ps-4">
-            <div class="fw-bold" style="font-size: 1.1rem; color: var(--admin-green);">{{ completed_count }}</div>
-            <small class="text-muted" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Served Today</small>
-        </div>
-    </div>
-</div>
-
-<audio id="notificationSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-
-<!-- Status Filter Tabs -->
-<div class="d-flex gap-2 mb-4 flex-wrap">
-    <a href="{{ url_for('admin.kitchen_view', status='ACTIVE') }}"
-        class="btn rounded-pill fw-bold px-4 py-2 shadow-sm {% if status_filter == 'ACTIVE' %}active-tab{% else %}inactive-tab{% endif %}">
-        <i class="fas fa-fire me-1"></i>Active
-        <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ pending_count +
-            preparing_count }}</span>
-    </a>
-    <a href="{{ url_for('admin.kitchen_view', status='PENDING') }}"
-        class="btn rounded-pill fw-bold px-4 py-2 shadow-sm {% if status_filter == 'PENDING' %}active-tab{% else %}inactive-tab{% endif %}">
-        <i class="fas fa-hourglass-half me-1"></i>Pending
-        <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ pending_count }}</span>
-    </a>
-    <a href="{{ url_for('admin.kitchen_view', status='PREPARING') }}"
-        class="btn rounded-pill fw-bold px-4 py-2 shadow-sm {% if status_filter == 'PREPARING' %}active-tab{% else %}inactive-tab{% endif %}">
-        <i class="fas fa-fire me-1"></i>Preparing
-        <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ preparing_count }}</span>
-    </a>
-    <a href="{{ url_for('admin.kitchen_view', status='COMPLETED') }}"
-        class="btn rounded-pill fw-bold px-4 py-2 shadow-sm {% if status_filter == 'COMPLETED' %}active-tab{% else %}inactive-tab{% endif %}">
-        <i class="fas fa-check-circle me-1"></i>Completed
-        <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ completed_count }}</span>
-    </a>
-    <a href="{{ url_for('admin.kitchen_view', status='CANCELLED') }}"
-        class="btn rounded-pill fw-bold px-4 py-2 shadow-sm {% if status_filter == 'CANCELLED' %}active-tab{% else %}inactive-tab{% endif %}">
-        <i class="fas fa-times-circle me-1"></i>Cancelled
-        <span class="badge rounded-pill ms-1" style="background: rgba(255,255,255,0.25);">{{ cancelled_count }}</span>
-    </a>
-</div>
-
-<!-- Consolidated Prep List (Advanced KDS Feature) -->
-{% if status_filter == 'ACTIVE' and orders %}
-<div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; background: #fffcf5; border: 1px solid #ffecc7 !important;">
-    <div class="card-header bg-transparent border-0 pt-3 pb-0">
-        <h6 class="fw-bold mb-0" style="color: #856404;"><i class="fas fa-list-check me-2"></i>Consolidated Prep List (What to cook now)</h6>
-    </div>
-    <div class="card-body">
-        <div class="d-flex flex-wrap gap-3 align-items-center">
-            {% set item_counts = {} %}
-            {% for order in orders if order.status in ['PENDING', 'PREPARING'] %}
-                {% for item in order.items %}
-                    {% if item.menu_item.name in item_counts %}
-                        {% set _ = item_counts.update({item.menu_item.name: (item_counts[item.menu_item.name]|int) + (item.quantity|int)}) %}
-                    {% else %}
-                        {% set _ = item_counts.update({item.menu_item.name: item.quantity|int}) %}
-                    {% endif %}
-                {% endfor %}
-            {% endfor %}
-            
-            {% for name, count in item_counts.items() %}
-            <div class="prep-badge d-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm" 
-                 style="background: white; border: 1px solid #ffecc7; color: #5d4037; transition: all 0.2s ease;">
-                <span class="qty-circle d-flex align-items-center justify-content-center text-white" 
-                      style="width: 26px; height: 26px; background: #8d6e63; border-radius: 50%; font-size: 0.8rem; font-weight: 800; line-height: 1;">{{ count }}</span>
-                <span class="fw-bold" style="font-size: 0.9rem;">{{ name }}</span>
-            </div>
-            {% endfor %}
-        </div>
-<style>
-.prep-badge:hover { transform: translateY(-2px); border-color: #8d6e63 !important; }
-</style>
-    </div>
-</div>
-{% endif %}
-
-<!-- Orders Grid -->
-<div class="row g-3" id="ordersGrid">
-    {% if orders %}
-    {% for order in orders %}
-    <div class="col-xl-4 col-lg-6 col-md-6">
-        <div class="card border-0 shadow-sm h-100 order-ticket" data-status="{{ order.status }}" style="border-radius: 16px; overflow: hidden; border-left: 5px solid 
-                {% if order.status == 'PENDING' %}#ff9800
-                {% elif order.status == 'PREPARING' %}#2196F3
-                {% elif order.status == 'COMPLETED' %}#4CAF50
-                {% else %}#f44336{% endif %}; 
-                transition: all 0.3s;">
-
-            <!-- Ticket Header -->
-            <div class="card-header border-0 py-3 px-4" style="background: 
-                    {% if order.status == 'PENDING' %}linear-gradient(135deg, #fff3e0, #ffe0b2)
-                    {% elif order.status == 'PREPARING' %}linear-gradient(135deg, #e3f2fd, #bbdefb)
-                    {% elif order.status == 'COMPLETED' %}linear-gradient(135deg, #e8f5e9, #c8e6c9)
-                    {% else %}linear-gradient(135deg, #ffebee, #ffcdd2){% endif %};">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-0 fw-bold" style="color: #333; font-family: 'Georgia', serif;">
-                            Order #{{ order.id }}
-                        </h5>
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i><span class="order-time"
-                                data-utc="{{ order.created_at.isoformat() }}Z">{{ order.created_at.strftime('%I:%M %p')
-                                }}</span>
-                        </small>
-                    </div>
-                    <div class="text-end">
-                        {% if order.status == 'PENDING' %}
-                        <span class="badge rounded-pill px-3 py-2" style="background: #ff9800; font-size: 0.8rem;">
-                            <i class="fas fa-hourglass-half me-1"></i>PENDING
-                        </span>
-                        {% elif order.status == 'PREPARING' %}
-                        <span class="badge rounded-pill px-3 py-2" style="background: #2196F3; font-size: 0.8rem;">
-                            <i class="fas fa-fire me-1"></i>PREPARING
-                        </span>
-                        {% elif order.status == 'COMPLETED' %}
-                        <span class="badge rounded-pill px-3 py-2" style="background: #4CAF50; font-size: 0.8rem;">
-                            <i class="fas fa-check-circle me-1"></i>COMPLETED
-                        </span>
-                        {% else %}
-                        <span class="badge rounded-pill px-3 py-2" style="background: #f44336; font-size: 0.8rem;">
-                            <i class="fas fa-times-circle me-1"></i>CANCELLED
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Customer & Details -->
-            <div class="card-body px-4 py-3" style="background: #fff;">
-                <div class="d-flex justify-content-between align-items-center mb-3 pb-2"
-                    style="border-bottom: 1px dashed rgba(0,0,0,0.1);">
-                    <div>
-                        <span class="fw-bold" style="font-size: 0.95rem; color: #333;">
-                            <i class="fas fa-user me-1 text-muted"></i>
-                            {% if order.user %}
-                            {{ order.user.first_name }} {{ order.user.last_name }}
-                            {% elif order.customer_name %}
-                            🚶 {{ order.customer_name }}
-                            {% else %}
-                            🚶 Walk-in
-                            {% endif %}
-                        </span>
-                    </div>
-                    <span class="badge rounded-pill px-2 py-1"
-                        style="font-size: 0.75rem; {% if order.dining_option == 'DINE_IN' %}background: rgba(76,175,80,0.15); color: #2e7d32;{% elif order.dining_option == 'DELIVERY' %}background: rgba(156,39,176,0.15); color: #7b1fa2;{% else %}background: rgba(255,152,0,0.15); color: #e65100;{% endif %}">
-                        {% if order.dining_option == 'DINE_IN' %}🍽️ Dine In{% elif order.dining_option == 'DELIVERY'
-                        %}🚚 Delivery{% else %}🛍️ Pick-up{% endif %}
-                    </span>
-                </div>
-
-                <!-- Items List -->
-                <div class="mb-3">
-                    {% for item in order.items %}
-                    <div class="d-flex justify-content-between align-items-center mb-2 py-1">
-                        <div class="d-flex align-items-center">
-                            <span
-                                class="badge rounded-circle me-2 text-white d-flex align-items-center justify-content-center"
-                                style="width: 28px; height: 28px; background: var(--primary-color); font-size: 0.8rem; font-weight: 700;">
-                                {{ item.quantity }}
-                            </span>
-                            <span class="fw-bold" style="font-size: 0.95rem; color: #333;">{{ item.menu_item.name
-                                }}</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Notes -->
-                {% if order.notes %}
-                <div class="p-2 rounded mb-3"
-                    style="background: rgba(255,152,0,0.08); border: 1px dashed rgba(255,152,0,0.3);">
-                    <small class="d-block fw-bold" style="color: #e65100; font-size: 0.75rem;">
-                        <i class="fas fa-sticky-note me-1"></i>SPECIAL REQUEST:
-                    </small>
-                    <small style="color: #555;">{{ order.notes }}</small>
-                </div>
-                {% endif %}
-
-                <!-- Timer (only show for active orders) -->
-                {% if order.status in ['PENDING', 'PREPARING'] %}
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <i class="fas fa-stopwatch" style="color: #666;"></i>
-                    <span class="elapsed-timer fw-bold" data-created="{{ order.created_at.isoformat() }}Z"
-                        style="font-size: 0.9rem; color: #555;">
-                        calculating...
-                    </span>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="card-footer border-0 bg-white px-4 py-3">
-                {% if current_user.role|upper == 'ADMIN' %}
-                <div class="text-center py-2">
-                    <span class="fw-bold text-muted" style="font-size: 0.9rem;">
-                        <i class="fas fa-eye me-1"></i>View Only (Kitchen Staff Required)
-                    </span>
-                </div>
-                {% else %}
-                {% if order.status == 'PENDING' %}
-                <!-- PENDING: Show "Start Cooking" + "Cancel" -->
-                <div class="d-flex gap-2">
-                    <form action="{{ url_for('admin.kitchen_update_order', order_id=order.id) }}" method="POST"
-                        class="flex-grow-1">
-                        <input type="hidden" name="status" value="PREPARING">
-                        <button type="submit" class="btn w-100 rounded-pill fw-bold py-2 shadow-sm"
-                            style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; font-size: 0.9rem;">
-                            <i class="fas fa-fire me-1"></i>Start Cooking
-                        </button>
-                    </form>
-                    <form action="{{ url_for('admin.kitchen_update_order', order_id=order.id) }}" method="POST">
-                        <input type="hidden" name="status" value="CANCELLED">
-                        <button type="submit" class="btn rounded-pill fw-bold py-2 px-3 shadow-sm"
-                            style="background: rgba(244,67,54,0.1); color: #d32f2f; border: 1px solid rgba(244,67,54,0.3); font-size: 0.9rem;"
-                            onclick="return confirm('Cancel this order?')">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </form>
-                </div>
-
-                {% elif order.status == 'PREPARING' %}
-                <!-- PREPARING: Show "Mark Ready" + "Cancel" -->
-                <div class="d-flex gap-2">
-                    <form action="{{ url_for('admin.kitchen_update_order', order_id=order.id) }}" method="POST"
-                        class="flex-grow-1">
-                        <input type="hidden" name="status" value="COMPLETED">
-                        <button type="submit" class="btn w-100 rounded-pill fw-bold py-2 shadow-sm"
-                            style="background: linear-gradient(135deg, #4CAF50, #388E3C); color: white; border: none; font-size: 0.9rem;">
-                            <i class="fas fa-check-circle me-1"></i>Mark Ready
-                        </button>
-                    </form>
-                    <form action="{{ url_for('admin.kitchen_update_order', order_id=order.id) }}" method="POST">
-                        <input type="hidden" name="status" value="CANCELLED">
-                        <button type="submit" class="btn rounded-pill fw-bold py-2 px-3 shadow-sm"
-                            style="background: rgba(244,67,54,0.1); color: #d32f2f; border: 1px solid rgba(244,67,54,0.3); font-size: 0.9rem;"
-                            onclick="return confirm('Cancel this order?')">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </form>
-                </div>
-
-                {% elif order.status == 'COMPLETED' %}
-                <!-- COMPLETED: Already done, no actions -->
-                <div class="text-center py-1">
-                    <span class="fw-bold" style="color: #388E3C; font-size: 0.9rem;">
-                        <i class="fas fa-check-double me-1"></i>Order Served
-                    </span>
-                </div>
-
-                {% elif order.status == 'CANCELLED' %}
-                <!-- CANCELLED: Show reopen option -->
-                <div class="text-center py-1">
-                    <form action="{{ url_for('admin.kitchen_update_order', order_id=order.id) }}" method="POST"
-                        class="d-inline">
-                        <input type="hidden" name="status" value="PENDING">
-                        <button type="submit" class="btn btn-sm rounded-pill fw-bold px-4 py-2 shadow-sm"
-                            style="background: rgba(255,152,0,0.1); color: #e65100; border: 1px solid rgba(255,152,0,0.3); font-size: 0.85rem;">
-                            <i class="fas fa-redo me-1"></i>Reopen Order
-                        </button>
-                    </form>
-                </div>
-                {% endif %}
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-    {% else %}
-    <div class="col-12">
-        <div class="text-center py-5">
-            <div style="font-size: 5rem; color: rgba(139,69,19,0.1); margin-bottom: 1rem;">
-                {% if status_filter == 'COMPLETED' %}
-                <i class="fas fa-check-double"></i>
-                {% elif status_filter == 'CANCELLED' %}
-                <i class="fas fa-times-circle"></i>
-                {% else %}
-                <i class="fas fa-mug-hot"></i>
-                {% endif %}
-            </div>
-            <h3 style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold;">
-                {% if status_filter == 'ACTIVE' %}All Clear! 🎉
-                {% elif status_filter == 'PENDING' %}No Pending Orders
-                {% elif status_filter == 'PREPARING' %}Nothing Cooking
-                {% elif status_filter == 'COMPLETED' %}No Completed Orders Yet
-                {% elif status_filter == 'CANCELLED' %}No Cancelled Orders
-                {% endif %}
-            </h3>
-            <p class="text-muted fs-6">
-                {% if status_filter in ['ACTIVE', 'PENDING', 'PREPARING'] %}No orders right now. Take a breather!
-                {% else %}Nothing to show here.
-                {% endif %}
-            </p>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 <style>
-    .active-tab {
-        background: linear-gradient(135deg, #8B4513, #A0522D) !important;
-        color: white !important;
-        border: none !important;
-        text-decoration: none !important;
-    }
+    /* ── KITCHEN PREMIUM STYLES ── */
+    .kitchen-title { font-family: 'Georgia', serif; color: #1A1A1A; font-size: 1.8rem; font-weight: 700; }
+    .kitchen-toggle-group { display: flex; align-items: center; gap: 8px; padding: 8px 15px; background: #ffffff; border: 1px solid #eee; border-radius: 12px; }
+    .toggle-label { font-size: 0.72rem; font-weight: 700; color: #8B634B; text-transform: uppercase; letter-spacing: 0.8px; }
 
-    .inactive-tab {
-        background: white !important;
-        color: #555 !important;
-        border: 1px solid rgba(139, 69, 19, 0.2) !important;
-        text-decoration: none !important;
-    }
+    /* ── STAT CARDS ── */
+    .kds-stat-card { display: flex; align-items: center; gap: 15px; padding: 20px; background: #ffffff; border: 1px solid rgba(139, 99, 75, 0.08); border-radius: 16px; transition: all 0.2s ease; }
+    .kds-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.05); }
+    .kds-stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+    .kds-stat-value { font-size: 1.6rem; font-weight: 800; color: #2D1A12; line-height: 1; }
+    .kds-stat-label { font-size: 0.7rem; font-weight: 600; color: #AC8A78; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 
-    .inactive-tab:hover {
-        background: rgba(139, 69, 19, 0.05) !important;
-        color: #333 !important;
-    }
+    /* ── FILTER TABS ── */
+    .kds-filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
+    .kds-filter-tab { display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: #ffffff; border: 1px solid #eee; border-radius: 12px; color: #5D4037; font-size: 0.85rem; font-weight: 700; text-decoration: none; transition: all 0.2s ease; }
+    .kds-filter-tab:hover { background: #FDFBFA; border-color: #8B634B; color: #5D4037; }
+    .kds-filter-tab.active { background: #5D4037; color: #ffffff; border-color: #5D4037; }
+    .kds-filter-tab.active .kds-dot { background: #fff !important; }
+    .kds-filter-tab.active .kds-count { background: rgba(255,255,255,0.2); color: #fff; }
 
-    .inactive-tab .badge {
-        background: rgba(0, 0, 0, 0.08) !important;
-        color: #555 !important;
-    }
+    .kds-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .kds-count { background: #F2EEEC; color: #8B634B; font-size: 0.72rem; font-weight: 800; padding: 2px 10px; border-radius: 20px; }
 
-    .order-ticket:hover {
-        transform: translateY(-3px) !important;
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1) !important;
-    }
+    /* ── PREP PANEL ── */
+    .kds-prep-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+    .kds-station { background: #ffffff; border-radius: 20px; padding: 20px; border: 1px solid rgba(139, 99, 75, 0.1); box-shadow: 0 4px 20px rgba(139, 99, 75, 0.03); }
+    .kds-station-label { font-size: 0.8rem; font-weight: 800; color: #8B634B; display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; margin-bottom: 12px; border-bottom: 1px solid #FAF7F5; }
+    .kds-prep-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+    .kds-prep-item:hover { background: #FDFBFA; }
+    .kds-prep-item.is-done { opacity: 0.4; }
+    .kds-prep-check { width: 20px; height: 20px; border: 2px solid #DCD1CB; border-radius: 6px; margin-right: 12px; display: flex; align-items: center; justify-content: center; }
+    .kds-prep-item.is-done .kds-prep-check { background: #27AE60; border-color: #27AE60; color: #fff; }
+    .kds-prep-name { font-weight: 600; color: #444; flex: 1; font-size: 0.9rem; }
+    .kds-prep-qty { font-weight: 800; color: #8B634B; background: #F9F4F2; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; }
 
-    @keyframes pulse-border {
+    /* ── ORDER CARDS ── */
+    .kds-order-card { background: #ffffff; border-radius: 18px; border: 1px solid #f2f2f2; overflow: hidden; transition: all 0.3s; height: 100%; display: flex; flex-direction: column; }
+    .kds-order-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); }
+    .kds-order-card[data-status="PENDING"] { border-top: 5px solid #F39C12; }
+    .kds-order-card[data-status="PREPARING"] { border-top: 5px solid #3498DB; }
+    .kds-order-card[data-status="COMPLETED"] { border-top: 5px solid #27AE60; }
 
-        0%,
-        100% {
-            border-left-color: #ff9800;
-        }
+    .kds-order-header { padding: 18px 20px; border-bottom: 1px solid #fafafa; display: flex; justify-content: space-between; align-items: center; }
+    .kds-order-id { font-family: 'Georgia', serif; font-weight: 800; color: #2D1A12; }
+    .kds-customer-name { font-weight: 800; color: #2D1A12; font-size: 0.95rem; }
+    .kds-dine-badge { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; }
+    .kds-dine-badge.dine-in { background: #E8F5E9; color: #2E7D32; }
+    .kds-items-list { margin-top: 15px; }
+    .kds-item-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+    .kds-item-qty { font-weight: 800; color: #8B634B; }
+    .kds-timer { margin-top: 15px; font-size: 0.8rem; color: #999; font-weight: 700; display: flex; align-items: center; gap: 6px; }
 
-        50% {
-            border-left-color: #f44336;
-        }
-    }
-
-    .order-ticket[data-status="PENDING"] {
-        animation: pulse-border 2s ease-in-out infinite;
-    }
-
-    .elapsed-danger {
-        color: #d32f2f !important;
-        font-weight: 800 !important;
-    }
-
-    .elapsed-warning {
-        color: #ff9800 !important;
-        font-weight: 700 !important;
-    }
+    .kds-btns-group { display: flex; gap: 8px; width: 100%; }
+    .kds-order-footer { padding: 20px; border-top: 1px solid #f9f9f9; }
+    .btn-kd { padding: 10px 15px; border-radius: 12px; border: none; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; }
+    .btn-kd-start { background: #2D1A12; color: #fff; width: 100%; }
+    .btn-kd-complete { background: #27AE60; color: #fff; width: 100%; }
+    .btn-kd-cancel { background: #F2F2F2; color: #999; }
 </style>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 <script>
-    // Update elapsed timers
+    async function loadKitchenPartial(url, showLoading = true) {
+        const wrapper = document.getElementById('kitchen-content-wrapper');
+        const refreshToggle = document.getElementById('autoRefreshToggle');
+        if (!showLoading && refreshToggle && !refreshToggle.checked) return;
+        try {
+            // Added cache buster (timestamp) to prevent showing old content
+            const timestamp = new Date().getTime();
+            const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'partial=1&cb=' + timestamp);
+            const html = await response.text();
+            wrapper.innerHTML = html;
+            initializeDynamicElements();
+        } catch (e) { console.error('Failed to update kitchen:', e); }
+    }
+
+    async function handleKitchenUpdate(event, form, orderId, confirmCancel = false) {
+        event.preventDefault();
+        if (confirmCancel && !confirm('Are you sure?')) return;
+        try {
+            await fetch(form.action || `/admin/orders/update/${orderId}`, { method: 'POST', body: new FormData(form) });
+            loadKitchenPartial(window.location.href, false);
+        } catch (e) { console.error('Update failed:', e); }
+    }
+
+    function initializeDynamicElements() {
+        document.querySelectorAll('.order-time').forEach(el => {
+            if (el.dataset.utc) {
+                const date = new Date(el.dataset.utc);
+                el.textContent = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            }
+        });
+        updateTimers();
+    }
+
     function updateTimers() {
         document.querySelectorAll('.elapsed-timer').forEach(el => {
-            const created = new Date(el.dataset.created);
-            const now = new Date();
-            const diff = Math.floor((now - created) / 1000);
-            const mins = Math.floor(diff / 60);
-            const secs = diff % 60;
-
-            let text = '';
-            if (mins > 0) {
-                text = mins + 'm ' + secs + 's ago';
-            } else {
-                text = secs + 's ago';
-            }
-            el.textContent = text;
-
-            // Color code based on wait time
-            if (mins >= 15) {
-                el.className = 'elapsed-timer fw-bold elapsed-danger';
-            } else if (mins >= 8) {
-                el.className = 'elapsed-timer fw-bold elapsed-warning';
-            } else {
-                el.className = 'elapsed-timer fw-bold';
-                el.style.color = '#555';
-            }
+            const created = el.dataset.created; if (!created) return;
+            const diff = Math.floor((new Date() - new Date(created)) / 1000);
+            const m = Math.floor(diff/60); const s = diff%60;
+            el.textContent = (m>0 ? m+'m ' : '') + s+'s ago';
+            if (m>=15) el.className = 'elapsed-timer text-danger';
+            else if (m>=8) el.className = 'elapsed-timer text-warning';
         });
     }
 
-    // Run timer every second
-    updateTimers();
-    if (window.registerInterval) window.registerInterval(updateTimers, 1000);
-    else setInterval(updateTimers, 1000);
-
-    // Convert UTC times to local time (Philippine Time)
-    document.querySelectorAll('.order-time').forEach(el => {
-        const utcDate = new Date(el.dataset.utc);
-        el.textContent = utcDate.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
-    });
-
-      // Replace 15s refresh with SocketIO real-time updates
+    setInterval(updateTimers, 1000);
     const socket = io();
-    const sound = document.getElementById('notificationSound');
-    const soundToggle = document.getElementById('soundToggle');
-    const refreshToggle = document.getElementById('autoRefreshToggle');
-
-    // Socket listeners for new orders
-    socket.on('new_order', function(data) {
-        console.log('New order received:', data);
-        if (refreshToggle.checked) {
-            if (soundToggle.checked) {
-                sound.play().catch(e => console.log('Audio play blocked:', e));
-            }
-            // Show a toast or notification before reloading
-            const toast = document.createElement('div');
-            toast.className = 'position-fixed bottom-0 end-0 p-3';
-            toast.style.zIndex = '1100';
-            toast.innerHTML = `<div class="toast show bg-success text-white" role="alert"><div class="toast-body">New Order #${data.id} from ${data.customer}!</div></div>`;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => location.reload(), 1500); 
-        }
-    });
-
-    // Socket listener for status updates (someone else changed an order status)
-    socket.on('order_status_update', function(data) {
-        console.log('Order status updated:', data);
-        if (refreshToggle.checked) {
-            location.reload();
-        }
-    });
-
-    // Cleanup previous polling logic
-    // Toggle manual refresh instead of interval
-    refreshToggle.addEventListener('change', function () {
-        if (this.checked) {
-            console.log('Real-time updates enabled via SocketIO');
-        } else {
-            console.log('Real-time updates paused');
-        }
-    });
+    socket.on('new_order', () => loadKitchenPartial(window.location.href, false));
+    socket.on('order_status_update', () => loadKitchenPartial(window.location.href, false));
+    initializeDynamicElements();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 {% endblock %}

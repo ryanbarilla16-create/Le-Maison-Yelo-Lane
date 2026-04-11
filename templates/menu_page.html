@@ -3,10 +3,11 @@
 {% block title %}Our Menu{% endblock %}
 
 {% block content %}
-<!-- Beautiful Hero Section for the Menu -->
+<!-- Hero Section -->
 <div class="position-relative w-100 shadow-lg"
-    style="height: 400px; border-radius: 20px; overflow: hidden; margin-bottom: 4rem;">
-    <img src="https://images.unsplash.com/photo-1559925393-8be0ec4767c8?q=80&w=2071&auto=format&fit=crop"
+    style="height: 400px; border-radius: 20px; overflow: hidden; margin-bottom: 4rem; margin-top: 90px;">
+    <img loading="lazy" decoding="async"
+        src="https://images.unsplash.com/photo-1559925393-8be0ec4767c8?q=80&w=2071&auto=format&fit=crop"
         class="w-100 h-100" style="object-fit: cover; filter: brightness(0.6);" alt="Menu Banner">
     <div class="position-absolute top-50 start-50 translate-middle text-center w-100 px-3">
         <h1
@@ -20,7 +21,77 @@
 
 <main style="max-width: 1300px; margin: 0 auto; color: var(--text-main); padding-bottom: 4rem;">
 
-    <!-- Extract Categories Data (Name, Image, Count) -->
+    <!-- Filter Overlay -->
+    <div class="filter-overlay" id="filterOverlay" onclick="toggleFilterDrawer()"></div>
+
+    <!-- Filter Drawer -->
+    <div class="filter-drawer" id="filterDrawer">
+        <div class="filter-header">
+            <h4 style="font-family: 'Georgia', serif; margin:0;">Filters</h4>
+            <button class="btn-close" onclick="toggleFilterDrawer()" style="box-shadow:none;"></button>
+        </div>
+        <div class="filter-body">
+            <!-- Explore Section -->
+            <div class="filter-section">
+                <div class="filter-title-wrap" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h5 class="filter-title">Explore</h5>
+                    <i class="fas fa-chevron-down filter-arrow"></i>
+                </div>
+                <div class="filter-content">
+                    <input type="text" id="menuSearch" class="form-control" placeholder="Search items..."
+                        style="padding: 0.8rem; border-radius: 4.5px; border-color: #ddd;" onkeyup="applyFilters()">
+                </div>
+            </div>
+
+            <!-- Availability Section -->
+            <div class="filter-section">
+                <div class="filter-title-wrap" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h5 class="filter-title">Availability</h5>
+                    <i class="fas fa-chevron-down filter-arrow"></i>
+                </div>
+                <div class="filter-content">
+                    <label class="filter-checkbox-item">
+                        <input type="checkbox" id="filterInStock" checked onchange="applyFilters()">
+                        <span class="filter-label">In stock</span>
+                        <span class="filter-count">({{ menu_items|selectattr('is_available', 'equalto', true)|list|length
+                            }})</span>
+                    </label>
+                    <label class="filter-checkbox-item">
+                        <input type="checkbox" id="filterOutOfStock" checked onchange="applyFilters()">
+                        <span class="filter-label">Out of stock</span>
+                        <span class="filter-count">({{ menu_items|selectattr('is_available', 'equalto', false)|list|length
+                            }})</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Price Section -->
+            <div class="filter-section">
+                <div class="filter-title-wrap" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h5 class="filter-title">Price</h5>
+                    <i class="fas fa-chevron-down filter-arrow"></i>
+                </div>
+                <div class="filter-content">
+                    <div class="price-range-inputs">
+                        <div class="price-input-box">
+                            <span>₱</span>
+                            <input type="number" id="priceFrom" placeholder="From" onchange="applyFilters()">
+                        </div>
+                        <div class="price-input-box">
+                            <span>₱</span>
+                            <input type="number" id="priceTo" placeholder="To" onchange="applyFilters()">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button class="btn w-100 text-white fw-bold" onclick="resetFilters()"
+                            style="background: #8B634B; border-radius: 6px; padding: 0.6rem;">Clear Filters</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Build categories map -->
     {% set categories_data = {} %}
     {% for item in menu_items %}
     {% if item.category not in categories_data %}
@@ -35,36 +106,38 @@
     <!-- 1. Categories Grid View -->
     <div id="categories-grid-view">
         <h2 class="text-center mb-5"
-            style="font-family: 'Georgia', serif; color: var(--text-main); font-weight: bold; font-size: 2.2rem;">
+            style="font-family: 'Playfair Display', serif; color: #8B634B; font-weight: bold; font-size: 2.2rem;">
             Menu Categories
         </h2>
 
         <div
-            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; align-items: stretch;">
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2rem; align-items: stretch;">
             {% for cat_name, info in categories_data.items() %}
-            <div class="card border-0 shadow-sm category-card d-flex flex-column"
-                style="border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; height: 100%;"
+            <div class="category-card"
+                style="display: flex; flex-direction: column; background: transparent; border: none; box-shadow: none; cursor: pointer; height: 100%; transition: transform 0.4s ease;"
                 onclick="showCategory('{{ cat_name }}')">
 
-                <div style="height: 200px; overflow: hidden; position: relative; flex-shrink: 0;">
+                <div
+                    style="position: relative; padding-top: 130%; border-radius: 0; overflow: hidden; background: #f8f9fa;">
                     {% if info.image %}
-                    <img src="{{ info.image }}" class="w-100 h-100 category-img"
-                        style="object-fit: cover; transition: transform 0.6s ease;" alt="{{ cat_name }}">
+                    <img loading="lazy" decoding="async" src="{{ info.image }}" class="category-img"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);"
+                        alt="{{ cat_name }}">
                     {% else %}
-                    <div class="w-100 h-100 d-flex align-items-center justify-content-center"
-                        style="background: rgba(139, 69, 19, 0.05);">
-                        <i class="fas fa-utensils fa-3x" style="color: rgba(139, 69, 19, 0.2);"></i>
+                    <div class="d-flex align-items-center justify-content-center"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(139, 99, 75, 0.05);">
+                        <i class="fas fa-utensils fa-3x" style="color: rgba(139, 99, 75, 0.2);"></i>
                     </div>
                     {% endif %}
                 </div>
 
-                <div class="card-body p-4 d-flex flex-column flex-grow-1" style="background: white;">
-                    <h4 class="card-title fw-bold m-0" style="font-family: 'Georgia', serif; color: var(--text-main);">
+                <div style="padding: 1rem 0; display: flex; flex-direction: column;">
+                    <h4 class="fw-bold m-0"
+                        style="font-family: 'Georgia', serif; font-size: 1.15rem; color: var(--text-main);">
                         {{ cat_name }}
                     </h4>
-                    <p class="mb-0 mt-auto fw-bold"
-                        style="font-size: 0.85rem; padding-top: 0.5rem; color: var(--primary-color);">
-                        Browse Selection <i class="fas fa-angle-right ms-1"></i>
+                    <p class="mb-0 fw-bold" style="font-size: 0.9rem; margin-top: 0.3rem; color: #443127;">
+                        See More <i class="fas fa-arrow-right ms-1"></i>
                     </p>
                 </div>
             </div>
@@ -72,81 +145,83 @@
         </div>
     </div>
 
-    <!-- 2. Items View (Initially Hidden) -->
+    <!-- 2. Items View (hidden initially) -->
     <div id="items-view" style="display: none;">
-        <!-- Back Button row -->
-        <div class="mb-4">
-            <button onclick="showCategoriesGrid()" class="btn rounded-pill border shadow-sm px-4 py-2 fw-bold back-btn"
-                style="color: var(--text-main); background: white; font-size: 1rem; transition: all 0.2s;">
+        <!-- Back Button -->
+        <div class="mb-5">
+            <button onclick="showCategoriesGrid()" class="btn w-100 rounded-pill px-4 py-3 fw-bold"
+                style="color: white; background: linear-gradient(135deg, #5D4037, #795548); font-size: 1rem; border: none; box-shadow: 0 4px 14px rgba(93,64,55,0.25);">
                 <i class="fas fa-arrow-left me-2"></i> Back to Categories
             </button>
         </div>
 
         {% for cat_name, info in categories_data.items() %}
         <div class="menu-category-section pb-3" data-category="{{ cat_name }}" style="display: none;">
-            <h2 class="border-bottom pb-3 mb-4"
-                style="font-family: 'Georgia', serif; color: var(--primary-color); font-weight: bold; font-size: 2.5rem;">
+            <h2 class="border-bottom pb-3 mb-5"
+                style="font-family: 'Playfair Display', serif; color: #8B634B; font-weight: bold; font-size: 2.5rem;">
                 {{ cat_name }}
             </h2>
 
-            <div
-                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2.5rem; align-items: stretch;">
+            <!-- Explore & Filter Buttons (Inside category view only) -->
+            <div class="menu-controls" style="margin-bottom: 2.5rem;">
+                <button class="btn-outline-menu"
+                    onclick="toggleFilterDrawer(); setTimeout(() => document.getElementById('menuSearch').focus(), 300);">
+                    <i class="fas fa-search"></i> Explore
+                </button>
+                <button class="btn-outline-menu" onclick="toggleFilterDrawer()">
+                    <i class="fas fa-sliders-h"></i> Filter
+                </button>
+            </div>
+
+            <div class="menu-items-grid">
                 {% for item in menu_items if item.category == cat_name %}
-                <div class="card border-0 shadow-sm d-flex flex-column"
-                    style="border-radius: 24px; overflow: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: rgba(255, 255, 255, 0.95); height: 100%;"
-                    onmouseover="this.style.transform='translateY(-10px)'; this.style.boxShadow='0 25px 50px rgba(139, 69, 19, 0.15)';"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 5px 15px rgba(0,0,0,0.05)';">
+                <div class="menu-item-card" data-item-id="{{ item.id }}" data-item-name="{{ item.name|e }}"
+                    data-item-price="{{ item.price }}" data-item-desc="{{ item.description|e|default('', true) }}"
+                    data-item-image="{{ item.image_url|default('', true) }}"
+                    data-item-available="{{ 'true' if item.is_available else 'false' }}">
 
-                    {% if item.image_url %}
-                    <div style="height: 250px; overflow: hidden; position: relative; flex-shrink: 0;">
-                        <img src="{{ item.image_url }}" class="w-100 h-100"
-                            style="object-fit: cover; transition: transform 0.6s ease;"
-                            onmouseover="this.style.transform='scale(1.1)'"
-                            onmouseout="this.style.transform='scale(1)'">
-                        <div class="position-absolute bottom-0 start-0 w-100 p-3"
-                            style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
-                            <span class="badge"
-                                style="background: var(--primary-color); font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 20px;">{{
-                                item.category }}</span>
+                    <!-- Image Wrapper with Hover Overlay -->
+                    <div class="menu-item-img-wrap">
+                        {% if item.image_url %}
+                        <img loading="lazy" decoding="async" src="{{ item.image_url }}" alt="{{ item.name }}"
+                            class="menu-item-img">
+                        {% else %}
+                        <div class="menu-item-img-placeholder">
+                            <i class="fas fa-utensils fa-3x" style="color: rgba(139,99,75,0.2);"></i>
                         </div>
-                    </div>
-                    {% else %}
-                    <div
-                        style="height: 250px; background: rgba(139, 69, 19, 0.05); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-coffee fa-4x" style="color: rgba(139, 69, 19, 0.2);"></i>
-                    </div>
-                    {% endif %}
+                        {% endif %}
 
-                    <div class="card-body p-4 p-md-5 d-flex flex-column flex-grow-1"
-                        style="background: linear-gradient(to bottom, #ffffff, #fafafa);">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h4 class="card-title fw-bold m-0"
-                                style="font-family: 'Georgia', serif; color: var(--text-main); font-size: 1.5rem; line-height: 1.3;">
-                                {{ item.name }}</h4>
-                            <span class="fw-bold px-3 py-1 ms-3 shadow-sm"
-                                style="background: #ffffff; border: 1px solid rgba(139, 69, 19, 0.2); color: var(--primary-color); border-radius: 30px; font-size: 1.2rem;">
-                                &#8369;{{ "%.2f"|format(item.price) }}
-                            </span>
-                        </div>
+                        <!-- Hover buttons -->
+                        <div class="menu-item-overlay">
+                            {% if item.is_available %}
+                            <form action="{{ url_for('main.add_to_cart', item_id=item.id) }}" method="POST"
+                                class="menu-quick-add-form" onsubmit="return quickAddToCart(event, this);">
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="menu-btn-quick-add" title="Quick Add to Cart">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <div class="menu-btn-soldout" title="Sold Out">
+                                <i class="fas fa-times"></i>
+                            </div>
+                            {% endif %}
 
-                        <p class="card-text flex-grow-1 text-muted mt-2 mb-4"
-                            style="font-size: 1rem; line-height: 1.7;">
-                            {{ item.description }}
-                        </p>
-
-                        <!-- Add to Cart Form -->
-                        <form action="{{ url_for('main.add_to_cart', item_id=item.id) }}" method="POST"
-                            onsubmit="return handleAddToCart(event, this);"
-                            class="mt-auto d-flex align-items-center gap-2 pt-3"
-                            style="border-top: 1px dashed rgba(139,69,19,0.15);">
-                            <input type="number" name="quantity" value="1" min="1" max="99"
-                                class="form-control rounded-pill text-center shadow-sm"
-                                style="width: 70px; border: 1px solid rgba(139,69,19,0.2); background: #ffffff; font-weight: bold;">
-                            <button type="submit" class="btn flex-grow-1 rounded-pill fw-bold shadow-sm"
-                                style="background-color: var(--primary-color); color: white; border: none; font-size: 0.95rem;">
-                                <i class="fas fa-cart-plus me-1"></i> Add to Cart
+                            <button type="button" class="menu-btn-info" title="View Details"
+                                onclick="openItemModal(this.closest('.menu-item-card'))">
+                                <i class="fas fa-search"></i>
                             </button>
-                        </form>
+                        </div>
+
+                        {% if not item.is_available %}
+                        <div class="menu-sold-out-badge">SOLD OUT</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Name & Price -->
+                    <div class="menu-item-info">
+                        <h5 class="menu-item-name">{{ item.name }}</h5>
+                        <p class="menu-item-price">&#8369;{{ "%.2f"|format(item.price) }}</p>
                     </div>
                 </div>
                 {% endfor %}
@@ -155,164 +230,634 @@
         {% endfor %}
     </div>
 
+    <!-- CSS -->
+    <!-- CSS -->
     <style>
+        /* ── Controls (Explore & Filter) ── */
+        .menu-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .btn-outline-menu {
+            border: 1.5px solid #e0e0e0;
+            background: #fff;
+            padding: 0.75rem 2.2rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 1.25rem;
+            font-family: 'Inter', sans-serif;
+            color: #333;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            cursor: pointer;
+        }
+
+        .btn-outline-menu:hover {
+            border-color: #8B634B;
+            color: #8B634B;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-outline-menu i {
+            font-size: 1.1rem;
+            opacity: 0.7;
+        }
+
+        /* ── Filter Drawer ── */
+        .filter-drawer {
+            position: fixed;
+            top: 0;
+            right: -380px;
+            width: 380px;
+            height: 100vh;
+            background: #fff;
+            z-index: 2000;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
+            transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-drawer.open {
+            right: 0;
+        }
+
+        .filter-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(2px);
+            z-index: 1999;
+            display: none;
+        }
+
+        .filter-overlay.show {
+            display: block;
+        }
+
+        .filter-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-body {
+            padding: 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Reference Style Accordion */
+        .filter-section {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 1.5rem;
+        }
+
+        .filter-title-wrap {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            margin-bottom: 1.2rem;
+        }
+
+        .filter-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            color: #333;
+            margin: 0;
+        }
+
+        .filter-arrow {
+            transition: transform 0.3s;
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .collapsed .filter-arrow {
+            transform: rotate(-180deg);
+        }
+
+        .filter-content {
+            transition: all 0.3s ease;
+        }
+
+        .collapsed .filter-content {
+            display: none;
+        }
+
+        /* Custom Checkbox Style */
+        .filter-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.8rem;
+            cursor: pointer;
+        }
+
+        .filter-checkbox-item input {
+            width: 18px;
+            height: 18px;
+            accent-color: #8B634B;
+        }
+
+        .filter-label {
+            font-size: 1.05rem;
+            color: #555;
+        }
+
+        .filter-count {
+            color: #999;
+            font-size: 0.9rem;
+            margin-left: auto;
+        }
+
+        /* Price Inputs */
+        .price-range-inputs {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .price-input-box {
+            position: relative;
+            flex: 1;
+        }
+
+        .price-input-box span {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #333;
+            font-weight: 600;
+        }
+
+        .price-input-box input {
+            width: 100%;
+            padding: 0.6rem 0.6rem 0.6rem 2rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        /* ── Category Cards ── */
         .category-card:hover {
             transform: translateY(-8px) !important;
-            box-shadow: 0 15px 35px rgba(139, 69, 19, 0.15) !important;
+            box-shadow: 0 15px 35px rgba(139, 99, 75, 0.15) !important;
         }
 
         .category-card:hover .category-img {
             transform: scale(1.08) !important;
         }
 
-        .back-btn:hover {
-            background-color: var(--primary-color) !important;
-            color: white !important;
-            border-color: var(--primary-color) !important;
+        /* ── Items Grid ── */
+        .menu-items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2.5rem 1.5rem;
+            align-items: start;
+        }
+
+        /* ── Item Card (Yelolane Reference Style) ── */
+        .menu-item-card {
+            background: transparent;
+            border-radius: 0;
+            overflow: visible;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        /* ── Image Wrapper ── */
+        .menu-item-img-wrap {
+            position: relative;
+            width: 100%;
+            padding-top: 130%;
+            /* Portrait rectangle aspect ratio */
+            overflow: hidden;
+            background: rgba(139, 99, 75, 0.04);
+            flex-shrink: 0;
+            border-radius: 0px;
+        }
+
+        .menu-item-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+            display: block;
+        }
+
+        .menu-item-card:hover .menu-item-img {
+            transform: scale(1.07);
+        }
+
+        .menu-item-img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── Hover Overlay ── */
+        /* ── Overlay Buttons (Bottom Right Alignment) ── */
+        .menu-item-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 1rem;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .menu-item-card:hover .menu-item-overlay {
+            opacity: 1;
+        }
+
+        .menu-btn-quick-add,
+        .menu-btn-info,
+        .menu-btn-soldout {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .menu-btn-quick-add {
+            background: rgba(255, 255, 255, 0.9);
+            color: #5D4037;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .menu-btn-quick-add:hover {
+            transform: scale(1.15);
+            background: #5D4037;
+            color: #fff;
+        }
+
+        .menu-btn-info {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .menu-btn-info:hover {
+            transform: scale(1.15);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .menu-btn-soldout {
+            background: rgba(220, 53, 69, 0.85);
+            color: #fff;
+            border: none;
+            cursor: default;
+        }
+
+        /* ── Sold Out Badge ── */
+        .menu-sold-out-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(220, 53, 69, 0.9);
+            color: #fff;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        /* ── Card Info ── */
+        .menu-item-info {
+            padding: 1rem 0 0 0;
+            /* Align flat with image edges */
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .menu-item-name {
+            font-family: 'Georgia', serif;
+            font-weight: 400;
+            font-size: 1.15rem;
+            color: var(--text-main);
+            margin: 0 0 0.4rem;
+            line-height: 1.35;
+        }
+
+        .menu-item-price {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #443127;
+            margin: 0;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 576px) {
+            .menu-items-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.85rem;
+            }
+
+            .menu-item-img-wrap {
+                height: 150px;
+            }
+        }
+
+        /* ── Hide browser default number input arrows ── */
+        #modalItemQty::-webkit-outer-spin-button,
+        #modalItemQty::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        #modalItemQty {
+            -moz-appearance: textfield;
+            appearance: textfield;
         }
     </style>
 
+    <!-- JavaScript -->
     <script>
         function showCategory(categoryName) {
-            // Hide categories grid
             document.getElementById('categories-grid-view').style.display = 'none';
-            // Show items view container
             document.getElementById('items-view').style.display = 'block';
-
-            // Show only the selected category section
-            var sections = document.querySelectorAll('.menu-category-section');
-            sections.forEach(function (section) {
-                if (section.getAttribute('data-category') === categoryName) {
-                    section.style.display = 'block';
-                } else {
-                    section.style.display = 'none';
-                }
+            document.querySelectorAll('.menu-category-section').forEach(function (s) {
+                s.style.display = s.getAttribute('data-category') === categoryName ? 'block' : 'none';
             });
-
-            // Scroll to the top of the items view
-            window.scrollTo({ top: document.querySelector('#items-view').offsetTop - 20, behavior: 'smooth' });
+            window.scrollTo({ top: document.getElementById('items-view').offsetTop - 20, behavior: 'smooth' });
         }
 
         function showCategoriesGrid() {
-            // Hide items view
             document.getElementById('items-view').style.display = 'none';
-            // Show categories grid
             document.getElementById('categories-grid-view').style.display = 'block';
-
-            window.scrollTo({ top: document.querySelector('#categories-grid-view').offsetTop - 20, behavior: 'smooth' });
+            window.scrollTo({ top: document.getElementById('categories-grid-view').offsetTop - 20, behavior: 'smooth' });
         }
 
-        function handleAddToCart(event, form) {
+        /* Quick Add to Cart — + button (1 qty, no modal) */
+        function quickAddToCart(event, form) {
             event.preventDefault();
+            event.stopPropagation();
+            var url = form.action;
+            var formData = new FormData(form);
+            var btn = form.querySelector('button[type="submit"]');
+            var originalHTML = btn.innerHTML;
 
-            const url = form.action;
-            const formData = new FormData(form);
-            const btn = form.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            const originalColor = btn.style.backgroundColor;
-
-            // Loading state
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Adding...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
 
-            fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                    // We DO NOT set 'Content-Type' when sending FormData in fetch
-                }
-            })
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else if (response.status === 401) {
-                        // Need to login
-                        window.location.href = '/login';
-                        throw new Error('Unauthorized');
-                    } else {
-                        throw new Error('Network response was not ok');
-                    }
+            fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) {
+                    if (r.status === 401) { window.location.href = '/login'; throw new Error('Unauthorized'); }
+                    if (!r.ok) throw new Error('Error');
+                    return r.json();
                 })
-                .then(data => {
+                .then(function (data) {
                     if (data && data.status === 'success') {
-                        // Success state
-                        btn.innerHTML = '<i class="fas fa-check me-1"></i> Added!';
-                        btn.style.backgroundColor = '#28a745'; // Green success color
-
-                        // Show a quick global toast/alert
-                        if (window.showToast) {
-                            window.showToast('success', data.message);
-                        }
-
-                        // Try to update the cart badge if there is one on the navbar
+                        btn.innerHTML = '<i class="fas fa-check"></i>';
+                        btn.style.background = '#28a745';
+                        btn.style.color = '#fff';
+                        if (window.showToast) window.showToast('success', data.message);
                         updateCartBadge(data.cart_count);
-
-                        setTimeout(() => {
-                            btn.innerHTML = originalText;
-                            btn.style.backgroundColor = originalColor;
+                        setTimeout(function () {
+                            btn.innerHTML = originalHTML;
+                            btn.style.background = '';
+                            btn.style.color = '';
                             btn.disabled = false;
-                            form.querySelector('input[name="quantity"]').value = 1; // Reset quantity
-                        }, 2000);
+                        }, 1500);
                     }
                 })
-                .catch(error => {
-                    if (error.message !== 'Unauthorized') {
-                        btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Error';
-                        btn.style.backgroundColor = '#dc3545'; // Red error color
-                        if (window.showToast) {
-                            window.showToast('danger', "Failed to add item to cart.");
-                        }
-                        setTimeout(() => {
+                .catch(function (err) {
+                    if (err.message !== 'Unauthorized') {
+                        btn.innerHTML = '<i class="fas fa-times"></i>';
+                        btn.style.background = '#dc3545';
+                        btn.style.color = '#fff';
+                        setTimeout(function () {
+                            btn.innerHTML = originalHTML;
+                            btn.style.background = '';
+                            btn.style.color = '';
+                            btn.disabled = false;
+                        }, 1500);
+                    }
+                });
+            return false;
+        }
+
+        /* Open Detail Modal — search/info icon */
+        function openItemModal(cardElement) {
+            var id = cardElement.getAttribute('data-item-id');
+            var name = cardElement.getAttribute('data-item-name');
+            var price = cardElement.getAttribute('data-item-price');
+            var desc = cardElement.getAttribute('data-item-desc');
+            var image = cardElement.getAttribute('data-item-image');
+            var available = cardElement.getAttribute('data-item-available') === 'true';
+
+            document.getElementById('modalItemName').innerText = name;
+            document.getElementById('modalItemPrice').innerText = '\u20b1' + parseFloat(price).toFixed(2);
+            document.getElementById('modalItemDesc').innerText = desc || 'No description available for this item.';
+
+            var imgEl = document.getElementById('modalItemImage');
+            var imgContainer = document.getElementById('modalItemImageContainer');
+            var iconContainer = document.getElementById('modalItemIconContainer');
+
+            if (image && image !== 'None' && image !== '') {
+                imgEl.src = image;
+                imgContainer.style.display = 'block';
+                iconContainer.style.display = 'none';
+            } else {
+                imgContainer.style.display = 'none';
+                iconContainer.style.display = 'flex';
+            }
+
+            var form = document.getElementById('modalItemForm');
+            form.action = '/cart/add/' + id;
+
+            var btn = document.getElementById('modalItemSubmitBtn');
+            var qty = document.getElementById('modalItemQty');
+            qty.value = 1;
+
+            if (available) {
+                btn.disabled = false;
+                btn.style.background = 'linear-gradient(135deg, #5D4037, #795548)';
+                btn.innerHTML = '<i class="fas fa-cart-plus me-2"></i>Add to Cart';
+                btn.style.cursor = 'pointer';
+                qty.disabled = false;
+            } else {
+                btn.disabled = true;
+                btn.style.background = '#ccc';
+                btn.innerHTML = '<i class="fas fa-times-circle me-2"></i>Unavailable';
+                btn.style.cursor = 'not-allowed';
+                qty.disabled = true;
+            }
+
+            new bootstrap.Modal(document.getElementById('itemDetailsModal')).show();
+        }
+
+        /* Add to Cart from modal form */
+        function handleAddToCart(event, form) {
+            event.preventDefault();
+            var url = form.action;
+            var formData = new FormData(form);
+            var btn = form.querySelector('button[type="submit"]');
+            var originalText = btn.innerHTML;
+            var originalBg = btn.style.background;
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Adding...';
+            btn.disabled = true;
+
+            fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) {
+                    if (r.status === 401) { window.location.href = '/login'; throw new Error('Unauthorized'); }
+                    if (!r.ok) throw new Error('Error');
+                    return r.json();
+                })
+                .then(function (data) {
+                    if (data && data.status === 'success') {
+                        btn.innerHTML = '<i class="fas fa-check me-2"></i>Added!';
+                        btn.style.background = '#28a745';
+                        if (window.showToast) window.showToast('success', data.message);
+                        updateCartBadge(data.cart_count);
+                        setTimeout(function () {
+                            var m = bootstrap.Modal.getInstance(document.getElementById('itemDetailsModal'));
+                            if (m) m.hide();
                             btn.innerHTML = originalText;
-                            btn.style.backgroundColor = originalColor;
+                            btn.style.background = originalBg;
+                            btn.disabled = false;
+                            form.querySelector('input[name="quantity"]').value = 1;
+                        }, 1000);
+                    }
+                })
+                .catch(function (err) {
+                    if (err.message !== 'Unauthorized') {
+                        btn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Error';
+                        btn.style.background = '#dc3545';
+                        setTimeout(function () {
+                            btn.innerHTML = originalText;
+                            btn.style.background = originalBg;
                             btn.disabled = false;
                         }, 2000);
                     }
                 });
-
             return false;
         }
 
-        // Helper to update the cart number badge in the header/navbar
         function updateCartBadge(count) {
-            const badges = document.querySelectorAll('.cart-badge');
-            badges.forEach(badge => {
-                if (count > 0) {
-                    badge.innerText = count;
-                    badge.style.display = 'inline-block';
-                } else {
-                    badge.innerText = '';
-                    badge.style.display = 'none';
+            document.querySelectorAll('.cart-badge').forEach(function (b) {
+                b.innerText = count > 0 ? count : '';
+                b.style.display = count > 0 ? 'inline-block' : 'none';
+            });
+        }
+
+        function toggleFilterDrawer() {
+            const d = document.getElementById('filterDrawer');
+            const o = document.getElementById('filterOverlay');
+            d.classList.toggle('open');
+            o.classList.toggle('show');
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
+            const inStock = document.getElementById('filterInStock').checked;
+            const outOfStock = document.getElementById('filterOutOfStock').checked;
+            const minPrice = parseFloat(document.getElementById('priceFrom').value) || 0;
+            const maxPrice = parseFloat(document.getElementById('priceTo').value) || 999999;
+
+            const cards = document.querySelectorAll('.menu-item-card');
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-item-name').toLowerCase();
+                const price = parseFloat(card.getAttribute('data-item-price'));
+                const isAvail = card.getAttribute('data-item-available') === 'true';
+
+                let show = true;
+
+                // Search Filter
+                if (searchTerm && !name.includes(searchTerm)) show = false;
+
+                // Availability Filter
+                if (!inStock && isAvail) show = false;
+                if (!outOfStock && !isAvail) show = false;
+
+                // Price Filter
+                if (price < minPrice || price > maxPrice) show = false;
+
+                card.style.display = show ? 'flex' : 'none';
+            });
+
+            // Update visibility of category sections if all items are hidden
+            const sections = document.querySelectorAll('.menu-category-section');
+            sections.forEach(section => {
+                const hasVisibleItems = section.querySelectorAll('.menu-item-card[style*="display: flex"]').length > 0;
+                // Only modify visibility if the section is currently the active one
+                if (section.style.display !== 'none') {
+                    // (Optional logic here if we wanted to hide the whole category title)
                 }
             });
+        }
+
+        function resetFilters() {
+            document.getElementById('menuSearch').value = '';
+            document.getElementById('filterInStock').checked = true;
+            document.getElementById('filterOutOfStock').checked = true;
+            document.getElementById('priceFrom').value = '';
+            document.getElementById('priceTo').value = '';
+            applyFilters();
         }
     </script>
 
     {% if not menu_items %}
     <div class="text-center py-5">
         <i class="fas fa-box-open fa-4x mb-4" style="color: #dee2e6;"></i>
-        <h3 class="text-muted" style="font-family: 'Georgia', serif;">Our menu is currently spinning up.</h3>
-        <p class="text-muted fs-5">Please check back soon for our delicious new offerings.</p>
+        <h3 class="text-muted" style="font-family: 'Georgia', serif;">Our menu is currently being prepared.</h3>
+        <p class="text-muted fs-5">Please check back soon!</p>
     </div>
     {% endif %}
 
     <div class="mt-5 text-center p-5 shadow-sm"
-        style="background: rgba(139, 69, 19, 0.03); border-radius: 24px; border: 1px dashed rgba(139, 69, 19, 0.3);">
-        <h3 style="font-family: 'Georgia', serif; color: var(--text-main); margin-bottom: 2rem; font-size: 2rem;">Ready
-            to experience Le Maison?</h3>
+        style="background: rgba(139, 99, 75, 0.03); border-radius: 24px; border: 1px dashed rgba(139, 99, 75, 0.3);">
+        <h3 style="font-family: 'Georgia', serif; color: var(--text-main); margin-bottom: 2rem; font-size: 2rem;">
+            Ready to experience Le Maison?</h3>
         {% if current_user.is_authenticated %}
         <a href="{{ url_for('main.reserve') }}" class="btn btn-lg rounded-pill px-5 py-3 fw-bold text-white shadow"
-            style="background-color: var(--primary-color); font-size: 1.2rem; transition: all 0.3s ease;"
-            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 20px rgba(139, 69, 19, 0.3)';"
-            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 5px 15px rgba(0,0,0,0.1)';">
+            style="background: linear-gradient(135deg, #5D4037, #795548); font-size: 1.2rem; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(93,64,55,0.25) !important;"
+            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 24px rgba(93,64,55,0.35) !important';"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(93,64,55,0.25) !important';">
             <i class="fas fa-calendar-alt me-2"></i> Reserve Your Table Now
         </a>
         {% else %}
         <button class="btn btn-lg rounded-pill px-5 py-3 fw-bold text-white shadow"
-            style="background-color: var(--primary-color); font-size: 1.2rem; transition: all 0.3s ease;"
-            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 20px rgba(139, 69, 19, 0.3)';"
-            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 5px 15px rgba(0,0,0,0.1)';"
+            style="background: linear-gradient(135deg, #5D4037, #795548); font-size: 1.2rem; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(93,64,55,0.25) !important;"
+            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 24px rgba(93,64,55,0.35) !important';"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(93,64,55,0.25) !important';"
             onclick="$('#termsModal').modal('show'); window.authIntent = 'signup';">
             <i class="fas fa-user-plus me-2"></i> Sign Up to Reserve
         </button>
@@ -320,4 +865,77 @@
     </div>
 
 </main>
+
+<!-- ═══ Item Details Modal ═══ -->
+<div class="modal fade" id="itemDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+        <div class="modal-content"
+            style="border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 30px 60px rgba(0,0,0,0.2);">
+
+            <!-- Close X -->
+            <button type="button" data-bs-dismiss="modal" aria-label="Close"
+                style="position: absolute; top: 14px; right: 14px; z-index: 20; background: rgba(255,255,255,0.92); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: #5D4037; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- Image -->
+            <div id="modalItemImageContainer" style="height: 260px; position: relative; flex-shrink: 0;">
+                <img id="modalItemImage" src="" alt=""
+                    style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                <div
+                    style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 55%);">
+                </div>
+            </div>
+            <div id="modalItemIconContainer"
+                style="height: 180px; background: rgba(139,99,75,0.05); display: none; align-items: center; justify-content: center;">
+                <i class="fas fa-utensils fa-4x" style="color: rgba(139,99,75,0.2);"></i>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body" style="padding: 0;">
+                <!-- Price pill -->
+                <div
+                    style="text-align: center; margin-top: -20px; position: relative; z-index: 5; margin-bottom: 1rem;">
+                    <span id="modalItemPrice"
+                        style="display: inline-block; background: #fff; border: 1.5px solid rgba(139,99,75,0.25); color: #8B634B; font-family: 'Georgia', serif; font-weight: 800; font-size: 1.35rem; padding: 0.35rem 1.4rem; border-radius: 50px; box-shadow: 0 4px 14px rgba(0,0,0,0.08);"></span>
+                </div>
+
+                <div style="padding: 0 1.8rem 1.8rem;">
+                    <h3 id="modalItemName"
+                        style="font-family: 'Georgia', serif; font-size: 1.6rem; font-weight: 700; color: var(--text-main); text-align: center; margin: 0 0 0.75rem; line-height: 1.3;">
+                    </h3>
+                    <p id="modalItemDesc"
+                        style="color: var(--text-muted); font-size: 0.97rem; line-height: 1.65; text-align: center; margin-bottom: 1.5rem;">
+                    </p>
+
+                    <!-- Add to Cart Form -->
+                    <form id="modalItemForm" method="POST" onsubmit="return handleAddToCart(event, this);"
+                        style="display: flex; align-items: center; gap: 0.75rem; padding-top: 1.2rem; border-top: 1px dashed rgba(139,99,75,0.15);">
+
+                        <!-- Quantity Stepper -->
+                        <div
+                            style="display: flex; align-items: center; background: #f8f5f2; border-radius: 50px; overflow: hidden; border: 1px solid rgba(139,99,75,0.15); flex-shrink: 0;">
+                            <button type="button"
+                                onclick="var el=document.getElementById('modalItemQty'); if(parseInt(el.value)>1) el.value=parseInt(el.value)-1;"
+                                style="width: 38px; height: 44px; background: none; border: none; font-size: 1.2rem; font-weight: bold; color: #5D4037; cursor: pointer;">&#8722;</button>
+                            <input type="number" name="quantity" id="modalItemQty" value="1" min="1" max="99"
+                                style="width: 40px; height: 44px; text-align: center; border: none; background: transparent; font-weight: 700; font-size: 1rem; color: var(--text-main);">
+                            <button type="button"
+                                onclick="var el=document.getElementById('modalItemQty'); if(parseInt(el.value)<99) el.value=parseInt(el.value)+1;"
+                                style="width: 38px; height: 44px; background: none; border: none; font-size: 1.2rem; font-weight: bold; color: #5D4037; cursor: pointer;">+</button>
+                        </div>
+
+                        <!-- Add to Cart Button -->
+                        <button type="submit" id="modalItemSubmitBtn"
+                            style="flex: 1; height: 44px; border: none; border-radius: 50px; font-weight: 700; font-size: 0.95rem; color: #fff; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(93,64,55,0.25);">
+                            <i class="fas fa-cart-plus me-2"></i>Add to Cart
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 {% endblock %}

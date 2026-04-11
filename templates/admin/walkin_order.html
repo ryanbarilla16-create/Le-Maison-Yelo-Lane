@@ -39,7 +39,7 @@
                         <!-- Search input for categories view (optional, but good to have) -->
                         <input type="text" id="globalSearch" class="form-control form-control-sm"
                             placeholder="Search menu..."
-                            style="border-radius: 20px; max-width: 250px; border: 1px solid rgba(139,69,19,0.2);">
+                            style="border-radius: 20px; max-width: 250px; border: 1px solid rgba(139, 99, 75,0.2);">
                     </div>
 
                     <!-- Search Results View (Hidden by default) -->
@@ -60,20 +60,20 @@
                     </div>
 
                     <div id="categories-container"
-                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; align-items: stretch;">
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem;">
                         {% for cat_name, info in categories_data.items() %}
-                        <div class="card border-0 shadow-sm category-card d-flex flex-column"
-                            style="border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; height: 100%;"
-                            onclick="showCategory({{ cat_name|tojson|safe }})">
+                        <div class="card border-0 shadow-sm category-card d-flex flex-column h-100"
+                            style="border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.3s ease;"
+                            data-cat-trigger="{{ cat_name }}">
 
                             <div style="height: 140px; overflow: hidden; position: relative; flex-shrink: 0;">
                                 {% if info.image %}
-                                <img src="{{ info.image }}" class="w-100 h-100 category-img"
+                                <img loading="lazy" decoding="async" src="{{ info.image }}" class="w-100 h-100 category-img"
                                     style="object-fit: cover; transition: transform 0.6s ease;" alt="{{ cat_name }}">
                                 {% else %}
                                 <div class="w-100 h-100 d-flex align-items-center justify-content-center"
-                                    style="background: rgba(139, 69, 19, 0.05);">
-                                    <i class="fas fa-utensils fa-2x" style="color: rgba(139, 69, 19, 0.2);"></i>
+                                    style="background: rgba(139, 99, 75, 0.05);">
+                                    <i class="fas fa-utensils fa-2x" style="color: rgba(139, 99, 75, 0.2);"></i>
                                 </div>
                                 {% endif %}
                             </div>
@@ -85,7 +85,7 @@
                                 </h6>
                                 <p class="mb-0 mt-auto fw-bold"
                                     style="font-size: 0.8rem; padding-top: 0.5rem; color: var(--primary-color);">
-                                    Browse Selection <i class="fas fa-angle-right ms-1"></i>
+                                    See More <i class="fas fa-arrow-right ms-1"></i>
                                 </p>
                             </div>
                         </div>
@@ -95,8 +95,7 @@
 
                 <!-- 2. Items View (Initially Hidden) -->
                 <div id="items-view" style="display: none;">
-                    <div class="mb-3 d-flex justify-content-between align-items-center sticky-top bg-white py-2"
-                        style="z-index: 10;">
+                    <div class="mb-3 d-flex justify-content-between align-items-center bg-white py-2">
                         <button onclick="showCategoriesGrid()"
                             class="btn rounded-pill border shadow-sm px-3 py-1 fw-bold back-btn"
                             style="color: var(--text-main); background: white; font-size: 0.9rem; transition: all 0.2s;">
@@ -116,20 +115,20 @@
                             <div class="card border-0 shadow-sm d-flex flex-column item-card"
                                 data-name="{{ item.name|lower }}"
                                 style="border-radius: 16px; overflow: hidden; transition: all 0.3s; background: rgba(255, 255, 255, 0.95); height: 100%;"
-                                onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 15px 30px rgba(139, 69, 19, 0.1)';"
+                                onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 15px 30px rgba(139, 99, 75, 0.1)';"
                                 onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.05)';">
 
                                 {% if item.image_url %}
                                 <div style="height: 150px; overflow: hidden; position: relative; flex-shrink: 0;">
-                                    <img src="{{ item.image_url }}" class="w-100 h-100"
+                                    <img loading="lazy" decoding="async" src="{{ item.image_url }}" class="w-100 h-100"
                                         style="object-fit: cover; transition: transform 0.6s ease;"
                                         onmouseover="this.style.transform='scale(1.08)'"
                                         onmouseout="this.style.transform='scale(1)'">
                                 </div>
                                 {% else %}
                                 <div
-                                    style="height: 150px; background: rgba(139, 69, 19, 0.05); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <i class="fas fa-utensils fa-3x" style="color: rgba(139, 69, 19, 0.2);"></i>
+                                    style="height: 150px; background: rgba(139, 99, 75, 0.05); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="fas fa-utensils fa-3x" style="color: rgba(139, 99, 75, 0.2);"></i>
                                 </div>
                                 {% endif %}
 
@@ -141,22 +140,22 @@
                                             {{ item.name }}
                                         </h6>
                                         <span class="fw-bold px-2 py-1 ms-2 shadow-sm"
-                                            style="background: #ffffff; border: 1px solid rgba(139, 69, 19, 0.2); color: var(--primary-color); border-radius: 20px; font-size: 0.85rem; white-space: nowrap;">
+                                            style="background: #ffffff; border: 1px solid rgba(139, 99, 75, 0.2); color: var(--primary-color); border-radius: 20px; font-size: 0.85rem; white-space: nowrap;">
                                             ₱{{ "%.2f"|format(item.price) }}
                                         </span>
                                     </div>
 
                                     <!-- Add to Order Form (JS controlled) -->
-                                    {% if current_user.role|upper != 'ADMIN' %}
+                                    {% if current_user.role|upper in ['ADMIN', 'CASHIER', 'STAFF', 'KITCHEN'] %}
                                     <div class="mt-auto d-flex align-items-center gap-2 pt-3"
-                                        style="border-top: 1px dashed rgba(139,69,19,0.15);">
+                                        style="border-top: 1px dashed rgba(139, 99, 75,0.15);">
                                         <input type="number" id="qty_{{ item.id }}" value="1" min="1" max="99"
                                             class="form-control form-control-sm rounded-pill text-center shadow-sm"
-                                            style="width: 55px; border: 1px solid rgba(139,69,19,0.2); background: #ffffff; font-weight: bold;">
+                                            style="width: 55px; border: 1px solid rgba(139, 99, 75,0.2); background: #ffffff; font-weight: bold;">
                                         <button type="button"
                                             onclick="addFromInput(this, {{ item.id }}, '{{ item.name|replace("'", "\\'") }}', {{ item.price }}, '{{ item.category|replace("'", "\\'") }}')"
                                             class="btn btn-sm flex-grow-1 rounded-pill fw-bold shadow-sm"
-                                            style="background-color: var(--primary-color); color: white; border: none; font-size: 0.85rem; transition: padding 0.1s;"
+                                            style="background-color: #8b634b !important; color: white !important; border: none; font-size: 0.85rem; transition: all 0.2s;"
                                             onmousedown="this.style.transform='scale(0.95)'"
                                             onmouseup="this.style.transform='scale(1)'">
                                             <i class="fas fa-plus me-1"></i> Add
@@ -186,94 +185,82 @@
                     <h5 class="mb-0 fw-bold" style="color: var(--text-main);"><i class="fas fa-receipt me-2"></i>Order
                         Summary</h5>
                 </div>
-                <div class="card-body p-3" style="display: flex; flex-direction: column; overflow: hidden;">
-                    <!-- Customer Info -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="font-size: 0.85rem; color: var(--text-main);">Customer
-                            Name</label>
-                        <input type="text" name="customer_name" class="form-control form-control-sm shadow-sm"
-                            placeholder="e.g. Table 5 / Juan"
-                            style="border-radius: 20px; border: 1px solid rgba(139,69,19,0.2);"
-                            value="Walk-in Customer">
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-bold"
-                                style="font-size: 0.85rem; color: var(--text-main);">Dining Option</label>
-                            <select name="dining_option" class="form-select form-select-sm shadow-sm"
-                                style="border-radius: 20px; border: 1px solid rgba(139,69,19,0.2);">
-                                <option value="DINE_IN">🍽️ Dine In</option>
-                                <option value="TAKE_OUT">🛍️ Pick-up</option>
-                            </select>
+                <div class="card-body p-0" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                    <!-- SCROLLABLE STEPS AREA -->
+                    <div class="p-3" style="flex-grow: 1; overflow-y: auto; scrollbar-width: thin;">
+                        <!-- 1. ORDER LIST (PRIORITY) -->
+                        <div class="mb-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold fs-6" style="color: var(--text-main);">1. Items Ordered</span>
+                            <button type="button" onclick="Object.keys(orderItems).forEach(removeItem); renderOrder();" class="btn btn-link btn-sm text-danger p-0" style="text-decoration: none; font-size: 0.75rem;">Clear All</button>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label fw-bold"
-                                style="font-size: 0.85rem; color: var(--text-main);">Notes</label>
-                            <input type="text" name="notes" class="form-control form-control-sm shadow-sm"
-                                placeholder="Special requests..."
-                                style="border-radius: 20px; border: 1px solid rgba(139,69,19,0.2);">
+                        <div id="orderItems" style="min-height: 150px; background: #fff; border-radius: 12px; border: 1px solid rgba(139, 99, 75, 0.15); padding: 10px; margin-bottom: 1.5rem; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);">
+                            <div class="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-75">
+                                <i class="fas fa-shopping-basket fa-2x mb-2"></i>
+                                <p id="emptyMsg" style="font-size: 0.85rem;">Order is empty.</p>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Payment Method -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" style="font-size: 0.85rem; color: var(--text-main);">Payment
-                            Method</label>
-                        <div class="d-flex flex-column gap-2 mt-1">
-                            <label class="btn btn-outline-dark rounded-3 text-start py-2 px-3 shadow-sm"
-                                style="font-size: 0.85rem;">
-                                <div class="d-flex align-items-center">
-                                    <input type="radio" class="form-check-input me-2 mt-0" name="payment_method"
-                                        value="COUNTER" checked>
-                                    <span class="fw-bold"><i class="fas fa-cash-register text-success me-2"></i>Pay at
-                                        Counter</span>
+
+                        <!-- 2. DINING & CUSTOMER INFO (STEP 2) -->
+                        <div class="p-3 mb-3" style="background: rgba(139, 99, 75, 0.03); border-radius: 15px; border: 1px dashed rgba(139, 99, 75, 0.2);">
+                            <div class="mb-2 fs-6 fw-bold" style="color: var(--text-main);">2. Details</div>
+                            <div class="mb-3">
+                                <input type="text" name="customer_name" class="form-control form-control-sm shadow-sm"
+                                    placeholder="Customer Name... (e.g. Juan)"
+                                    style="border-radius: 20px; border: 1px solid rgba(139, 99, 75,0.2);"
+                                    value="Walk-in Customer">
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <select name="dining_option" class="form-select form-select-sm shadow-sm"
+                                        style="border-radius: 20px; border: 1px solid rgba(139, 99, 75,0.2);">
+                                        <option value="DINE_IN">🍽️ Dine-In</option>
+                                        <option value="TAKE_OUT">🛍️ Pick-up</option>
+                                    </select>
                                 </div>
-                            </label>
-
-                            <label class="btn btn-outline-dark rounded-3 text-start py-2 px-3 shadow-sm"
-                                style="font-size: 0.85rem;">
-                                <div class="d-flex align-items-center">
-                                    <input type="radio" class="form-check-input me-2 mt-0" name="payment_method"
-                                        value="ONLINE">
-                                    <span class="fw-bold"><i class="fas fa-mobile-alt text-primary me-2"></i>Online
-                                        Payment (GCash)</span>
+                                <div class="col-6">
+                                    <input type="text" name="notes" class="form-control form-control-sm shadow-sm"
+                                        placeholder="Notes..."
+                                        style="border-radius: 20px; border: 1px solid rgba(139, 99, 75,0.2);">
                                 </div>
-                            </label>
+                            </div>
+                        </div>
+
+                        <!-- 3. PAYMENT METHOD (STEP 3) -->
+                        <div class="p-3 mb-2" style="background: #fff; border-radius: 15px; border: 1px solid rgba(139, 99, 75, 0.1);">
+                            <div class="mb-2 fs-6 fw-bold" style="color: var(--text-main);">3. Payment</div>
+                            <div class="d-flex flex-row gap-2">
+                                <label class="flex-grow-1 btn btn-outline-dark rounded-3 text-start p-2 shadow-sm d-flex align-items-center" style="font-size: 0.75rem; border: 1px solid rgba(139, 99, 75, 0.2);">
+                                    <input type="radio" class="form-check-input me-2 mt-0" name="payment_method" value="COUNTER" checked style="width: 1rem; height: 1rem;">
+                                    <span class="fw-bold">Counter</span>
+                                </label>
+                                <label class="flex-grow-1 btn btn-outline-dark rounded-3 text-start p-2 shadow-sm d-flex align-items-center" style="font-size: 0.75rem; border: 1px solid rgba(139, 99, 75, 0.2);">
+                                    <input type="radio" class="form-check-input me-2 mt-0" name="payment_method" value="ONLINE" style="width: 1rem; height: 1rem;">
+                                    <span class="fw-bold">GCash</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Order Items List -->
-                    <div id="orderItems" style="flex-grow: 1; overflow-y: auto; padding-right: 5px;">
-                        <div
-                            class="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-75">
-                            <i class="fas fa-shopping-basket fa-3x mb-3"></i>
-                            <p id="emptyMsg">Order is empty. Click items to add.</p>
-                        </div>
-                    </div>
-
-                    <hr>
-
-                    <!-- Total -->
-                    <div class="mt-auto">
+                    <!-- FIXED FOOTER AREA -->
+                    <div class="p-3 border-top bg-white">
                         <div class="d-flex justify-content-between align-items-center mb-3 p-3 rounded"
-                            style="background: rgba(139, 69, 19, 0.05); border: 1px solid rgba(139, 69, 19, 0.1);">
+                            style="background: rgba(139, 99, 75, 0.05); border: 1px solid rgba(139, 99, 75, 0.1);">
                             <span class="fw-bold fs-5" style="color: var(--text-main);">Total:</span>
                             <span class="fw-bold fs-4 text-success" id="totalAmount">₱0.00</span>
                         </div>
 
-                        {% if current_user.role|upper == 'ADMIN' %}
+                        {% if current_user.role|upper not in ['ADMIN', 'CASHIER', 'STAFF', 'KITCHEN'] %}
                         <button type="button" class="btn w-100 rounded-pill fw-bold text-white py-3 shadow-sm" disabled
                             style="background: gray; cursor: not-allowed; font-size: 1.1rem;">
-                            <i class="fas fa-lock me-2"></i>View Only (Cashier Access Required)
+                            <i class="fas fa-lock me-2"></i>View Only (Staff Required)
                         </button>
                         {% else %}
                         <button type="submit" class="btn w-100 rounded-pill fw-bold text-white py-3 shadow-sm"
                             id="submitBtn"
-                            style="background: linear-gradient(135deg, #8B4513, #A0522D); font-size: 1.1rem; transition: transform 0.2s;"
+                            style="background: linear-gradient(135deg, #8b634b, #a67c64); font-size: 1.1rem; transition: transform 0.2s;"
                             disabled onmousedown="this.style.transform='scale(0.98)'"
                             onmouseup="this.style.transform='scale(1)'">
-                            <i class="fas fa-check-circle me-2"></i>Submit Order
+                            <i class="fas fa-arrow-circle-right me-2"></i>Proceed to Payment
                         </button>
                         {% endif %}
                     </div>
@@ -301,16 +288,16 @@
                         Tendered (₱)</label>
                     <input type="number" class="form-control form-control-lg text-end shadow-sm"
                         id="modalAmountTendered" min="0" step="0.01"
-                        style="font-weight: bold; border-radius: 8px; border: 1px solid rgba(139,69,19,0.2);">
+                        style="font-weight: bold; border-radius: 8px; border: 1px solid rgba(139, 99, 75,0.2);">
                 </div>
                 <div class="mb-3 d-flex justify-content-between align-items-center p-3 rounded"
-                    style="background: rgba(139,69,19,0.05); border: 1px dashed rgba(139,69,19,0.2);">
+                    style="background: rgba(139, 99, 75,0.05); border: 1px dashed rgba(139, 99, 75,0.2);">
                     <span class="fw-bold text-muted">Change</span>
                     <span class="fw-bold fs-4 text-primary" id="modalChangeAmount">₱0.00</span>
                 </div>
                 <button type="button" id="confirmPaymentBtn"
                     class="btn w-100 rounded-pill fw-bold text-white py-3 shadow-sm mt-2"
-                    style="background: linear-gradient(135deg, #8B4513, #A0522D);" disabled>
+                    style="background: linear-gradient(135deg, #8b634b, #8b634b);" disabled>
                     <i class="fas fa-check-circle me-1"></i> Confirm Order
                 </button>
             </div>
@@ -321,8 +308,8 @@
 <style>
     .category-card:hover {
         transform: translateY(-5px) !important;
-        box-shadow: 0 15px 30px rgba(139, 69, 19, 0.15) !important;
-        border: 1px solid rgba(139, 69, 19, 0.2) !important;
+        box-shadow: 0 15px 30px rgba(139, 99, 75, 0.15) !important;
+        border: 1px solid rgba(139, 99, 75, 0.2) !important;
     }
 
     .category-card:hover .category-img {
@@ -345,12 +332,12 @@
     }
 
     ::-webkit-scrollbar-thumb {
-        background: rgba(139, 69, 19, 0.2);
+        background: rgba(139, 99, 75, 0.2);
         border-radius: 10px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(139, 69, 19, 0.4);
+        background: rgba(139, 99, 75, 0.4);
     }
 </style>
 
@@ -358,19 +345,44 @@
     const orderItems = {};
 
     function showCategory(categoryName) {
-        document.getElementById('categories-grid-view').style.display = 'none';
-        document.getElementById('items-view').style.display = 'block';
-        document.getElementById('current-category-title').textContent = categoryName;
+        if (!categoryName) return;
+        const gridView = document.getElementById('categories-grid-view');
+        const itemsView = document.getElementById('items-view');
+        const titleEl = document.getElementById('current-category-title');
+        
+        if (!gridView || !itemsView || !titleEl) return;
 
-        var sections = document.querySelectorAll('.menu-category-section');
+        gridView.style.display = 'none';
+        itemsView.style.display = 'block';
+        titleEl.textContent = categoryName;
+
+        const sections = document.querySelectorAll('.menu-category-section');
+        let found = false;
+        
         sections.forEach(function (section) {
-            if (section.getAttribute('data-category') === categoryName) {
+            const sectionCat = section.getAttribute('data-category') || '';
+            if (sectionCat.trim() === categoryName.trim()) {
                 section.style.display = 'block';
+                found = true;
             } else {
                 section.style.display = 'none';
             }
         });
+        
+        // Scroll items container to top
+        const cardBody = itemsView.closest('.card-body');
+        if (cardBody) cardBody.scrollTop = 0;
     }
+
+    // Attach click listeners globally to ensure they catch everything
+    document.addEventListener('click', function(e) {
+        const trigger = e.target.closest('[data-cat-trigger]');
+        if (trigger) {
+            const cat = trigger.getAttribute('data-cat-trigger');
+            showCategory(cat);
+            e.preventDefault();
+        }
+    });
 
     function showCategoriesGrid() {
         document.getElementById('items-view').style.display = 'none';
@@ -406,11 +418,15 @@
         let originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-check"></i> Added';
         btn.style.backgroundColor = '#28a745'; // Success green
+        btn.style.color = 'white';
+        btn.style.boxShadow = '0 0 10px rgba(40, 167, 69, 0.3)';
 
         setTimeout(() => {
             btn.innerHTML = originalText;
-            btn.style.backgroundColor = 'var(--primary-color)';
-        }, 1000);
+            btn.style.backgroundColor = '#8b634b';
+            btn.style.color = 'white';
+            btn.style.boxShadow = 'none';
+        }, 800);
     }
 
     function removeItem(id) {
@@ -452,13 +468,13 @@
             const subtotal = item.price * item.qty;
             total += subtotal;
             html += `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded shadow-sm" style="background: #ffffff; border: 1px solid rgba(139,69,19,0.1);">
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded shadow-sm" style="background: #ffffff; border: 1px solid rgba(139, 99, 75,0.1);">
                     <div style="flex: 1; padding-right: 10px;">
                         <div class="fw-bold" style="font-size: 0.9rem; color: var(--text-main); line-height: 1.2;">${item.name}</div>
                         <small class="text-muted" style="font-size: 0.75rem;">₱${item.price.toFixed(2)}</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <div class="d-flex align-items-center border rounded-pill overflow-hidden" style="background: rgba(139,69,19,0.03);">
+                        <div class="d-flex align-items-center border rounded-pill overflow-hidden" style="background: rgba(139, 99, 75,0.03);">
                             <button type="button" class="btn btn-sm" style="width:28px;height:28px;padding:0;color:var(--text-main);border:none;" onclick="changeQty(${id}, -1)">−</button>
                             <span class="fw-bold" style="min-width: 20px; text-align: center; font-size: 0.85rem;">${item.qty}</span>
                             <button type="button" class="btn btn-sm" style="width:28px;height:28px;padding:0;color:var(--text-main);border:none;" onclick="changeQty(${id}, 1)">+</button>
@@ -581,3 +597,7 @@
     });
 </script>
 {% endblock %}
+
+
+
+

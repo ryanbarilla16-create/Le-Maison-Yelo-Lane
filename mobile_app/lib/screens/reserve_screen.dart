@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import 'reserve_menu_screen.dart';
 
 class ReserveScreen extends StatefulWidget {
   const ReserveScreen({super.key});
@@ -85,6 +86,21 @@ class _ReserveScreenState extends State<ReserveScreen> {
     return todaySlots.isEmpty;
   }
 
+  bool get _isSelectionInvalid {
+    if (_date == null || _time == null) return true;
+    final now = DateTime.now();
+    bool isToday = _date!.year == now.year && _date!.month == now.month && _date!.day == now.day;
+    if (isToday) {
+      final p = _time!.split(':');
+      final h = int.parse(p[0]);
+      final m = int.parse(p[1]);
+      if ((h < now.hour) || (h == now.hour && m <= now.minute)) return true;
+      if (now.hour >= 20 && (now.hour > 20 || now.minute >= 30)) return true;
+    }
+    return false;
+  }
+
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final isExclusive = _bookingType == 'EXCLUSIVE';
@@ -126,6 +142,23 @@ class _ReserveScreenState extends State<ReserveScreen> {
       _msg('Please select a time.', false);
       return;
     }
+
+    final now = DateTime.now();
+    bool isToday = _date!.year == now.year && _date!.month == now.month && _date!.day == now.day;
+    if (isToday) {
+      final p = _time!.split(':');
+      final h = int.parse(p[0]);
+      final m = int.parse(p[1]);
+      if ((h < now.hour) || (h == now.hour && m <= now.minute)) {
+         _msg('This time slot has already passed today.', false);
+         return;
+      }
+      if (now.hour >= 20 && now.minute >= 30) {
+        _msg('We are now closed for today. Please book for tomorrow.', false);
+        return;
+      }
+    }
+
     if (_guests <= 0) {
       _msg('Guest count must be at least 1.', false);
       return;
@@ -138,31 +171,32 @@ class _ReserveScreenState extends State<ReserveScreen> {
 
     final uid = await AuthService.getUserId();
     if (uid == null) return;
-    setState(() => _loading = true);
     final ds =
         '${_date!.year}-${_date!.month.toString().padLeft(2, '0')}-${_date!.day.toString().padLeft(2, '0')}';
-    final res = await ApiService.post('/api/reserve', {
-      'user_id': uid,
-      'date': ds,
-      'time': _time,
-      'guest_count': _guests,
-      'occasion': _occasionCtrl.text.trim(),
-      'booking_type': _bookingType,
-      'duration': _duration,
-    });
-    setState(() => _loading = false);
-    if (res['success'] == true) {
-      _msg(res['message'] ?? 'Reservation submitted!', true);
-      setState(() {
-        _date = null;
-        _time = null;
-        _guests = 2;
-        _occasionCtrl.clear();
-      });
-      _loadReservations();
-    } else {
-      _msg(res['message'] ?? 'Failed.', false);
+
+    // TRIGGER T&C MODAL FOR EXCLUSIVE BOOKINGS
+    if (_bookingType == 'EXCLUSIVE') {
+      final agreed = await _showExclusiveTerms();
+      if (agreed != true) return; 
     }
+    
+    // Redirect to Menu Selection Step 2
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReserveMenuScreen(
+          reservationData: {
+            'date': ds,
+            'time': _time,
+            'guest_count': _guests,
+            'occasion': _occasionCtrl.text.trim(),
+            'booking_type': _bookingType,
+            'duration': _duration,
+          },
+        ),
+      ),
+    );
   }
 
   void _msg(String m, bool ok) {
@@ -273,8 +307,9 @@ class _ReserveScreenState extends State<ReserveScreen> {
                       ),
                     ),
                   ),
-                  if (_isTodayClosed)
+                  if (_isTodayClosed && (_date == null || (_date!.year == DateTime.now().year && _date!.month == DateTime.now().month && _date!.day == DateTime.now().day)))
                     Padding(
+
                       padding: const EdgeInsets.only(top: 6, left: 4),
                       child: Row(
                         children: [
@@ -402,26 +437,16 @@ class _ReserveScreenState extends State<ReserveScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      onPressed: _loading ? null : _submit,
-                      icon: _loading
-                          ? const SizedBox.shrink()
-                          : const Icon(Icons.send),
-                      label: _loading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Text('Submit Reservation'),
-                    ),
+                  // Gradient Submit Button
+                  GradientButton(
+                    label: 'Proceed to Step 2',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: (_loading || _isSelectionInvalid) ? null : _submit,
+                    isLoading: _loading,
+                    height: 54,
                   ),
+
+
                 ],
               ),
             ),
@@ -459,60 +484,279 @@ class _ReserveScreenState extends State<ReserveScreen> {
               )
             else
               ..._upcoming.map(
-                (r) => Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
+                (r) => InkWell(
+                  onTap: () => _showReservationDetails(r),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
                         ),
-                        child: const Icon(
-                          Icons.calendar_today,
-                          color: AppColors.primary,
-                          size: 20,
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${r['date_formatted']} · ${r['time_formatted']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${r['date_formatted']} · ${r['time_formatted']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                            Text(
-                              '${r['guest_count']} guests${r['occasion'] != null && r['occasion'] != '' ? ' · ${r['occasion']}' : ''}',
-                              style: AppTextStyles.muted.copyWith(fontSize: 12),
-                            ),
-                          ],
+                              Text(
+                                '${r['guest_count']} guests${r['occasion'] != null && r['occasion'] != '' ? ' · ${r['occasion']}' : ''}',
+                                style: AppTextStyles.muted.copyWith(fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      _badge(r['status']),
-                    ],
+                        _badge(r['status']),
+                      ],
+                    ),
                   ),
                 ),
               ),
             const SizedBox(height: 30),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showReservationDetails(Map r) {
+    final order = r['linked_order'];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.05),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Reservation Detail',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF3E2723),
+                            ),
+                          ),
+                          Text(
+                            'Reference ID: #${r['id']}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                      _badge(r['status']),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  // Info Cards
+                  _detailRow(Icons.calendar_today_rounded, 'Date & Time', '${r['date_formatted']} at ${r['time_formatted']}'),
+                  _detailRow(Icons.people_outline_rounded, 'Guests', '${r['guest_count']} person(s)'),
+                  _detailRow(Icons.star_outline_rounded, 'Occasion', r['occasion'] ?? 'None'),
+                  _detailRow(Icons.restaurant_rounded, 'Type', r['booking_type'] ?? 'Standard'),
+
+                  if (order != null) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(height: 1, thickness: 1.5, color: Color(0xFFF1F1F1)),
+                    ),
+                    const Text(
+                      'Pre-ordered items',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF3E2723),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...(order['items'] as List).map((item) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.grey[100],
+                              image: item['image_url'] != null
+                                ? DecorationImage(
+                                    image: NetworkImage(item['image_url']),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            ),
+                            child: item['image_url'] == null ? const Icon(Icons.fastfood_outlined, size: 20) : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['name'],
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  '${item['quantity']}x',
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '₱${(item['price'] * item['quantity']).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent,
+                              fontFamily: 'Georgia',
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                    
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total Amount',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '₱${order['total_amount'].toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.accent,
+                              fontFamily: 'Georgia',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Footer
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: GradientButton(
+                label: 'Close View',
+                icon: Icons.close_rounded,
+                onPressed: () => Navigator.pop(context),
+                height: 52,
+              ),
+            ),
+
+            if (r['status'] == 'PENDING')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20).copyWith(bottom: 20),
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () => _cancelReservation(r),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Cancel Reservation', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.accent),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF5D4037))),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -535,4 +779,199 @@ class _ReserveScreenState extends State<ReserveScreen> {
       ),
     );
   }
+
+  Future<void> _cancelReservation(Map r) async {
+    String selectedReason = 'Change of plans';
+    final otherReasonCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Cancel Reservation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Are you sure you want to cancel this reservation?', style: TextStyle(fontSize: 14)),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    items: [
+                      'Change of plans',
+                      'Emergency at home/work',
+                      'Traffic or transportation issues',
+                      'Found another venue',
+                      'Others'
+                    ].map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value, style: const TextStyle(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setDialogState(() => selectedReason = val!);
+                    },
+                    decoration: const InputDecoration(labelText: 'Reason for Cancellation', border: OutlineInputBorder()),
+                  ),
+                  if (selectedReason == 'Others') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: otherReasonCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Please specify', border: OutlineInputBorder()),
+                    )
+                  ]
+                ],
+              ),
+              actions: [
+                TextButton(child: const Text('Keep it', style: TextStyle(color: Colors.grey)), onPressed: () => Navigator.pop(context, false)),
+                TextButton(
+                  child: const Text('Cancel Booking', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    if (selectedReason == 'Others' && otherReasonCtrl.text.trim().isEmpty) return;
+                    Navigator.pop(context, true);
+                  },
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+
+    if (result == true) {
+      final uid = await AuthService.getUserId();
+      final reason = selectedReason == 'Others' ? otherReasonCtrl.text.trim() : selectedReason;
+      
+      if (!mounted) return;
+      showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+      
+      final res = await ApiService.post('/api/reserve/cancel', {
+        'user_id': uid,
+        'reservation_id': r['id'],
+        'reason': reason,
+      });
+      
+      if (!mounted) return;
+      Navigator.pop(context); // close loader
+      Navigator.pop(context); // close modal bottom sheet
+      
+      if (res['success'] == true) {
+        _msg('Reservation cancelled successfully.', true);
+        _loadReservations(); // reload reservations
+      } else {
+        _msg(res['message'] ?? 'Failed to cancel reservation.', false);
+      }
+    }
+  }
+
+  Future<bool?> _showExclusiveTerms() {
+    bool localAgreed = false;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: Colors.white,
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.gavel_rounded, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Exclusive Policy',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   const Text(
+                    'Please review the terms for renting the entire venue:',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textMain),
+                  ),
+                  const SizedBox(height: 16),
+                  _policyItem(Icons.timer, '3-Day Lead Time', 'Exclusive bookings must be made at least 3 days in advance.'),
+                  _policyItem(Icons.payments_outlined, 'Payment First', 'Full payment of the pre-ordered menu is required to confirm your slot.'),
+                  _policyItem(Icons.groups_outlined, 'Capacity', 'Accommodates up to 50 guests. Admin approval is required.'),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: localAgreed,
+                        activeColor: AppColors.primary,
+                        onChanged: (v) => setDialogState(() => localAgreed = v ?? false),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'I have read and agree to the Exclusive Reservation Terms.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: localAgreed ? () => Navigator.pop(context, true) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Continue'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _policyItem(IconData icon, String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(desc, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+

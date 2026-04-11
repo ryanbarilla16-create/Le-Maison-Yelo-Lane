@@ -16,7 +16,7 @@ def view_cart():
     total = 0
     for item_id, quantity in cart.items():
         menu_item = MenuItem.query.get(int(item_id))
-        if menu_item:
+        if menu_item and not menu_item.is_deleted:
             subtotal = menu_item.price * quantity
             total += subtotal
             cart_items.append({
@@ -38,6 +38,14 @@ def add_to_cart(item_id):
     cart = session.get('cart', {})
     
     item_id_str = str(item_id)
+    menu_item = MenuItem.query.get(item_id)
+    
+    if not menu_item or menu_item.is_deleted:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return {"status": "error", "message": "Product is no longer available."}, 404
+        flash("This product is no longer available.", "danger")
+        return redirect(url_for('main.menu_page'))
+
     if item_id_str in cart:
         cart[item_id_str] += quantity
     else:
@@ -77,7 +85,7 @@ def update_cart(item_id):
             grand_total = 0
             for id_str, qty in cart.items():
                 m_item = MenuItem.query.get(int(id_str))
-                if m_item:
+                if m_item and not m_item.is_deleted:
                     item_sub = m_item.price * qty
                     grand_total += item_sub
                     if id_str == item_id_str:
@@ -162,7 +170,7 @@ def checkout():
     
     for item_id, quantity in items_to_checkout.items():
         menu_item = MenuItem.query.get(int(item_id))
-        if menu_item and menu_item.is_available:
+        if menu_item and menu_item.is_available and not menu_item.is_deleted:
             price = menu_item.price
             subtotal = price * quantity
             total += subtotal
@@ -236,7 +244,13 @@ def checkout():
             'description': f"Order #{new_order.id} from Le Maison",
             'success_redirect_url': success_url,
             'failure_redirect_url': failure_url,
-            'currency': 'PHP'
+            'currency': 'PHP',
+            'customer': {
+                'given_names': current_user.first_name,
+                'surname': current_user.last_name,
+                'email': current_user.email
+            },
+            'payment_methods': ['GCASH', 'PAYMAYA']
         }
         
         try:
@@ -338,3 +352,17 @@ def add_order_review(order_id):
     
     flash("Thank you for your review! It has been submitted for approval.", "success")
     return redirect(url_for('main.my_orders'))
+
+@main_bp.route('/order/<int:order_id>/receipt')
+@login_required
+def view_receipt(order_id):
+    order = Order.query.get_or_404(order_id)
+    if order.user_id != current_user.id:
+        flash("Unauthorized", "danger")
+        return redirect(url_for('main.index'))
+    
+    if order.payment_status != 'PAID':
+        flash("Receipt is only available for paid orders.", "info")
+        return redirect(url_for('main.my_orders'))
+        
+    return render_template('receipt.html', order=order)
