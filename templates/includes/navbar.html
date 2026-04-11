@@ -230,6 +230,25 @@
             <li id="mobile-background-icons">
                 <a href="{{ url_for('main.reviews_page') }}"><i class="fas fa-star"></i> <span class="nav-text">Reviews</span></a>
             </li>
+
+            {% if current_user.is_authenticated %}
+            <!-- Logged-in specific user items -->
+            <li id="mobile-background-icons">
+                <a href="{{ url_for('main.view_cart') }}">
+                    <i class="fas fa-shopping-cart"></i> <span class="nav-text">Cart</span>
+                </a>
+            </li>
+            <li id="mobile-background-icons">
+                <a href="{{ url_for('main.my_orders') }}">
+                    <i class="fas fa-receipt"></i> <span class="nav-text">Orders</span>
+                </a>
+            </li>
+            <li id="mobile-background-icons">
+                <a href="javascript:void(0)" onclick="closeMobileMenu(); toggleUserNotifPanel();">
+                    <i class="fas fa-bell"></i> <span class="nav-text">Notifs</span>
+                </a>
+            </li>
+            {% endif %}
             
             <li class="mobile-login-wrapper">
                 {% if current_user.is_authenticated %}

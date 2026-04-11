@@ -79,6 +79,12 @@ app.register_blueprint(admin_bp)
 from routes.api import api_bp
 app.register_blueprint(api_bp)
 
+from routes.portals import cashier_bp, kitchen_bp, inventory_bp, rider_bp
+app.register_blueprint(cashier_bp)
+app.register_blueprint(kitchen_bp)
+app.register_blueprint(inventory_bp)
+app.register_blueprint(rider_bp)
+
 # Ensure database tables exist (Crucial for Render production)
 with app.app_context():
     try:
